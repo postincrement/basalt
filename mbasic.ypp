@@ -1,0 +1,79 @@
+%name-prefix "MBASIC_" 
+
+%{
+
+#include <iostream>
+#include <string>
+#include <sstream>
+using namespace std;
+
+extern int MBASIC_lex();
+
+#define YYDEBUG 1
+
+void MBASIC_error(const char * msg)
+{
+  cout << msg << endl;
+}
+
+%}
+
+%union {
+  char          cval;
+  unsigned int  uval;
+  int           ival;
+  double        fval;
+  std::string * sval;
+}
+
+%token EOL
+%token LET_TOKEN
+
+%token <sval> IDENTIFIER
+%token <sval> QUOTED_STRING
+%token <sval> QUOTED_IDENTIFIER
+%token <uval> POSITIVE_INT
+%token <ival> NEGATIVE_INT
+%token <fval> DOUBLE
+
+%%
+
+MBASIC_file: /* empty */
+             | MBASIC_file line 
+             ;
+
+line:        line_number statement_list EOL
+             ;
+
+line_number : POSITIVE_INT
+            ;
+
+statement_list : /* empty */
+               | statement_list ':' statement
+               ;
+
+statement:     LET_statement
+               ;
+
+LET_statement:  opt_LET_TOKEN variable_name '=' expression
+                ;
+
+opt_LET_TOKEN:  /* empty */
+                | LET_TOKEN
+                ;
+
+variable_name:  IDENTIFIER
+                ;
+
+expression:     integer
+                | DOUBLE
+                ;
+
+integer:        POSITIVE_INT
+                | NEGATIVE_INT
+                ;
+
+
+
+
+
