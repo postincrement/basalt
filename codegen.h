@@ -2,7 +2,6 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
-
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
@@ -10,8 +9,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_os_ostream.h"
-
-
 
 namespace CodeGenerator 
 {
@@ -25,12 +22,39 @@ namespace CodeGenerator
 
 			llvm::IRBuilder<> & GetBuilder();
 			llvm::Module & GetModule();
+			llvm::LLVMContext & GetContext() { return m_context; }
+
 			void Dump();
 
 			std::string m_name;
 			llvm::LLVMContext & m_context;
-	  		llvm::IRBuilder<> m_builder; 
+	  	llvm::IRBuilder<> m_builder; 
 			llvm::Module * m_module;
+	};
+
+	class Variable
+	{
+		public:
+			enum Type {
+				eString,
+				eSingle,
+				eDouble,
+				eInteger,
+				eArray
+			} m_type;
+
+			Variable(const std::string & name)
+				: m_name(name)
+			{ }
+
+			virtual void Generate(Module & module) = 0;
+
+			std::string m_name;
+
+			std::string m_string;
+			float m_single;
+			double m_double;
+			int m_integer;
 	};
 
 	class ASTExpr
@@ -41,16 +65,92 @@ namespace CodeGenerator
 			virtual llvm::Value * Generate(Module & m_module) = 0;
 	};
 
+	class BinaryOpExpr : public ASTExpr
+	{
+		public:
+			BinaryOpExpr(ASTExpr * lhs, ASTExpr * rhs)
+				: m_lhs(lhs)
+				, m_rhs(rhs)
+			{ }
+
+			virtual llvm::Value * Generate(Module & module)
+			{
+			  llvm::Value * l = m_lhs->Generate(module);
+  			llvm::Value * r = m_rhs->Generate(module);
+
+  			return module.GetBuilder().CreateFAdd(l, r, "addtmp");
+			}
+
+			ASTExpr * m_lhs;
+			ASTExpr * m_rhs;
+	};
+
+	class ConstantIntExpr : public ASTExpr
+	{
+		public:
+			ConstantIntExpr(int val)
+			  : m_value(val)
+			{ }
+
+			virtual llvm::Value * Generate(Module & module)
+			{
+				return ConstantInt::get(module.GetBuilder().getInt32Ty(), APInt(32, m_value));
+			}
+
+			int m_value;
+	};
+
+	class IntVarExpr : public ASTExpr
+	{
+		public:
+			IntVarExpr();
+			virtual llvm::Value * Generate(Module & m_module);
+	};
+
+	class SingleVarExpr : public ASTExpr
+	{
+		public:
+			SingleVarExpr();
+			virtual llvm::Value * Generate(Module & m_module);
+	};
+
+	class DoubleVarExpr : public ASTExpr
+	{
+		public:
+			DoubleVarExpr();
+			virtual llvm::Value * Generate(Module & m_module);
+	};
+
 	class FunctionASTExpr
 	{
 		public:
-			FunctionASTExpr(const std::string & name);
+			FunctionASTExpr(const std::string & name, ASTExpr * body);
 			virtual llvm::Function * Generate(Module & module);
-			
+
 			std::string m_name;
+			ASTExpr * m_body;
+	};
+
+	class GlobalVariable : public Variable
+	{
+		public:
+			GlobalVariable(const std::string & name)
+				: Variable(name)
+			{ }
+
+			virtual void Generate(Module & module) override
+			{
+				/*GlobalVariable * var = */ new llvm::GlobalVariable(module.GetModule(), 
+         								                         module.GetBuilder().getInt32Ty(),
+        /*isConstant=*/false,
+        /*Linkage=*/GlobalValue::CommonLinkage,
+        /*Initializer=*/0, // has initializer, specified below
+        /*Name=*/m_name);		
+			}
+
 	};
 
 } // namespace CodeGenerator
 
 
-#endif // CODEGEN_G
+#endif // CODEGEN_H
