@@ -34,10 +34,12 @@ std::vector<CodeGenerator::ASTExpr *> g_expressions;
 
 
 int m_verbose = 0;
+std::string m_targetTripleStr;
 
 ArgDef g_argDefs[] = {
-  { 'v',   "verbose",   "",   &m_verbose,   "enable verbosity"},
-  {  0,    NULL,        NULL, NULL,         NULL }
+  { 'v',   "verbose",   "",   &m_verbose,         "enable verbosity" },
+  { ' ',   "target",    "s",  &m_targetTripleStr, "set compiler target triplet" },
+  {  0,    NULL,        NULL, NULL,                NULL }
 };
 
 void Basalt::Usage(const ArgDef * defs)
@@ -119,6 +121,11 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
 
 int Basalt::Main(int argc, char const *argv[])
 {
+  {
+    auto targetTriple = llvm::sys::getDefaultTargetTriple();
+    m_targetTripleStr = targetTriple; 
+  }
+
   // parse options and arguments
   int index = ParseArguments(g_argDefs, argc, argv);
   if (index < 0) {
@@ -126,7 +133,11 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  // get source filenames
+  cout << m_targetTripleStr << endl;
+
+  llvm::StringRef targetTriple(m_targetTripleStr);
+
+  // get source filename
   //if (index < argc) {
   //  cout << argv[index] << endl;
   //  return 0;
@@ -134,9 +145,13 @@ int Basalt::Main(int argc, char const *argv[])
 
 //  g_functions["main"] = new CodeGenerator::FunctionASTExpr("main");
 
+  CodeGenerator::Module module;
+
   g_globals["var1"] = new CodeGenerator::GlobalVariable("var1");  
   g_globals["var2"] = new CodeGenerator::GlobalVariable("var2");  
   g_globals["var3"] = new CodeGenerator::GlobalVariable("var3");  
+
+#if 0  
 
   g_functions["main"] = new CodeGenerator::FunctionASTExpr("main",
                             new CodeGenerator::BinaryOpExpr(
@@ -145,7 +160,7 @@ int Basalt::Main(int argc, char const *argv[])
                             )
                            );   
 
-	CodeGenerator::Module module;
+#endif
 
   for (auto & r : g_functions)
     r.second->Generate(module);
@@ -154,6 +169,63 @@ int Basalt::Main(int argc, char const *argv[])
     r->Generate(module);
 
   module.Dump();
+
+  /////////////////////////////////////////////////////////////
+
+  // Initialize the target registry etc.
+  llvm::InitializeAllTargetInfos();
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllAsmParsers();
+  llvm::InitializeAllAsmPrinters();  
+
+  std::string Error;
+  auto Target = llvm::TargetRegistry::lookupTarget(targetTriple, Error);
+
+  // Print an error and exit if we couldn't find the requested target.
+  // This generally occurs if we've forgotten to initialise the
+  // TargetRegistry or we have a bogus target triple.
+  if (!Target) {
+    cerr << Error;
+    return 1;
+  }  
+
+  auto CPU = "generic";
+  auto Features = "";
+
+  llvm::TargetOptions opt;
+  auto RM = llvm::Reloc::Model();  
+
+//  llvm::TargetOptions opt;
+//  auto RM = llvm::Optional<llvm::Reloc::Model>();
+
+  auto TargetMachine = Target->createTargetMachine(targetTriple, CPU, Features, opt, RM);  
+
+  module.GetModule().setDataLayout(TargetMachine->createDataLayout());
+  module.GetModule().setTargetTriple(targetTriple);  
+
+  auto Filename = "output.o";
+  std::error_code EC;
+  llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::F_None);
+
+  if (EC) {
+    cerr << "Could not open file: " << EC.message();
+    return 1;
+  }  
+
+  llvm::legacy::PassManager pass;
+  auto FileType = llvm::TargetMachine::CGFT_ObjectFile;
+
+  if (TargetMachine->addPassesToEmitFile(pass, dest, FileType)) {
+    cerr << "TargetMachine can't emit a file of this type";
+    return 1;
+  }
+
+#if 1
+  pass.run(module.GetModule());
+#endif 
+
+  dest.flush();  
 
   return 0;
 }
