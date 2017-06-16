@@ -11,7 +11,6 @@ using namespace std;
 
 #define YYDEBUG 1
 
-
 %}
 
 %union {
@@ -20,17 +19,22 @@ using namespace std;
   int           ival;
   double        fval;
   std::string * sval;
+  CodeGenerator::ASTExpr     * expr;
+  CodeGenerator::ASTExprList * exprlist;
 }
 
 %token EOL
 %token LET_TOKEN
+%token PRINT_TOKEN
 
 %token <sval> IDENTIFIER
 %token <sval> QUOTED_STRING
-%token <sval> QUOTED_IDENTIFIER
 %token <uval> POSITIVE_INT
 %token <ival> NEGATIVE_INT
 %token <fval> DOUBLE
+
+%type <exprlist> opt_print_expression_list print_expression_list 
+%type <expr>     PRINT_statement print_expression
 
 %%
 
@@ -38,7 +42,8 @@ MBASIC_file: /* empty */
              | MBASIC_file line 
              ;
 
-line:        line_number opt_statement_list EOL
+line:        EOL
+             | line_number opt_statement_list EOL
              ;
 
 line_number : POSITIVE_INT
@@ -53,6 +58,7 @@ statement_list : statement
                ;
 
 statement:     LET_statement
+               | PRINT_statement 
                ;
 
 LET_statement:  opt_LET_TOKEN variable_name '=' expression
@@ -61,6 +67,46 @@ LET_statement:  opt_LET_TOKEN variable_name '=' expression
 opt_LET_TOKEN:  /* empty */
                 | LET_TOKEN
                 ;
+
+PRINT_statement: PRINT_TOKEN opt_print_expression_list
+                 {
+                   for (auto & r : *$2) {
+                     g_expressions.push_back(r);
+                   }
+                   delete $2;
+                 }
+                 ;
+
+opt_print_expression_list: /* empty */
+                           {
+                             $$ = new CodeGenerator::ASTExprList;
+                           }  
+                           | print_expression_list
+                           {
+                             $$ = $1; 
+                           }
+                           ;
+
+print_expression_list:     print_expression
+                           {
+                              auto * exprList = new CodeGenerator::ASTExprList;
+                              exprList->push_back($1);
+                              $$ = exprList; 
+                           } 
+                           | print_expression_list ';' print_expression
+                           {
+                              $1->push_back($3);
+                              $$ = $1;
+                           }
+                           ;
+
+print_expression:          QUOTED_STRING
+                           {
+                             auto * expr = new CodeGenerator::GlobalStringExpr(*$1);
+                             delete $1;
+                             $$ = expr; 
+                           }
+                           ;                           
 
 variable_name:  IDENTIFIER
                 ;
@@ -72,8 +118,3 @@ expression:     integer
 integer:        POSITIVE_INT
                 | NEGATIVE_INT
                 ;
-
-
-
-
-

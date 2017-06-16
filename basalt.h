@@ -4,6 +4,8 @@
 
 #include <string>
 
+#include "codegen.h"
+
 class Filename : public std::string
 {
   public:
@@ -60,5 +62,8 @@ extern int MBASIC_debug;
 
 extern int g_lineNumber;
 extern Filename g_inputFilename;
+
+extern CodeGenerator::ASTExprList g_expressions;
+
 
 #endif // BASALT_H_

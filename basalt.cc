@@ -9,6 +9,8 @@ Filename g_inputFilename;
 int g_lineNumber = 1;
 int g_errorCount = 0;
 
+CodeGenerator::ASTExprList g_expressions;
+
 struct ArgDef 
 {
   const char   m_short;
@@ -35,7 +37,6 @@ Basalt g_application;
 
 std::map<std::string, CodeGenerator::GlobalVariableExpr *> g_globals;
 std::map<std::string, CodeGenerator::FunctionASTExpr *> g_functions;
-std::vector<CodeGenerator::ASTExpr *> g_expressions;
 
 
 int g_verbose = 0;
@@ -220,21 +221,20 @@ int Basalt::Main(int argc, char const *argv[])
 
   CodeGenerator::Module module;
 
+
+
   //g_globals["var1"] = new CodeGenerator::GlobalVariable("var1");  
   //g_globals["var2"] = new CodeGenerator::GlobalVariable("var2");  
-  g_globals["var3"] = new CodeGenerator::GlobalInt32Expr("var3", 3);  
-  g_globals["hello"] = new CodeGenerator::GlobalStringExpr("helloWorld", "hello, world\n");
-
-#if 1  
+  //g_globals["var3"] = new CodeGenerator::GlobalInt32Expr("var3", 3);  
+  //g_globals["hello"] = new CodeGenerator::GlobalStringExpr("helloWorld", "hello, world\n");
 
   g_functions["main"] = new CodeGenerator::FunctionASTExpr("main",
-                            new CodeGenerator::BinaryOpExpr(
-                              new CodeGenerator::ConstantIntExpr(1), 
-                              new CodeGenerator::ConstantIntExpr(2)
-                            )
+    NULL
+//                            new CodeGenerator::BinaryOpExpr(
+//                              new CodeGenerator::ConstantIntExpr(1), 
+//                              new CodeGenerator::ConstantIntExpr(2)
+//                            )
                            );   
-
-#endif
 
   llvm::Function * mainFunc = NULL;
 
@@ -244,16 +244,33 @@ int Basalt::Main(int argc, char const *argv[])
       mainFunc = func;
   }
 
-  for (auto & r : g_expressions)
-    r->Generate(module);
-
-  for (auto & r : g_globals)
-    r.second->Generate(module);
-
   llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc);
   module.GetBuilder().SetInsertPoint(entry);
-  module.GetBuilder().CreateRetVoid();
 
+  llvm::Constant *putsFunc;
+
+  {
+    std::vector<llvm::Type *> putsArgs;
+    putsArgs.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
+    llvm::ArrayRef<llvm::Type*>  argsRef(putsArgs);
+   
+    llvm::FunctionType *putsType = 
+      llvm::FunctionType::get(module.GetBuilder().getInt32Ty(), argsRef, false);
+    putsFunc = module.GetModule().getOrInsertFunction("puts", putsType);  
+  }
+
+  //for (auto & r : g_expressions)
+  //  r->Generate(module);
+
+  //for (auto & r : g_globals)
+  //  r.second->Generate(module);
+
+  llvm::Value * var = g_expressions[0]->Generate(module);
+
+  module.GetBuilder().CreateCall(putsFunc, var);
+
+  module.GetBuilder().CreateRetVoid();
+  
   if (g_dumpAsm)
     module.Dump();
 

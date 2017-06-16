@@ -4,8 +4,8 @@
 
 #include <iostream>
 
-#include "mbasic.tab.hpp"
 #include "basalt.h"
+#include "mbasic.tab.hpp"
 
 %}
 
@@ -15,20 +15,32 @@
 
 ":"		{ return yytext[0]; }
 
+";"   { return yytext[0]; }
+
 "="   { return yytext[0]; }
 
 [Ll][Ee][Tt]  {
 					return LET_TOKEN;
 				}
 
+[Pp][Rr][Ii][Nn][Tt]  {
+          return PRINT_TOKEN;
+        }
+
+        
+\"[^\"\n]*\" {
+      MBASIC_lval.sval = new std::string(yytext+1, strlen(yytext)-2);
+      return QUOTED_STRING;
+    }
+
 [+-]*[0-9][0-9]*\.*[0-9]*[eE][+-][0-9][0-9]*  {
 		  MBASIC_lval.fval = atof(yytext);
-                  return DOUBLE;
+      return DOUBLE;
 		}
 
 [+-]*[0-9]*\.[0-9]* {
 		  MBASIC_lval.fval = atof(yytext);
-                  return DOUBLE;
+      return DOUBLE;
 		}
 
 \-[0-9][0-9]*	{

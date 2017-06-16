@@ -4,3 +4,5 @@ mbasic.lex.cpp
 mbasic.tab.cpp
 mbasic.tab.hpp
 ubuntu-xenial-16.04-cloudimg-console.log
+basalt
+tmp/

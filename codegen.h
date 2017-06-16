@@ -81,6 +81,8 @@ namespace CodeGenerator
 			virtual llvm::Value * Generate(Module & m_module) = 0;
 	};
 
+	typedef std::vector<ASTExpr *> ASTExprList;
+
 	class BinaryOpExpr : public ASTExpr
 	{
 		public:
@@ -150,6 +152,10 @@ namespace CodeGenerator
 	class GlobalVariableExpr : public ASTExpr
 	{
 		public:
+			GlobalVariableExpr()
+				: ASTExpr()
+			{ }
+
 			GlobalVariableExpr(const std::string & name)
 				: ASTExpr()
 				, m_name(name)
@@ -162,6 +168,11 @@ namespace CodeGenerator
 	class GlobalIntExpr : public GlobalVariableExpr
 	{
 		public:
+			GlobalIntExpr(IntType val)
+				: GlobalVariableExpr()
+				, m_value(val)
+			{ }
+
 			GlobalIntExpr(const std::string & name, IntType val)
 				: GlobalVariableExpr(name)
 				, m_value(val)
@@ -193,34 +204,33 @@ namespace CodeGenerator
 			  , m_value(value)
 			{ }
 
+			GlobalStringExpr(const std::string & value)
+			  : GlobalVariableExpr()
+			  , m_value(value)
+			{ }
+
 			virtual llvm::Value * Generate(Module & module) override
 			{
 				std::cout << "creating global string " << std::endl;
-
-				llvm::GlobalVariable * var = new llvm::GlobalVariable(
-					                              module.GetModule(), 
-																				module.GetBuilder().getInt8PtrTy(),
-        																true,
-        																GlobalValue::CommonLinkage,
-        																0,
-        																m_name);		
 
 				// Constant Definitions
  				llvm::Constant * constArray = llvm::ConstantDataArray::getString(
  																								module.GetContext(), 
  																								m_value.c_str(), 
  																								true);
-			 // Global Variable Definitions
- 			 var->setInitializer(constArray);
 
+				llvm::GlobalVariable * var = new llvm::GlobalVariable(
+					                              module.GetModule(), 
+																				module.GetBuilder().getInt8PtrTy(),
+        																true,                                   // constant
+        																GlobalValue::PrivateLinkage,            // linkage
+        																constArray,                                        
+        																"");		
  			 return var;
 			}
 
 			std::string m_value;
 	};
-
-
-
 } // namespace CodeGenerator
 
 
