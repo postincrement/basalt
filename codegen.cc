@@ -96,12 +96,12 @@ llvm::Function * CodeGenerator::FunctionASTExpr::Generate(Module & module)
                                                    &module.GetModule());
 
   // Create a new basic block to start insertion into.
-  llvm::BasicBlock * BB = llvm::BasicBlock::Create(module.GetContext(), "entry", func);
-  module.GetBuilder().SetInsertPoint(BB); 
+  //llvm::BasicBlock * BB = llvm::BasicBlock::Create(module.GetContext(), "entry", func);
+  //module.GetBuilder().SetInsertPoint(BB); 
 
-  llvm::Value * retVal = m_body->Generate(module);
+  //llvm::Value * retVal = m_body->Generate(module);
 
-  module.GetBuilder().CreateRet(retVal);     
+  //module.GetBuilder().CreateRet(retVal);     
 
   return func;
 }

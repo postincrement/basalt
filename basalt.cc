@@ -1,8 +1,13 @@
 #include <iostream>
+#include <sstream>
 using namespace std;
 
+#include "basalt.h"
 #include "codegen.h"
 
+Filename g_inputFilename;
+int g_lineNumber = 1;
+int g_errorCount = 0;
 
 struct ArgDef 
 {
@@ -18,7 +23,6 @@ class Basalt
   public:
     int Main(int argc, char const *argv[]);
 
-
     int ParseArguments(ArgDef * defs, int argc, char const *argv[], int index);
     void DecodeOpt(ArgDef * def);
     void Usage(const ArgDef * defs);
@@ -26,26 +30,44 @@ class Basalt
     std::string m_progname;
 };
 
+
 Basalt g_application;
 
-std::map<std::string, CodeGenerator::GlobalVariable *> g_globals;
+std::map<std::string, CodeGenerator::GlobalVariableExpr *> g_globals;
 std::map<std::string, CodeGenerator::FunctionASTExpr *> g_functions;
 std::vector<CodeGenerator::ASTExpr *> g_expressions;
 
 
-int m_verbose = 0;
-std::string m_targetTripleStr;
+int g_verbose = 0;
+std::string g_targetTripleStr;
+bool g_dumpAsm = false;
+bool g_compileOnly = false;
 
 ArgDef g_argDefs[] = {
-  { 'v',   "verbose",   "",   &m_verbose,         "enable verbosity" },
-  { ' ',   "target",    "s",  &m_targetTripleStr, "set compiler target triplet" },
+  { 'c',   "",          "b",  &g_compileOnly,     "compile only" },
+  { 'd',   "dump",      "b",  &g_dumpAsm,         "dump assembly" },
+  { 'v',   "verbose",   "",   &g_verbose,         "enable verbosity" },
+  { ' ',   "yydebug",   "",   &MBASIC_debug,      "enable bison debugging"},
+  { ' ',   "target",    "s",  &g_targetTripleStr, "set compiler target triplet" },
   {  0,    NULL,        NULL, NULL,                NULL }
 };
 
 void Basalt::Usage(const ArgDef * defs)
 {
-
 }
+
+void OptionError(const ArgDef * def)
+{
+  cerr << "warning: no data for option ";
+  if (def->m_short != ' ')
+    cerr << "-" << def->m_short;
+  if (def->m_long != NULL) {
+    if (def->m_short != ' ')
+      cerr << "/";
+    cerr << "--" << def->m_long << endl;
+  }
+}
+
 
 void Basalt::DecodeOpt(ArgDef * def)
 {
@@ -55,6 +77,15 @@ void Basalt::DecodeOpt(ArgDef * def)
   if (type.length() == 0) {
     if (def->m_data != NULL)
       (*(int *)(def->m_data))++;
+    else
+      OptionError(def);
+  }
+
+  else if (type == "b") {
+    if (def->m_data != NULL)
+      (*(bool *)(def->m_data)) = true;
+    else
+      OptionError(def);
   }
 
   else {
@@ -123,19 +154,61 @@ int Basalt::Main(int argc, char const *argv[])
 {
   {
     auto targetTriple = llvm::sys::getDefaultTargetTriple();
-    m_targetTripleStr = targetTriple; 
+    g_targetTripleStr = targetTriple; 
   }
 
   // parse options and arguments
   int index = ParseArguments(g_argDefs, argc, argv);
-  if (index < 0) {
+  if (index >= argc) {
     Usage(g_argDefs);
     return -1;
   }
 
-  cout << m_targetTripleStr << endl;
+  // open input file
+  g_inputFilename = Filename(argv[index]);
 
-  llvm::StringRef targetTriple(m_targetTripleStr);
+  if (g_inputFilename.GetExtension() != ".bas") {
+    cerr << "error: unknown input file extension '" << g_inputFilename.GetExtension() << "'" << endl;
+    return -1;
+  }
+
+  MBASIC_in = fopen(g_inputFilename.c_str(), "r");
+  if (MBASIC_in == NULL) {
+    cerr << "error: cannot open input file '" << g_inputFilename << "'" << endl;
+    return -1;
+  }
+
+  // create output filename
+  Filename objectFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename() + ".o");
+
+  if (g_verbose)
+    cout << "info: compiling '" << g_inputFilename.GetFilename() << "' to '" << objectFilename.GetFilename() << "'" << endl;
+
+  // parse input file
+  MBASIC_parse();
+
+  if (g_errorCount > 0) {
+    cout << "error: " << g_errorCount << " errors - compile stopped" << endl;
+    return -1;
+  }
+
+  //  cout << m_targetTripleStr << endl ;  
+  llvm::StringRef targetTriple(g_targetTripleStr);
+  
+  // add main
+
+/*
+  llvm::LLVMContext& context = llvm::getGlobalContext();
+  llvm::Module *module = new llvm::Module("top", context);
+  llvm::IRBuilder<> builder(context); 
+ 
+  llvm::FunctionType *funcType = 
+      llvm::FunctionType::get(builder.getInt32Ty(), false);
+  llvm::Function *mainFunc = 
+      llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "main", module);
+
+  // end main    
+*/
 
   // get source filename
   //if (index < argc) {
@@ -147,11 +220,12 @@ int Basalt::Main(int argc, char const *argv[])
 
   CodeGenerator::Module module;
 
-  g_globals["var1"] = new CodeGenerator::GlobalVariable("var1");  
-  g_globals["var2"] = new CodeGenerator::GlobalVariable("var2");  
-  g_globals["var3"] = new CodeGenerator::GlobalVariable("var3");  
+  //g_globals["var1"] = new CodeGenerator::GlobalVariable("var1");  
+  //g_globals["var2"] = new CodeGenerator::GlobalVariable("var2");  
+  g_globals["var3"] = new CodeGenerator::GlobalInt32Expr("var3", 3);  
+  g_globals["hello"] = new CodeGenerator::GlobalStringExpr("helloWorld", "hello, world\n");
 
-#if 0  
+#if 1  
 
   g_functions["main"] = new CodeGenerator::FunctionASTExpr("main",
                             new CodeGenerator::BinaryOpExpr(
@@ -162,13 +236,26 @@ int Basalt::Main(int argc, char const *argv[])
 
 #endif
 
-  for (auto & r : g_functions)
-    r.second->Generate(module);
+  llvm::Function * mainFunc = NULL;
+
+  for (auto & r : g_functions) {
+    llvm::Function * func = r.second->Generate(module);
+    if (r.first == "main")
+      mainFunc = func;
+  }
 
   for (auto & r : g_expressions)
     r->Generate(module);
 
-  module.Dump();
+  for (auto & r : g_globals)
+    r.second->Generate(module);
+
+  llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc);
+  module.GetBuilder().SetInsertPoint(entry);
+  module.GetBuilder().CreateRetVoid();
+
+  if (g_dumpAsm)
+    module.Dump();
 
   /////////////////////////////////////////////////////////////
 
@@ -204,9 +291,8 @@ int Basalt::Main(int argc, char const *argv[])
   module.GetModule().setDataLayout(TargetMachine->createDataLayout());
   module.GetModule().setTargetTriple(targetTriple);  
 
-  auto Filename = "output.o";
   std::error_code EC;
-  llvm::raw_fd_ostream dest(Filename, EC, llvm::sys::fs::F_None);
+  llvm::raw_fd_ostream dest(objectFilename.c_str(), EC, llvm::sys::fs::F_None);
 
   if (EC) {
     cerr << "Could not open file: " << EC.message();
@@ -221,13 +307,27 @@ int Basalt::Main(int argc, char const *argv[])
     return 1;
   }
 
-#if 1
   pass.run(module.GetModule());
-#endif 
 
   dest.flush();  
 
+  if (g_compileOnly)
+    return 0;
+
+  // do the linker thing
+  Filename exeFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename());
+  std::stringstream cmd;
+  cmd << "clang -o " << exeFilename << " " << objectFilename;
+
+  system(cmd.str().c_str());
+
   return 0;
+}
+
+void MBASIC_error(const char * msg)
+{
+  g_errorCount++;
+  cout << g_inputFilename << " (" << g_lineNumber << "): " << msg << endl;
 }
 
 int main(int argc, char const *argv[])

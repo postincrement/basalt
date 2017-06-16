@@ -2,6 +2,8 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
+#include <iostream>
+
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
@@ -145,24 +147,79 @@ namespace CodeGenerator
 			ASTExpr * m_body;
 	};
 
-	class GlobalVariable : public Variable
+	class GlobalVariableExpr : public ASTExpr
 	{
 		public:
-			GlobalVariable(const std::string & name)
-				: Variable(name)
+			GlobalVariableExpr(const std::string & name)
+				: ASTExpr()
+				, m_name(name)
 			{ }
 
-			virtual void Generate(Module & module) override
+			std::string m_name;
+	};
+
+	template <class IntType, class TypeFunc>
+	class GlobalIntExpr : public GlobalVariableExpr
+	{
+		public:
+			GlobalIntExpr(const std::string & name, IntType val)
+				: GlobalVariableExpr(name)
+				, m_value(val)
+			{ }
+
+			virtual llvm::Value * Generate(Module & module) override
 			{
-				/*GlobalVariable * var = */ new llvm::GlobalVariable(module.GetModule(), 
-         								                         module.GetBuilder().getInt32Ty(),
-        /*isConstant=*/false,
-        /*Linkage=*/GlobalValue::CommonLinkage,
-        /*Initializer=*/0, // has initializer, specified below
-        /*Name=*/m_name);		
+				return new llvm::GlobalVariable(module.GetModule(), 
+																				m_func(module),
+        																true,
+        																GlobalValue::CommonLinkage,
+        																0,
+        																m_name);		
 			}
 
+			TypeFunc m_func;
+			IntType m_value;
 	};
+
+	struct GetInt32Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt32Ty(); } };
+
+	typedef GlobalIntExpr<int32_t, GetInt32Ty> GlobalInt32Expr;
+
+	class GlobalStringExpr : public GlobalVariableExpr
+	{
+		public:
+			GlobalStringExpr(const std::string & name, const std::string & value)
+			  : GlobalVariableExpr(name)
+			  , m_value(value)
+			{ }
+
+			virtual llvm::Value * Generate(Module & module) override
+			{
+				std::cout << "creating global string " << std::endl;
+
+				llvm::GlobalVariable * var = new llvm::GlobalVariable(
+					                              module.GetModule(), 
+																				module.GetBuilder().getInt8PtrTy(),
+        																true,
+        																GlobalValue::CommonLinkage,
+        																0,
+        																m_name);		
+
+				// Constant Definitions
+ 				llvm::Constant * constArray = llvm::ConstantDataArray::getString(
+ 																								module.GetContext(), 
+ 																								m_value.c_str(), 
+ 																								true);
+			 // Global Variable Definitions
+ 			 var->setInitializer(constArray);
+
+ 			 return var;
+			}
+
+			std::string m_value;
+	};
+
+
 
 } // namespace CodeGenerator
 

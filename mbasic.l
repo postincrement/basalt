@@ -5,8 +5,7 @@
 #include <iostream>
 
 #include "mbasic.tab.hpp"
-
-int g_lineNumber = 1;
+#include "basalt.h"
 
 %}
 
@@ -16,10 +15,11 @@ int g_lineNumber = 1;
 
 ":"		{ return yytext[0]; }
 
-"[Ll][Ee][Tt]"  {
+"="   { return yytext[0]; }
+
+[Ll][Ee][Tt]  {
 					return LET_TOKEN;
 				}
-
 
 [+-]*[0-9][0-9]*\.*[0-9]*[eE][+-][0-9][0-9]*  {
 		  MBASIC_lval.fval = atof(yytext);

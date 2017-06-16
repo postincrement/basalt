@@ -7,14 +7,10 @@
 #include <sstream>
 using namespace std;
 
-extern int MBASIC_lex();
+#include "basalt.h"
 
 #define YYDEBUG 1
 
-void MBASIC_error(const char * msg)
-{
-  cout << msg << endl;
-}
 
 %}
 
@@ -42,13 +38,17 @@ MBASIC_file: /* empty */
              | MBASIC_file line 
              ;
 
-line:        line_number statement_list EOL
+line:        line_number opt_statement_list EOL
              ;
 
 line_number : POSITIVE_INT
             ;
 
-statement_list : /* empty */
+opt_statement_list : /* empty */
+                   | statement_list
+                   ;
+
+statement_list : statement
                | statement_list ':' statement
                ;
 
