@@ -73,10 +73,6 @@ namespace CodeGenerator
 			int m_integer;
 	};
 
-	void GenerateCall1(Module & module, 
-	                  const std::string & name, 
-	                  std::vector<llvm::Type *> & argTypes, 
-	                  llvm::Value * arg);
 	class ASTExpr
 	{
 		public:
@@ -86,6 +82,13 @@ namespace CodeGenerator
 	};
 
 	typedef std::vector<ASTExpr *> ASTExprList;
+
+	extern std::map<std::string, llvm::Value *> m_globalStrings;
+
+	void GenerateCall1(Module & module, 
+	                  const std::string & name, 
+	                  std::vector<llvm::Type *> & argTypes, 
+	                  llvm::Value * arg);
 
 	class BinaryOpExpr : public ASTExpr
 	{
@@ -215,22 +218,14 @@ namespace CodeGenerator
 
 			virtual llvm::Value * Generate(Module & module) override
 			{
-				std::cout << "creating global string " << std::endl;
+				auto r = m_globalStrings.find(m_value);
+				if (r != m_globalStrings.end())
+					return r->second;
 
-				// Constant Definitions
- 				llvm::Constant * constArray = llvm::ConstantDataArray::getString(
- 																								module.GetContext(), 
- 																								m_value.c_str(), 
- 																								true);
+				llvm::Value * val = module.GetBuilder().CreateGlobalStringPtr(m_value.c_str());
+				m_globalStrings[m_value] = val;
 
-				llvm::GlobalVariable * var = new llvm::GlobalVariable(
-					                              module.GetModule(), 
-																				module.GetBuilder().getInt8PtrTy(),
-        																true,                                   // constant
-        																GlobalValue::PrivateLinkage,            // linkage
-        																constArray,                                        
-        																"");		
- 			 return var;
+				return val;	
 			}
 
 			std::string m_value;

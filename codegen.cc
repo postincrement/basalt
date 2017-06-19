@@ -1,5 +1,8 @@
 #include "codegen.h"
 
+std::map<std::string, llvm::Value *> CodeGenerator::m_globalStrings;
+
+
 CodeGenerator::Module::Module(const char * name)
   : m_context(llvm::getGlobalContext())
   , m_builder(m_context) 
@@ -12,7 +15,31 @@ CodeGenerator::Module::Module(llvm::LLVMContext & context, const char * name)
   , m_builder(m_context) 
 {
    m_module = new llvm::Module(name, m_context);
+
+/*
+  // Create a new pass manager attached to it.fpm
+  llvm::FunctionPassManager * fpm = module->get();
+
+  // Do simple "peephole" optimizations and bit-twiddling optzns.
+  fpm->add(createInstructionCombiningPass());
+  // Reassociate expressions.
+  fpm->add(createReassociatePass());
+  // Eliminate Common SubExpressions.
+  fpm->add(createGVNPass());
+  // Simplify the control flow graph (deleting unreachable blocks, etc).
+  fpm->add(createCFGSimplificationPass());
+
+  fpm->doInitialization();
+*/  
+} 
+
+/*
+void CodeGenerator::Module::Optimize()
+{
+  //if (m_fpm != NULL)
+  //  m_fpm->run(*TheFunction);
 }
+*/
 
 llvm::IRBuilder<> & CodeGenerator::Module::GetBuilder()
 { 

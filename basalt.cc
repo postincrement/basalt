@@ -203,32 +203,10 @@ int Basalt::Main(int argc, char const *argv[])
   for (auto & r : g_expressions)
     r->Generate(module);
 
-/*
-  // generator code for void puts(i8 *)
-  std::vector<llvm::Type *> argTypes;
-  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
-
-  GenerateCall1(module, "puts", argTypes, g_expressions[0]);
-*/
-
-/*
-  llvm::Constant *putsFunc;
-
-  {
-    std::vector<llvm::Type *> putsArgs;
-    putsArgs.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
-    llvm::ArrayRef<llvm::Type*>  argsRef(putsArgs);
-   
-    llvm::FunctionType * putsType = llvm::FunctionType::get(module.GetBuilder().getInt32Ty(), argsRef, false);
-    putsFunc = module.GetModule().getOrInsertFunction("puts", putsType);  
-  }
-
-  llvm::Value * var = ->Generate(module);
-  module.GetBuilder().CreateCall(putsFunc, var);
-*/
-
   module.GetBuilder().CreateRetVoid();
-  
+
+  //module.Optimize();
+
   if (g_dumpAsm)
     module.Dump();
 
