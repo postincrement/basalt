@@ -71,7 +71,7 @@ opt_LET_TOKEN:  /* empty */
 PRINT_statement: PRINT_TOKEN opt_print_expression_list
                  {
                    for (auto & r : *$2) {
-                     g_expressions.push_back(r);
+                     g_expressions.push_back(new CodeGenerator::PutsExpr(r));   
                    }
                    delete $2;
                  }

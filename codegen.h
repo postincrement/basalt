@@ -73,6 +73,10 @@ namespace CodeGenerator
 			int m_integer;
 	};
 
+	void GenerateCall1(Module & module, 
+	                  const std::string & name, 
+	                  std::vector<llvm::Type *> & argTypes, 
+	                  llvm::Value * arg);
 	class ASTExpr
 	{
 		public:
@@ -231,6 +235,31 @@ namespace CodeGenerator
 
 			std::string m_value;
 	};
+
+	class PutsExpr : public ASTExpr
+	{
+		public:
+			PutsExpr(ASTExpr * arg)
+				: ASTExpr()
+				, m_arg(arg)
+			{ }
+
+			virtual llvm::Value * Generate(Module & module) override
+			{
+				llvm::Value * arg = m_arg->Generate(module);
+
+			  // generator code for void puts(i8 *)
+			  std::vector<llvm::Type *> argTypes;
+			  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
+
+			  GenerateCall1(module, "puts", argTypes, arg);
+
+			  return NULL;
+			}
+
+			ASTExpr * m_arg;
+	};
+
 } // namespace CodeGenerator
 
 

@@ -34,10 +34,7 @@ class Basalt
 
 
 Basalt g_application;
-
 std::map<std::string, CodeGenerator::GlobalVariableExpr *> g_globals;
-std::map<std::string, CodeGenerator::FunctionASTExpr *> g_functions;
-
 
 int g_verbose = 0;
 std::string g_targetTripleStr;
@@ -151,6 +148,7 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
   return index;
 }
 
+
 int Basalt::Main(int argc, char const *argv[])
 {
   {
@@ -193,60 +191,27 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  //  cout << m_targetTripleStr << endl ;  
   llvm::StringRef targetTriple(g_targetTripleStr);
   
-  // add main
-
-/*
-  llvm::LLVMContext& context = llvm::getGlobalContext();
-  llvm::Module *module = new llvm::Module("top", context);
-  llvm::IRBuilder<> builder(context); 
- 
-  llvm::FunctionType *funcType = 
-      llvm::FunctionType::get(builder.getInt32Ty(), false);
-  llvm::Function *mainFunc = 
-      llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, "main", module);
-
-  // end main    
-*/
-
-  // get source filename
-  //if (index < argc) {
-  //  cout << argv[index] << endl;
-  //  return 0;
-  //}
-
-//  g_functions["main"] = new CodeGenerator::FunctionASTExpr("main");
-
   CodeGenerator::Module module;
 
+  CodeGenerator::FunctionASTExpr * mainFunc = new CodeGenerator::FunctionASTExpr("main", NULL);
 
-
-  //g_globals["var1"] = new CodeGenerator::GlobalVariable("var1");  
-  //g_globals["var2"] = new CodeGenerator::GlobalVariable("var2");  
-  //g_globals["var3"] = new CodeGenerator::GlobalInt32Expr("var3", 3);  
-  //g_globals["hello"] = new CodeGenerator::GlobalStringExpr("helloWorld", "hello, world\n");
-
-  g_functions["main"] = new CodeGenerator::FunctionASTExpr("main",
-    NULL
-//                            new CodeGenerator::BinaryOpExpr(
-//                              new CodeGenerator::ConstantIntExpr(1), 
-//                              new CodeGenerator::ConstantIntExpr(2)
-//                            )
-                           );   
-
-  llvm::Function * mainFunc = NULL;
-
-  for (auto & r : g_functions) {
-    llvm::Function * func = r.second->Generate(module);
-    if (r.first == "main")
-      mainFunc = func;
-  }
-
-  llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc);
+  llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc->Generate(module));
   module.GetBuilder().SetInsertPoint(entry);
 
+  for (auto & r : g_expressions)
+    r->Generate(module);
+
+/*
+  // generator code for void puts(i8 *)
+  std::vector<llvm::Type *> argTypes;
+  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
+
+  GenerateCall1(module, "puts", argTypes, g_expressions[0]);
+*/
+
+/*
   llvm::Constant *putsFunc;
 
   {
@@ -254,20 +219,13 @@ int Basalt::Main(int argc, char const *argv[])
     putsArgs.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
     llvm::ArrayRef<llvm::Type*>  argsRef(putsArgs);
    
-    llvm::FunctionType *putsType = 
-      llvm::FunctionType::get(module.GetBuilder().getInt32Ty(), argsRef, false);
+    llvm::FunctionType * putsType = llvm::FunctionType::get(module.GetBuilder().getInt32Ty(), argsRef, false);
     putsFunc = module.GetModule().getOrInsertFunction("puts", putsType);  
   }
 
-  //for (auto & r : g_expressions)
-  //  r->Generate(module);
-
-  //for (auto & r : g_globals)
-  //  r.second->Generate(module);
-
-  llvm::Value * var = g_expressions[0]->Generate(module);
-
+  llvm::Value * var = ->Generate(module);
   module.GetBuilder().CreateCall(putsFunc, var);
+*/
 
   module.GetBuilder().CreateRetVoid();
   
