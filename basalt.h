@@ -54,6 +54,38 @@ class Filename : public std::string
     }
 };
 
+struct LanguageProfile
+{
+  enum Dialect {
+    Basic80_5_0_8k,
+    Basic80_5_0_Extended,
+    Basic80_5_0_Disk
+  };
+
+  LanguageProfile(Dialect dialect = Basic80_5_0_8k)
+  {
+    Set(dialect);
+  }
+
+  void Set(Dialect dialect = Basic80_5_0_8k)
+  {
+    switch (dialect) {
+      case Basic80_5_0_Extended:
+        m_fullVarNames = true;
+        break;
+      case Basic80_5_0_Disk:
+        m_fullVarNames = true;
+        break;
+      case Basic80_5_0_8k:
+      default:
+        m_fullVarNames = false;
+        break;
+    } 
+  }
+
+  bool m_fullVarNames;  
+};
+
 extern int MBASIC_lex();
 extern int MBASIC_parse();
 extern void MBASIC_error(const char * msg);
@@ -63,7 +95,10 @@ extern int MBASIC_debug;
 extern int g_lineNumber;
 extern Filename g_inputFilename;
 
-extern CodeGenerator::ASTExprList g_expressions;
+extern LanguageProfile g_profile;
 
+extern std::map<std::string, CodeGenerator::ASTExpr *> m_globalStringConstants;
+extern CodeGenerator::VariableList g_globals;
+extern CodeGenerator::ASTExprList g_expressions;
 
 #endif // BASALT_H_

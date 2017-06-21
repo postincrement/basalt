@@ -21,20 +21,23 @@ using namespace std;
   std::string * sval;
   CodeGenerator::ASTExpr     * expr;
   CodeGenerator::ASTExprList * exprlist;
+  CodeGenerator::Variable    * varname;
 }
 
 %token EOL
 %token LET_TOKEN
 %token PRINT_TOKEN
 
-%token <sval> IDENTIFIER
+%token <sval> IDENTIFIER INTEGER_VARNAME STRING_VARNAME
 %token <sval> QUOTED_STRING
 %token <uval> POSITIVE_INT
 %token <ival> NEGATIVE_INT
 %token <fval> DOUBLE
 
+%type <ival>     integer
 %type <exprlist> opt_print_expression_list print_expression_list 
-%type <expr>     PRINT_statement print_expression
+%type <expr>     PRINT_statement print_expression 
+%type <expr>     LET_statement assign_expression numeric_expression string_expression string_constant
 
 %%
 
@@ -42,12 +45,15 @@ MBASIC_file: /* empty */
              | MBASIC_file line 
              ;
 
-line:        EOL
-             | line_number opt_statement_list EOL
-             ;
+/********************************************************* 
 
-line_number : POSITIVE_INT
-            ;
+ line              
+
+ *********************************************************/ 
+
+line:        EOL
+             | POSITIVE_INT opt_statement_list EOL
+             ;
 
 opt_statement_list : /* empty */
                    | statement_list
@@ -61,12 +67,76 @@ statement:     LET_statement
                | PRINT_statement 
                ;
 
-LET_statement:  opt_LET_TOKEN variable_name '=' expression
+/********************************************************* 
+
+ LET              
+
+ *********************************************************/ 
+
+LET_statement:  opt_LET_TOKEN assign_expression
+                {
+                  g_expressions.push_back($2);
+                }
                 ;
 
 opt_LET_TOKEN:  /* empty */
                 | LET_TOKEN
                 ;
+
+assign_expression:  IDENTIFIER '=' numeric_expression
+                    {
+                      CodeGenerator::Variable * var = g_globals.Add<CodeGenerator::Int16Variable>(*$1, true);
+                      if (var == NULL) {
+                        cerr << "Variable '" << *$1 << " redefined type" << endl;
+                        $$ = nullptr;
+                        delete $1;
+                      }
+                      else {
+                        $$ = new CodeGenerator::NumericAssignExpr(var, $3);
+                        cout << "declaring " << *$1 << " = " << endl; 
+                      }
+                    }
+                    | INTEGER_VARNAME '=' numeric_expression
+                    {
+                      CodeGenerator::Variable * var = g_globals.Add<CodeGenerator::Int16Variable>(*$1, true);
+                      if (var == NULL) {
+                        cerr << "Variable '" << *$1 << " redefined type" << endl;
+                        $$ = nullptr;
+                        delete $1;
+                      }  
+                      else
+                        $$ = new CodeGenerator::NumericAssignExpr(var, $3);
+                    }
+                    | STRING_VARNAME '=' string_expression
+                    {
+                      CodeGenerator::Variable * var = g_globals.Add<CodeGenerator::StringVariable>(*$1, true);
+                      if (var == NULL) {
+                        cerr << "Variable '" << *$1 << " redefined type" << endl;
+                        $$ = nullptr;
+                        delete $1;
+                      }
+                      else 
+                        $$ = new CodeGenerator::StringAssignExpr(var, $3);
+                    }
+                    ;
+
+numeric_expression: integer
+                    { $$ = new CodeGenerator::ConstantInt16Expr($1); }
+                    | DOUBLE
+                    { $$ = new CodeGenerator::ConstantInt16Expr($1);}
+                    ;
+
+string_expression:  string_constant
+                    {
+                      $$ = $1; 
+                    }
+                    ;
+
+/********************************************************* 
+
+ PRINT              
+ 
+ *********************************************************/ 
 
 PRINT_statement: PRINT_TOKEN opt_print_expression_list
                  {
@@ -93,28 +163,45 @@ print_expression_list:     print_expression
                               exprList->push_back($1);
                               $$ = exprList; 
                            } 
-                           | print_expression_list ';' print_expression
+                           | print_expression_list print_expression
                            {
-                              $1->push_back($3);
+                              $1->push_back($2);
                               $$ = $1;
                            }
                            ;
 
-print_expression:          QUOTED_STRING
+print_expression:          string_constant
                            {
-                             auto * expr = new CodeGenerator::GlobalStringExpr(*$1);
-                             delete $1;
-                             $$ = expr; 
+                             $$ = $1; 
+                           }
+                           | IDENTIFIER
+                           {
+                             $$ = nullptr;  
+                             // add in getting value of variable here 
                            }
                            ;                           
 
-variable_name:  IDENTIFIER
-                ;
+/********************************************************* 
 
-expression:     integer
-                | DOUBLE
-                ;
+ miscellaneous              
+ 
+ *********************************************************/ 
 
 integer:        POSITIVE_INT
                 | NEGATIVE_INT
                 ;
+
+string_constant:    QUOTED_STRING
+                    {
+                      auto r = m_globalStringConstants.find(*$1);
+                      if (r != m_globalStringConstants.end())
+                        $$ = r->second;
+                      else {
+                        auto * expr = new CodeGenerator::ConstantStringExpr(*$1, true);
+                        m_globalStringConstants[*$1] = expr;
+                        $$ = expr;
+                      }  
+                      delete $1;  
+                    }                    
+
+

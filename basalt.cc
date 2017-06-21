@@ -9,6 +9,10 @@ Filename g_inputFilename;
 int g_lineNumber = 1;
 int g_errorCount = 0;
 
+LanguageProfile g_profile;
+
+std::map<std::string, CodeGenerator::ASTExpr *> m_globalStringConstants;
+CodeGenerator::VariableList g_globals;
 CodeGenerator::ASTExprList g_expressions;
 
 struct ArgDef 
@@ -34,7 +38,6 @@ class Basalt
 
 
 Basalt g_application;
-std::map<std::string, CodeGenerator::GlobalVariableExpr *> g_globals;
 
 int g_verbose = 0;
 std::string g_targetTripleStr;
@@ -191,6 +194,8 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
+  cout << "generating code" << endl;
+
   llvm::StringRef targetTriple(g_targetTripleStr);
   
   CodeGenerator::Module module;
@@ -200,8 +205,10 @@ int Basalt::Main(int argc, char const *argv[])
   llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc->Generate(module));
   module.GetBuilder().SetInsertPoint(entry);
 
-  for (auto & r : g_expressions)
-    r->Generate(module);
+  for (auto & r : g_expressions) {
+    if (r != nullptr)      
+      r->Generate(module);
+  }
 
   module.GetBuilder().CreateRetVoid();
 

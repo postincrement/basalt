@@ -25,235 +25,283 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Passes/PassBuilder.h"
 
-namespace CodeGenerator 
+namespace CodeGenerator  {
+
+using namespace llvm;
+
+class Module
 {
-	using namespace llvm;
+	public:
+		Module(const char * name = "top");
+		Module(llvm::LLVMContext & context, const char * name = "top");
 
-	class Module
+		llvm::IRBuilder<> & GetBuilder();
+		llvm::Module & GetModule();
+		llvm::LLVMContext & GetContext() { return m_context; }
+
+		void Dump();
+
+		std::string m_name;
+		llvm::LLVMContext & m_context;
+  	llvm::IRBuilder<> m_builder; 
+		llvm::Module * m_module;
+};
+
+class ASTExpr
+{
+	public:
+		ASTExpr()
+		{ }
+
+		virtual ~ASTExpr()
+		{ }
+
+		virtual llvm::Value * Generate(Module & module) = 0;
+};
+
+struct GetInt16Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt16Ty(); } };
+struct GetInt32Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt32Ty(); } };
+
+class ValuedASTExpr : public ASTExpr
+{
+	public:
+		ValuedASTExpr()
+		  : m_llvmValue(nullptr)
+		{ }
+
+		virtual llvm::Value * Generate(Module & module)
+		{
+			if (m_llvmValue == nullptr)
+				m_llvmValue = GenerateOnce(module);
+
+			return m_llvmValue;
+		}
+
+		virtual llvm::Value * GenerateOnce(Module & module) = 0;
+
+  private:
+  	llvm::Value * m_llvmValue;	
+};
+
+
+typedef std::vector<ASTExpr *> ASTExprList;
+
+class Variable : public ValuedASTExpr
+{
+	public:
+		Variable(const std::string & name, bool global)
+			: m_name(name)
+			, m_global(global)
+		{ }
+
+		std::string m_name;
+		bool m_global;
+};
+
+template <class IntType, class TypeFunc, int NumBits>
+class IntVariable : public Variable
+{
+	public:
+		IntVariable(const std::string & name, bool global)
+			: Variable(name, global)
+		{
+		}
+
+		virtual llvm::Value * GenerateOnce(Module & module)  override
+		{
+			GlobalVariable * var = new llvm::GlobalVariable(module.GetModule(), 
+                                                m_func(module),
+																				        false,
+																				        GlobalValue::CommonLinkage,
+																				        0, // has initializer, specified below
+																				        m_name.c_str());
+			var->setAlignment(NumBits / 8);
+
+			llvm::ConstantInt * init = ConstantInt::get(module.GetContext(), APInt(NumBits, StringRef("0"), 10));
+			var->setInitializer(init);
+
+			return var;
+		}
+
+		TypeFunc m_func;
+};
+
+typedef IntVariable<int16_t, GetInt16Ty, 2> Int16Variable;
+
+class StringVariable : public Variable
+{
+	public:
+		StringVariable(const std::string & name, bool global)
+			: Variable(name, global)
+		{
+		}
+
+		virtual llvm::Value * GenerateOnce(Module & m_module) override
+		{
+			return nullptr;
+		}
+};
+
+template <class IntType, class TypeFunc, int NumBits>
+class ConstantIntExpr : public ASTExpr
+{
+	public:
+		ConstantIntExpr(IntType val)
+		  : m_intValue(val)
+		{ }
+
+		virtual llvm::Value * Generate(Module & module) override
+		{
+			llvm::Value * val = llvm::ConstantInt::get(m_func(module), APInt(NumBits, m_intValue));			
+			return val;
+		}
+
+		TypeFunc m_func;
+		IntType m_intValue;
+};
+
+
+typedef ConstantIntExpr<int16_t, GetInt16Ty, 16> ConstantInt16Expr;
+
+typedef ConstantIntExpr<int32_t, GetInt32Ty, 32> ConstantInt32Expr;
+
+class ConstantStringExpr : public ValuedASTExpr
+{
+	public:
+		ConstantStringExpr(const std::string & value, bool global)
+		  : m_global(global)
+		  , m_value(value)
+		{ }
+
+		virtual llvm::Value * GenerateOnce(Module & module) override
+		{
+			if (m_global)
+				return module.GetBuilder().CreateGlobalStringPtr(m_value.c_str());
+
+			return nullptr;	
+		}
+
+		bool m_global;
+		std::string m_value;
+};
+
+
+void GenerateCall1(Module & module, 
+                  const std::string & name, 
+                  std::vector<llvm::Type *> & argTypes, 
+                  llvm::Value * arg);
+
+
+class FunctionASTExpr
+{
+	public:
+		FunctionASTExpr(const std::string & name, ASTExpr * body);
+		virtual llvm::Function * Generate(Module & module);
+
+		std::string m_name;
+		ASTExpr * m_body;
+};
+
+class PutsExpr : public ASTExpr
+{
+	public:
+		PutsExpr(ASTExpr * arg)
+			: ASTExpr()
+			, m_arg(arg)
+		{ }
+
+		virtual llvm::Value * Generate(Module & module) override
+		{
+			llvm::Value * arg = m_arg->Generate(module);
+
+		  // generator code for void puts(i8 *)
+		  std::vector<llvm::Type *> argTypes;
+		  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
+
+		  GenerateCall1(module, "puts", argTypes, arg);
+
+		  return NULL;
+		}
+
+		ASTExpr * m_arg;
+};
+
+class NumericAssignExpr : public ASTExpr
+{
+	public:
+		NumericAssignExpr(Variable * variable, ASTExpr * expr)
+			: ASTExpr()
+			, m_lhs(variable)
+			, m_rhs(expr)
+		{ 			
+		}
+
+		virtual llvm::Value * Generate(Module & module) override
+		{
+			llvm::Value * lhs = m_lhs->Generate(module);
+			llvm::Value * rhs = m_rhs->Generate(module);
+
+			llvm::StoreInst * val = new llvm::StoreInst(rhs, lhs, false, module.GetBuilder().GetInsertBlock());
+      val->setAlignment(2);
+
+			return val;
+		}
+
+		Variable * m_lhs;
+		ASTExpr * m_rhs;
+};
+
+class StringAssignExpr : public ASTExpr
+{
+	public:
+		StringAssignExpr(Variable * variable, ASTExpr * expr)
+			: ASTExpr()
+			, m_lhs(variable)
+			, m_rhs(expr)
+		{ }
+
+		virtual llvm::Value * Generate(Module & module) override
+		{
+			/*
+			llvm::Value * arg = m_arg->Generate(module);
+
+		  // generator code for void puts(i8 *)
+		  std::vector<llvm::Type *> argTypes;
+		  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
+
+		  GenerateCall1(module, "puts", argTypes, arg);
+      */
+
+		  return NULL;
+		}
+
+		Variable * m_lhs;
+		ASTExpr * m_rhs;
+};
+
+struct VariableList 
+{
+	template<class VarT>
+	Variable * Add(const std::string & name, bool global)
 	{
+		auto r = m_vars.find(name);
+		if (r != m_vars.end()) { 
+			if (
+				  (dynamic_cast<VarT *>(r->second) != NULL) &&
+				  (r->second->m_global == global)
+				  )
+				  return r->second;
+			else
+				return nullptr;
+		}
 
-		public:
-			Module(const char * name = "top");
-			Module(llvm::LLVMContext & context, const char * name = "top");
+		Variable * var = new VarT(name, global);
+		m_vars[name] = var;
+		return var;
+	}
 
-			llvm::IRBuilder<> & GetBuilder();
-			llvm::Module & GetModule();
-			llvm::LLVMContext & GetContext() { return m_context; }
-
-			void Dump();
-
-			std::string m_name;
-			llvm::LLVMContext & m_context;
-	  	llvm::IRBuilder<> m_builder; 
-			llvm::Module * m_module;
-	};
-
-	class Variable
-	{
-		public:
-			enum Type {
-				eString,
-				eSingle,
-				eDouble,
-				eInteger,
-				eArray
-			} m_type;
-
-			Variable(const std::string & name)
-				: m_name(name)
-			{ }
-
-			virtual void Generate(Module & module) = 0;
-
-			std::string m_name;
-
-			std::string m_string;
-			float m_single;
-			double m_double;
-			int m_integer;
-	};
-
-	class ASTExpr
-	{
-		public:
-			ASTExpr();
-			virtual ~ASTExpr();
-			virtual llvm::Value * Generate(Module & m_module) = 0;
-	};
-
-	typedef std::vector<ASTExpr *> ASTExprList;
-
-	extern std::map<std::string, llvm::Value *> m_globalStrings;
-
-	void GenerateCall1(Module & module, 
-	                  const std::string & name, 
-	                  std::vector<llvm::Type *> & argTypes, 
-	                  llvm::Value * arg);
-
-	class BinaryOpExpr : public ASTExpr
-	{
-		public:
-			BinaryOpExpr(ASTExpr * lhs, ASTExpr * rhs)
-				: m_lhs(lhs)
-				, m_rhs(rhs)
-			{ }
-
-			virtual llvm::Value * Generate(Module & module)
-			{
-			  llvm::Value * l = m_lhs->Generate(module);
-  			llvm::Value * r = m_rhs->Generate(module);
-
-  			return module.GetBuilder().CreateFAdd(l, r, "addtmp");
-			}
-
-			ASTExpr * m_lhs;
-			ASTExpr * m_rhs;
-	};
-
-	class ConstantIntExpr : public ASTExpr
-	{
-		public:
-			ConstantIntExpr(int val)
-			  : m_value(val)
-			{ }
-
-			virtual llvm::Value * Generate(Module & module)
-			{
-				return ConstantInt::get(module.GetBuilder().getInt32Ty(), APInt(32, m_value));
-			}
-
-			int m_value;
-	};
-
-	class IntVarExpr : public ASTExpr
-	{
-		public:
-			IntVarExpr();
-			virtual llvm::Value * Generate(Module & m_module);
-	};
-
-	class SingleVarExpr : public ASTExpr
-	{
-		public:
-			SingleVarExpr();
-			virtual llvm::Value * Generate(Module & m_module);
-	};
-
-	class DoubleVarExpr : public ASTExpr
-	{
-		public:
-			DoubleVarExpr();
-			virtual llvm::Value * Generate(Module & m_module);
-	};
-
-	class FunctionASTExpr
-	{
-		public:
-			FunctionASTExpr(const std::string & name, ASTExpr * body);
-			virtual llvm::Function * Generate(Module & module);
-
-			std::string m_name;
-			ASTExpr * m_body;
-	};
-
-	class GlobalVariableExpr : public ASTExpr
-	{
-		public:
-			GlobalVariableExpr()
-				: ASTExpr()
-			{ }
-
-			GlobalVariableExpr(const std::string & name)
-				: ASTExpr()
-				, m_name(name)
-			{ }
-
-			std::string m_name;
-	};
-
-	template <class IntType, class TypeFunc>
-	class GlobalIntExpr : public GlobalVariableExpr
-	{
-		public:
-			GlobalIntExpr(IntType val)
-				: GlobalVariableExpr()
-				, m_value(val)
-			{ }
-
-			GlobalIntExpr(const std::string & name, IntType val)
-				: GlobalVariableExpr(name)
-				, m_value(val)
-			{ }
-
-			virtual llvm::Value * Generate(Module & module) override
-			{
-				return new llvm::GlobalVariable(module.GetModule(), 
-																				m_func(module),
-        																true,
-        																GlobalValue::CommonLinkage,
-        																0,
-        																m_name);		
-			}
-
-			TypeFunc m_func;
-			IntType m_value;
-	};
-
-	struct GetInt32Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt32Ty(); } };
-
-	typedef GlobalIntExpr<int32_t, GetInt32Ty> GlobalInt32Expr;
-
-	class GlobalStringExpr : public GlobalVariableExpr
-	{
-		public:
-			GlobalStringExpr(const std::string & name, const std::string & value)
-			  : GlobalVariableExpr(name)
-			  , m_value(value)
-			{ }
-
-			GlobalStringExpr(const std::string & value)
-			  : GlobalVariableExpr()
-			  , m_value(value)
-			{ }
-
-			virtual llvm::Value * Generate(Module & module) override
-			{
-				auto r = m_globalStrings.find(m_value);
-				if (r != m_globalStrings.end())
-					return r->second;
-
-				llvm::Value * val = module.GetBuilder().CreateGlobalStringPtr(m_value.c_str());
-				m_globalStrings[m_value] = val;
-
-				return val;	
-			}
-
-			std::string m_value;
-	};
-
-	class PutsExpr : public ASTExpr
-	{
-		public:
-			PutsExpr(ASTExpr * arg)
-				: ASTExpr()
-				, m_arg(arg)
-			{ }
-
-			virtual llvm::Value * Generate(Module & module) override
-			{
-				llvm::Value * arg = m_arg->Generate(module);
-
-			  // generator code for void puts(i8 *)
-			  std::vector<llvm::Type *> argTypes;
-			  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
-
-			  GenerateCall1(module, "puts", argTypes, arg);
-
-			  return NULL;
-			}
-
-			ASTExpr * m_arg;
-	};
+	std::map<std::string, Variable *> m_vars;
+};
 
 } // namespace CodeGenerator
 

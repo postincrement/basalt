@@ -53,6 +53,16 @@
                   return POSITIVE_INT;
 		}
 
+[a-zA-Z0-9]+\$ {
+      MBASIC_lval.sval = new std::string(yytext);
+      return STRING_VARNAME;
+    }
+
+[a-zA-Z0-9]+\% {
+      MBASIC_lval.sval = new std::string(yytext);
+      return INTEGER_VARNAME;
+    }
+
 [_a-zA-Z0-9]+ {
 		  MBASIC_lval.sval = new std::string(yytext);
 		  return IDENTIFIER;

@@ -10,6 +10,10 @@ LDLIBS   += `llvm-config --libs --system-libs all`
 
 basalt: basalt.o mbasic.lex.o mbasic.tab.o codegen.o
 
+basalt.o: codegen.h
+
+mbasic.o: codegen.h
+
 clean:
 	rm -f basalt basalt.o mbasic.lex.o mbasic.tab.o codegen.o
 
