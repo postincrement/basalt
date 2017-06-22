@@ -32,8 +32,8 @@ using namespace llvm;
 class Module
 {
 	public:
-		Module(const char * name = "top");
-		Module(llvm::LLVMContext & context, const char * name = "top");
+		Module(const char * name = "main");
+		Module(llvm::LLVMContext & context, const char * name = "main");
 
 		llvm::IRBuilder<> & GetBuilder();
 		llvm::Module & GetModule();
@@ -186,6 +186,9 @@ class ConstantStringExpr : public ValuedASTExpr
 };
 
 
+void GenerateCall0(Module & module, 
+                  const std::string & name);
+
 void GenerateCall1(Module & module, 
                   const std::string & name, 
                   std::vector<llvm::Type *> & argTypes, 
@@ -214,11 +217,11 @@ class PutsExpr : public ASTExpr
 		{
 			llvm::Value * arg = m_arg->Generate(module);
 
-		  // generator code for void puts(i8 *)
+		  // generator code for void basalt_puts(i8 *)
 		  std::vector<llvm::Type *> argTypes;
 		  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
 
-		  GenerateCall1(module, "puts", argTypes, arg);
+		  GenerateCall1(module, "basalt_puts", argTypes, arg);
 
 		  return NULL;
 		}

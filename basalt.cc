@@ -205,6 +205,8 @@ int Basalt::Main(int argc, char const *argv[])
   llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc->Generate(module));
   module.GetBuilder().SetInsertPoint(entry);
 
+  GenerateCall0(module, "basalt_init");  
+
   for (auto & r : g_expressions) {
     if (r != nullptr)      
       r->Generate(module);
@@ -277,9 +279,11 @@ int Basalt::Main(int argc, char const *argv[])
   // do the linker thing
   Filename exeFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename());
   std::stringstream cmd;
-  cmd << "clang -o " << exeFilename << " " << objectFilename;
+  cmd << "clang " << objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
 
-  system(cmd.str().c_str());
+  cout << "cmd = " << cmd.str() << endl;
+
+  (void)system(cmd.str().c_str());
 
   return 0;
 }
