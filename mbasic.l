@@ -37,13 +37,18 @@
     }
 
 [+-]*[0-9][0-9]*\.*[0-9]*[eE][+-][0-9][0-9]*  {
-		  MBASIC_lval.fval = atof(yytext);
-      return DOUBLE;
+		  MBASIC_lval.sfloat = new SingleFloat(yytext);
+      return SINGLE;
 		}
 
-[+-]*[0-9]*\.[0-9]* {
-		  MBASIC_lval.fval = atof(yytext);
+[+-]*[0-9][0-9]*\.*[0-9]*[dD][+-][0-9][0-9]*  {
+      MBASIC_lval.dfloat = new DoubleFloat(yytext);
       return DOUBLE;
+    }
+
+[+-]*[0-9]*\.[0-9]* {
+      MBASIC_lval.sfloat = new SingleFloat(yytext);
+      return SINGLE;
 		}
 
 \-[0-9][0-9]*	{

@@ -339,6 +339,28 @@ struct PrintElement
   CodeGenerator::ASTExpr * m_expr;
 };
 
+struct SingleFloat 
+{
+	SingleFloat(const std::string & str)
+		: m_lexeme(str)
+	{
+		m_value = atof(str.c_str());
+	}
+	std::string m_lexeme;
+	double m_value;
+};
+
+struct DoubleFloat 
+{
+	DoubleFloat(const std::string & str)
+		: m_lexeme(str)
+	{
+		m_value = atof(str.c_str());
+	}	
+	std::string m_lexeme;
+	double m_value;
+};
+
 typedef std::vector<PrintElement *> PrintElementList;
 
 

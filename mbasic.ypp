@@ -19,8 +19,10 @@ extern void MBASIC_SetRemMode();
   char          cval;
   unsigned int  uval;
   int           ival;
-  double        fval;
   std::string * sval;
+
+  SingleFloat                * sfloat;
+  DoubleFloat                * dfloat;
 
   CodeGenerator::ASTExpr     * expr;
   CodeGenerator::ASTExprList * exprlist;
@@ -40,7 +42,8 @@ extern void MBASIC_SetRemMode();
 %token <sval> QUOTED_STRING
 %token <uval> POSITIVE_INT
 %token <ival> NEGATIVE_INT
-%token <fval> DOUBLE
+%token <dfloat> DOUBLE
+%token <sfloat> SINGLE
 
 %type <ival>     integer
 
@@ -49,6 +52,9 @@ extern void MBASIC_SetRemMode();
 %type <printellist> print_expression_list 
 
 %type <expr>     LET_statement assign_expression numeric_expression string_expression string_constant
+%type <expr>     integer_expression
+%type <expr>     single_float_expression
+%type <expr>     double_float_expression
 
 %%
 
@@ -139,11 +145,39 @@ assign_expression:  IDENTIFIER '=' numeric_expression
                         }
                     ;
 
-numeric_expression: integer
-                        { $$ = new CodeGenerator::ConstantInt16Expr($1); }
-                    | DOUBLE
-                        { $$ = new CodeGenerator::ConstantInt16Expr($1);}
+numeric_expression: integer_expression
+                    | single_float_expression
+                    | double_float_expression
                     ;
+
+
+integer_expression: integer                    
+                      { $$ = new CodeGenerator::ConstantInt16Expr($1); }
+                    | integer_expression '*' integer_expression 
+                      { $$ = NULL;}
+                    | integer_expression '/' integer_expression 
+                      { $$ = NULL;}
+                    | integer_expression '-' integer_expression 
+                      { $$ = NULL;}
+                    | integer_expression '+' integer_expression 
+                      { $$ = NULL;}
+                    ;
+                    
+single_float_expression:  SINGLE
+                            { $$ = new CodeGenerator::ConstantInt16Expr($1->m_value);}
+                          | single_float_expression '*' single_float_expression 
+                            { $$ = NULL;}
+                          | single_float_expression '/' single_float_expression 
+                            { $$ = NULL;}
+                          | single_float_expression '-' single_float_expression 
+                            { $$ = NULL;}
+                          | single_float_expression '+' single_float_expression 
+                            { $$ = NULL;}
+                          ;
+
+double_float_expression:  DOUBLE
+                            { $$ = new CodeGenerator::ConstantInt16Expr($1->m_value);}
+                          ;
 
 string_expression:  string_constant
                     {
@@ -246,7 +280,13 @@ REM_statement: rem_keyword
  *********************************************************/ 
 
 integer:        POSITIVE_INT
+                  {
+                    $$ = $1;
+                  }
                 | NEGATIVE_INT
+                  {
+                    $$ = $1;
+                  }
                 ;
 
 string_constant:    QUOTED_STRING
