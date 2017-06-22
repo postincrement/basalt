@@ -113,7 +113,6 @@ assign_expression:  IDENTIFIER '=' numeric_expression
                           }
                           else {
                             $$ = new CodeGenerator::NumericAssignExpr(var, $3);
-                            cout << "declaring " << *$1 << " = " << endl; 
                           }
                         }
                     | INTEGER_VARNAME '=' numeric_expression

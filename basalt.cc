@@ -194,7 +194,7 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  cout << "generating code" << endl;
+  //cout << "generating code" << endl;
 
   llvm::StringRef targetTriple(g_targetTripleStr);
   
@@ -280,8 +280,6 @@ int Basalt::Main(int argc, char const *argv[])
   Filename exeFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename());
   std::stringstream cmd;
   cmd << "clang " << objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
-
-  cout << "cmd = " << cmd.str() << endl;
 
   (void)system(cmd.str().c_str());
 

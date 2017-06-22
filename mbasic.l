@@ -16,7 +16,6 @@
 %%
 
 <REM_MODE>[^\n]* {
-  std::cout << "REM " << yytext << std::endl;
     BEGIN(INITIAL);
   }
 
