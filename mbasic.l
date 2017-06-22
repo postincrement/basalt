@@ -11,13 +11,14 @@
 
 %option noyywrap
 
+%x REM_MODE
+
 %%
 
-":"		{ return yytext[0]; }
-
-";"   { return yytext[0]; }
-
-"="   { return yytext[0]; }
+<REM_MODE>[^\n]* {
+  std::cout << "REM " << yytext << std::endl;
+    BEGIN(INITIAL);
+  }
 
 [Ll][Ee][Tt]  {
 					return LET_TOKEN;
@@ -27,6 +28,9 @@
           return PRINT_TOKEN;
         }
 
+[Rr][Ee][Mm]  {
+          return REM_TOKEN;
+        }
         
 \"[^\"\n]*\" {
       MBASIC_lval.sval = new std::string(yytext+1, strlen(yytext)-2);
@@ -72,10 +76,30 @@
 
 [\n]	 	{
 			  g_lineNumber++;
-			  return EOL;
+			  return EOL_TOKEN;
 			}
+
+<<EOF>>     return EOF_TOKEN;      
+
+":"   { return yytext[0]; }
+
+";"   { return yytext[0]; }
+
+"="   { return yytext[0]; }
+
+"?"   { return yytext[0]; }
+
+","   { return yytext[0]; }
+
+"'"   { return yytext[0]; }
 
 .		{
 		}
 
 %%
+
+
+void MBASIC_SetRemMode()
+{
+  BEGIN(REM_MODE);
+}

@@ -59,8 +59,10 @@ class ASTExpr
 		virtual llvm::Value * Generate(Module & module) = 0;
 };
 
-struct GetInt16Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt16Ty(); } };
-struct GetInt32Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt32Ty(); } };
+struct GetInt16Ty     { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt16Ty(); } };
+struct GetInt32Ty     { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt32Ty(); } };
+struct GetPtrToInt8Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt8Ty()->getPointerTo(); } };
+
 
 class ValuedASTExpr : public ASTExpr
 {
@@ -187,13 +189,12 @@ class ConstantStringExpr : public ValuedASTExpr
 
 
 void GenerateCall0(Module & module, 
-                  const std::string & name);
+	      const std::string & name);
 
 void GenerateCall1(Module & module, 
                   const std::string & name, 
                   std::vector<llvm::Type *> & argTypes, 
                   llvm::Value * arg);
-
 
 class FunctionASTExpr
 {
@@ -203,13 +204,32 @@ class FunctionASTExpr
 
 		std::string m_name;
 		ASTExpr * m_body;
-};
+	};
 
-class PutsExpr : public ASTExpr
+class Call0Expr : public ASTExpr
 {
 	public:
-		PutsExpr(ASTExpr * arg)
+		Call0Expr(const std::string & name)
 			: ASTExpr()
+			, m_name(name)
+		{ }
+
+		virtual llvm::Value * Generate(Module & module) override
+		{
+		  GenerateCall0(module, m_name);
+		  return NULL;
+		}
+
+		std::string m_name;
+};
+
+template<class ArgTypeFunc>
+class Call1Expr : public ASTExpr
+{
+	public:
+		Call1Expr(const std::string & name, ASTExpr * arg)
+			: ASTExpr()
+			, m_name(name)
 			, m_arg(arg)
 		{ }
 
@@ -217,15 +237,15 @@ class PutsExpr : public ASTExpr
 		{
 			llvm::Value * arg = m_arg->Generate(module);
 
-		  // generator code for void basalt_puts(i8 *)
-		  std::vector<llvm::Type *> argTypes;
-		  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
+			std::vector<llvm::Type *> argTypes;
+		  argTypes.push_back(m_argType(module));
 
-		  GenerateCall1(module, "basalt_puts", argTypes, arg);
-
+		  GenerateCall1(module, m_name, argTypes, arg);
 		  return NULL;
 		}
 
+		std::string m_name;
+		ArgTypeFunc m_argType;
 		ASTExpr * m_arg;
 };
 
@@ -307,6 +327,20 @@ struct VariableList
 };
 
 } // namespace CodeGenerator
+
+
+struct PrintElement 
+{
+  PrintElement()
+    : m_isTab(false)
+    , m_expr(nullptr)
+  { }
+  bool m_isTab;
+  CodeGenerator::ASTExpr * m_expr;
+};
+
+typedef std::vector<PrintElement *> PrintElementList;
+
 
 
 #endif // CODEGEN_H

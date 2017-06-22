@@ -42,9 +42,9 @@ void CodeGenerator::GenerateCall0(Module & module, const std::string & name)
 }
 
 void CodeGenerator::GenerateCall1(Module & module, 
-                  const std::string & name, 
-                  std::vector<llvm::Type *> & argTypes, 
-                  llvm::Value * arg)
+                                  const std::string & name, 
+                                  std::vector<llvm::Type *> & argTypes, 
+                                  llvm::Value * arg)
 {
   llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
   llvm::FunctionType * funcType = llvm::FunctionType::get(module.GetBuilder().getInt32Ty(), argsRef, false);
