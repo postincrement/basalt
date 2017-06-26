@@ -12,7 +12,7 @@ int g_errorCount = 0;
 LanguageProfile g_profile;
 
 std::map<std::string, CodeGenerator::ASTExpr *> m_globalStringConstants;
-CodeGenerator::VariableList g_globals;
+CodeGenerator::VariableList g_variables;
 CodeGenerator::ASTExprList g_expressions;
 
 struct ArgDef 

@@ -61,7 +61,9 @@ class ASTExpr
 
 struct GetInt16Ty     { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt16Ty(); } };
 struct GetInt32Ty     { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt32Ty(); } };
-struct GetPtrToInt8Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt8Ty()->getPointerTo(); } };
+
+struct GetPtrToInt8Ty  { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt8Ty()->getPointerTo(); } };
+struct GetPtrToInt16Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt16Ty()->getPointerTo(); } };
 
 
 class ValuedASTExpr : public ASTExpr
@@ -91,11 +93,24 @@ typedef std::vector<ASTExpr *> ASTExprList;
 class Variable : public ValuedASTExpr
 {
 	public:
-		Variable(const std::string & name, bool global)
-			: m_name(name)
+		enum Type
+		{
+			eInteger,
+			eSingle,
+			eDouble,
+			eString
+		};
+
+		Variable(Type type, const std::string & name, bool global)
+			: m_type(type)
+			, m_name(name)
 			, m_global(global)
 		{ }
 
+		Type GetType() const
+		{ return m_type; }
+
+		Type m_type;
 		std::string m_name;
 		bool m_global;
 };
@@ -105,7 +120,7 @@ class IntVariable : public Variable
 {
 	public:
 		IntVariable(const std::string & name, bool global)
-			: Variable(name, global)
+			: Variable(eInteger, name, global)
 		{
 		}
 
@@ -134,7 +149,7 @@ class StringVariable : public Variable
 {
 	public:
 		StringVariable(const std::string & name, bool global)
-			: Variable(name, global)
+			: Variable(eString, name, global)
 		{
 		}
 

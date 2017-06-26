@@ -52,9 +52,6 @@ extern void MBASIC_SetRemMode();
 %type <printellist> print_expression_list 
 
 %type <expr>     LET_statement assign_expression numeric_expression string_expression string_constant
-%type <expr>     integer_expression
-%type <expr>     single_float_expression
-%type <expr>     double_float_expression
 
 %%
 
@@ -90,7 +87,7 @@ statement:     LET_statement
 
 eol:    EOL_TOKEN
         | EOF_TOKEN
-        { return 0; }
+          { return 0; }
         ;               
 
 /********************************************************* 
@@ -111,7 +108,7 @@ opt_LET_TOKEN:  /* empty */
 
 assign_expression:  IDENTIFIER '=' numeric_expression
                         {
-                          CodeGenerator::Variable * var = g_globals.Add<CodeGenerator::Int16Variable>(*$1, true);
+                          CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::Int16Variable>(*$1, true);
                           if (var == NULL) {
                             cerr << "Variable '" << *$1 << " redefined type" << endl;
                             $$ = nullptr;
@@ -123,7 +120,7 @@ assign_expression:  IDENTIFIER '=' numeric_expression
                         }
                     | INTEGER_VARNAME '=' numeric_expression
                         {
-                          CodeGenerator::Variable * var = g_globals.Add<CodeGenerator::Int16Variable>(*$1, true);
+                          CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::Int16Variable>(*$1, true);
                           if (var == NULL) {
                             cerr << "Variable '" << *$1 << " redefined type" << endl;
                             $$ = nullptr;
@@ -134,7 +131,7 @@ assign_expression:  IDENTIFIER '=' numeric_expression
                         }
                     | STRING_VARNAME '=' string_expression
                         {
-                          CodeGenerator::Variable * var = g_globals.Add<CodeGenerator::StringVariable>(*$1, true);
+                          CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::StringVariable>(*$1, true);
                           if (var == NULL) {
                             cerr << "Variable '" << *$1 << " redefined type" << endl;
                             $$ = nullptr;
@@ -145,44 +142,38 @@ assign_expression:  IDENTIFIER '=' numeric_expression
                         }
                     ;
 
-numeric_expression: integer_expression
-                    | single_float_expression
-                    | double_float_expression
-                    ;
-
-
-integer_expression: integer                    
+numeric_expression: integer
                       { $$ = new CodeGenerator::ConstantInt16Expr($1); }
-                    | integer_expression '*' integer_expression 
-                      { $$ = NULL;}
-                    | integer_expression '/' integer_expression 
-                      { $$ = NULL;}
-                    | integer_expression '-' integer_expression 
-                      { $$ = NULL;}
-                    | integer_expression '+' integer_expression 
-                      { $$ = NULL;}
+                    | SINGLE
+                      { 
+                        $$ = new CodeGenerator::ConstantInt16Expr($1->m_value);
+                        delete $1; 
+                      }
+                    | DOUBLE
+                      { $$ = NULL; }
+                    | IDENTIFIER
+                      { 
+                        auto r = g_variables.m_vars.find(*$1);
+                        if (r == g_variables.m_vars.end()) {
+                          cerr << "error: undefined variable '" << *$1 << "'" << endl;
+                          return 0;
+                        }
+                        $$ = r->second;
+                      } 
+                    | numeric_expression '*' numeric_expression 
+                      { $$ = NULL; }
+                    | numeric_expression '/' numeric_expression 
+                      { $$ = NULL; }
+                    | numeric_expression '-' numeric_expression 
+                      { $$ = NULL; }
+                    | numeric_expression '+' numeric_expression 
+                      { $$ = NULL; }
                     ;
                     
-single_float_expression:  SINGLE
-                            { $$ = new CodeGenerator::ConstantInt16Expr($1->m_value);}
-                          | single_float_expression '*' single_float_expression 
-                            { $$ = NULL;}
-                          | single_float_expression '/' single_float_expression 
-                            { $$ = NULL;}
-                          | single_float_expression '-' single_float_expression 
-                            { $$ = NULL;}
-                          | single_float_expression '+' single_float_expression 
-                            { $$ = NULL;}
-                          ;
-
-double_float_expression:  DOUBLE
-                            { $$ = new CodeGenerator::ConstantInt16Expr($1->m_value);}
-                          ;
-
 string_expression:  string_constant
-                    {
-                      $$ = $1; 
-                    }
+                      {
+                        $$ = $1; 
+                      }
                     ;
 
 /********************************************************* 
@@ -210,7 +201,7 @@ PRINT_statement:  print_keyword print_expression_list
 
 print_keyword:   PRINT_TOKEN
                  | '?'
-                 { cout << "warning: question mark PRINT not supported in basic-8k" << endl; }
+                    { cout << "warning: question mark PRINT not supported in basic-8k" << endl; }
                  ;                 
 
 print_expression_list: /* empty */
@@ -234,15 +225,6 @@ print_expression:      string_constant
                                      $1
                                      );
                           }
-                       | IDENTIFIER
-                         {
-                            $$ = new PrintElement();
-                            $$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt8Ty>(
-                                     "basalt_puts_string", 
-                                     new CodeGenerator::ConstantStringExpr(*$1, true)
-                                     );
-                            delete $1;         
-                         }
                        | ',' 
                           {
                             $$ = new PrintElement();
@@ -252,6 +234,14 @@ print_expression:      string_constant
                           {
                             $$ = new PrintElement();
                             $$->m_expr = nullptr;
+                          }
+                       | numeric_expression
+                          {
+                            $$ = new PrintElement();
+                            $$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt16Ty>(
+                                     "basalt_puts_integer", 
+                                     $1
+                                     );
                           }
                        ;                           
 

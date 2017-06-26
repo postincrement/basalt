@@ -1,5 +1,7 @@
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdint.h>
 
 #define   STDOUT_FD     0
 
@@ -16,6 +18,15 @@ int basalt_puts_string(const char * str)
 {
   int len = strlen(str);
   write(STDOUT_FD, str, len);
+  g_outputColumn += len;
+  return 0;
+}
+
+int basalt_puts_integer(uint16_t * value)
+{
+  char buffer[10];
+  int len = sprintf(buffer, "%i", *value);
+  write(STDOUT_FD, buffer, len);
   g_outputColumn += len;
   return 0;
 }
