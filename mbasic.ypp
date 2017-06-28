@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <memory>
 using namespace std;
 
 #include "basalt.h"
@@ -21,15 +22,15 @@ extern void MBASIC_SetRemMode();
   int           ival;
   std::string * sval;
 
-  SingleFloat                * sfloat;
-  DoubleFloat                * dfloat;
+  SingleFloat * sfloat;
+  DoubleFloat * dfloat;
 
-  CodeGenerator::ASTExpr     * expr;
-  CodeGenerator::ASTExprList * exprlist;
-  CodeGenerator::Variable    * varname;
+  AST::Expr     * expr;
+  AST::ExprList * exprlist;
+  //AST::Variable * varname;
 
-  PrintElement               * printel;
-  PrintElementList           * printellist; 
+  //PrintElement               * printel;
+  //PrintElementList           * printellist; 
 }
 
 %token EOL_TOKEN
@@ -47,17 +48,37 @@ extern void MBASIC_SetRemMode();
 
 %type <ival>     integer
 
+%type <exprlist>    MBASIC_file line opt_statement_list statement_list 
+
+%type <expr>        statement
+
 %type <expr>        PRINT_statement 
 %type <printel>     print_expression 
 %type <printellist> print_expression_list 
 
-%type <expr>     LET_statement assign_expression numeric_expression string_expression string_constant
+%type <expr>        LET_statement 
+
+assign_expression numeric_expression string_expression string_constant
+
+%type <expr>     const_integer_expr
 
 %%
 
-MBASIC_file: line
-             | MBASIC_file line 
-             ;
+MBASIC_file:  line
+                {
+                  $$ = $1;
+                }
+              | MBASIC_file line
+                {
+                  if ($2 != nullptr) {
+                    for (auto & r : *$2) {
+                      g_expressions.push_back(r);
+                    }
+                  }
+                  delete $2;
+
+                } 
+              ;
 
 /*********************************************************F
 
@@ -66,6 +87,9 @@ MBASIC_file: line
  *********************************************************/ 
 
 line:     opt_line_number opt_statement_list eol
+            {
+              $$ = $2;
+            }
           ;
 
 opt_line_number: /* empty */
@@ -73,16 +97,41 @@ opt_line_number: /* empty */
                  ; 
 
 opt_statement_list : /* empty */
+                      {
+                        $$ = nullptr;
+                      }
                    | statement_list
+                      {
+                        $$ = $1;
+                      }
                    ;
 
 statement_list : statement
+                  {
+                    $$ = new AST::ExprList();
+                    if ($1 != nullptr)
+                      $$->push_back($1);
+                  }   
                | statement_list ':' statement
+                  {
+                    $$ = $1;
+                    if ($3 != nullptr)
+                      $$->push_back($3);
+                  }   
                ;
 
 statement:     LET_statement
+                  {
+                    $$ = $1;
+                  }
                | PRINT_statement 
+                  {
+                    $$ = $1;
+                  }
                | REM_statement
+                  {
+                    $$ = nullptr;
+                  }
                ;
 
 eol:    EOL_TOKEN
@@ -98,7 +147,7 @@ eol:    EOL_TOKEN
 
 LET_statement:  opt_LET_TOKEN assign_expression
                 {
-                  g_expressions.push_back($2);
+                  $$ = $2;
                 }
                 ;
 
@@ -108,71 +157,91 @@ opt_LET_TOKEN:  /* empty */
 
 assign_expression:  IDENTIFIER '=' numeric_expression
                         {
+                          $$ = nullptr;
+                        /*
                           CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::Int16Variable>(*$1, true);
                           if (var == NULL) {
                             cerr << "Variable '" << *$1 << " redefined type" << endl;
                             $$ = nullptr;
-                            delete $1;
                           }
-                          else {
+                          else
                             $$ = new CodeGenerator::NumericAssignExpr(var, $3);
-                          }
+                          delete $1;
+                        */  
                         }
                     | INTEGER_VARNAME '=' numeric_expression
                         {
+                          $$ = nullptr;
+                         /*
                           CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::Int16Variable>(*$1, true);
                           if (var == NULL) {
                             cerr << "Variable '" << *$1 << " redefined type" << endl;
                             $$ = nullptr;
-                            delete $1;
                           }  
                           else
                             $$ = new CodeGenerator::NumericAssignExpr(var, $3);
+                          delete $1;
+                         */ 
                         }
                     | STRING_VARNAME '=' string_expression
                         {
+                          $$ = nullptr;
+                          /*
                           CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::StringVariable>(*$1, true);
                           if (var == NULL) {
                             cerr << "Variable '" << *$1 << " redefined type" << endl;
                             $$ = nullptr;
-                            delete $1;
                           }
                           else 
                             $$ = new CodeGenerator::StringAssignExpr(var, $3);
+                          delete $1;
+                          */
                         }
                     ;
 
-numeric_expression: integer
-                      { $$ = new CodeGenerator::ConstantInt16Expr($1); }
+numeric_expression: const_integer_expr
+                      { 
+                        //$$ = new CodeGenerator::ConstantInt16Expr($1); 
+                      }
                     | SINGLE
                       { 
-                        $$ = new CodeGenerator::ConstantInt16Expr($1->m_value);
-                        delete $1; 
+                        //$$ = new CodeGenerator::ConstantInt16Expr($1->m_value);
+                        //delete $1; 
                       }
                     | DOUBLE
-                      { $$ = NULL; }
+                      { 
+                        //$$ = NULL; 
+                      }
                     | IDENTIFIER
                       { 
-                        auto r = g_variables.m_vars.find(*$1);
-                        if (r == g_variables.m_vars.end()) {
-                          cerr << "error: undefined variable '" << *$1 << "'" << endl;
-                          return 0;
-                        }
-                        $$ = r->second;
+                        //auto r = g_variables.m_vars.find(*$1);
+                        //if (r == g_variables.m_vars.end()) {
+                        //  cerr << "error: undefined variable '" << *$1 << "'" << endl;
+                        //  return 0;
+                        //}
+                        //$$ = r->second;
                       } 
                     | numeric_expression '*' numeric_expression 
-                      { $$ = NULL; }
+                      { 
+                        //$$ = NULL; 
+                      }
                     | numeric_expression '/' numeric_expression 
-                      { $$ = NULL; }
+                      { 
+                        //$$ = NULL; 
+                      }
                     | numeric_expression '-' numeric_expression 
-                      { $$ = NULL; }
+                      { 
+                        //$$ = NULL; 
+                      }
                     | numeric_expression '+' numeric_expression 
-                      { $$ = NULL; }
+                      { 
+                        //$$ = NULL; 
+                      }
                     ;
                     
 string_expression:  string_constant
                       {
-                        $$ = $1; 
+                        //$$ = $1; 
                       }
                     ;
 
@@ -184,64 +253,66 @@ string_expression:  string_constant
 
 PRINT_statement:  print_keyword print_expression_list
                     {
-                      for (auto & r : *$2) {
-                        CodeGenerator::ASTExpr * expr = nullptr;
-                        if (r->m_isTab)
-                          expr = new CodeGenerator::Call0Expr("basalt_puts_tab");
-                        else if (r->m_expr != nullptr)  
-                          expr = r->m_expr;
-                        if (expr != nullptr)  
-                          g_expressions.push_back(expr);
-                      }
-                      size_t len = $2->size();
-                      if ((len > 0) && !(*$2)[len-1]->m_isTab && ((*$2)[len-1]->m_expr != nullptr)) 
-                        g_expressions.push_back(new CodeGenerator::Call0Expr("basalt_puts_eol"));
+                      //for (auto & r : *$2) {
+                      //  CodeGenerator::ExprAST * expr = nullptr;
+                      //  if (r->m_isTab)
+                      //    expr = new CodeGenerator::Call0Expr("basalt_puts_tab");
+                      //  else if (r->m_expr != nullptr)  
+                      //    expr = r->m_expr;
+                      //  if (expr != nullptr)  
+                      //    g_expressions.push_back(expr);
+                      //}
+                      //size_t len = $2->size();
+                      //if ((len > 0) && !(*$2)[len-1]->m_isTab && ((*$2)[len-1]->m_expr != nullptr)) 
+                      //  g_expressions.push_back(new CodeGenerator::Call0Expr("basalt_puts_eol"));
                     }
                  ;
 
 print_keyword:   PRINT_TOKEN
                  | '?'
-                    { cout << "warning: question mark PRINT not supported in basic-8k" << endl; }
+                    { 
+                      cout << "warning: question mark PRINT not supported in basic-8k" << endl; 
+                    }
                  ;                 
 
 print_expression_list: /* empty */
                           {
-                            $$ = new PrintElementList;
+                            //$$ = new PrintElementList;
                           }  
                        | print_expression_list print_expression
                           {
-                            if ($1 != nullptr) {
-                              $1->push_back($2);
-                              $$ = $1;
-                            }
+                            //if ($1 != nullptr) {
+                            //  $1->push_back($2);
+                            //  $$ = $1;
+                            //}
                           }
                        ;
 
 print_expression:      string_constant
                           {
-                            $$ = new PrintElement();
-                            $$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt8Ty>(
-                                     "basalt_puts_string", 
-                                     $1
-                                     );
+                            //$$ = new PrintElement();
+                            //$$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt8Ty>(
+                            //         "basalt_puts_string", 
+                            //         $1
+                            //         );
                           }
                        | ',' 
                           {
-                            $$ = new PrintElement();
-                            $$->m_isTab = true;
+                            //$$ = new PrintElement();
+                            //$$->m_isTab = true;
                           }
                        | ';'
                           {
-                            $$ = new PrintElement();
-                            $$->m_expr = nullptr;
+                            //$$ = new PrintElement();
+                            //$$->m_expr = nullptr;
                           }
                        | numeric_expression
                           {
-                            $$ = new PrintElement();
-                            $$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt16Ty>(
-                                     "basalt_puts_integer", 
-                                     $1
-                                     );
+                            //$$ = new PrintElement();
+                            //$$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt16Ty>(
+                            //         "basalt_puts_integer", 
+                            //         $1
+                            //         );
                           }
                        ;                           
 
@@ -269,6 +340,12 @@ REM_statement: rem_keyword
  
  *********************************************************/ 
 
+const_integer_expr: integer
+                      {
+                        $$ = new AST::ConstantInt16Expr($1);
+                      }
+                    ;
+
 integer:        POSITIVE_INT
                   {
                     $$ = $1;
@@ -281,15 +358,13 @@ integer:        POSITIVE_INT
 
 string_constant:    QUOTED_STRING
                     {
-                      auto r = m_globalStringConstants.find(*$1);
-                      if (r != m_globalStringConstants.end())
-                        $$ = r->second;
-                      else {
-                        auto * expr = new CodeGenerator::ConstantStringExpr(*$1, true);
-                        m_globalStringConstants[*$1] = expr;
-                        $$ = expr;
-                      }  
-                      delete $1;  
+                      //auto r = m_globalStringConstants.find(*$1);
+                      //if (r != m_globalStringConstants.end())
+                      //  $$ = r->second;
+                      //else {
+                      //  auto * expr = new CodeGenerator::ConstantStringExpr(*$1, true);
+                      //  m_globalStringConstants[*$1] = expr;
+                      //  $$ = expr;
+                      //}  
+                      //delete $1;  
                     }                    
-
-

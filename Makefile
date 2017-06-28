@@ -22,6 +22,7 @@ clean:
 	rm -f basalt basalt.o mbasic.lex.o mbasic.tab.o codegen.o basaltrt.o libbasaltrt.a
 
 mbasic.lex.o: mbasic.lex.cpp mbasic.tab.hpp
+	g++ -c $(CXXFLAGS) mbasic.lex.cpp -Wno-unused-function -Wno-sign-compare -o $@
 
 mbasic.lex.cpp: mbasic.l
 	$(FLEX) -o mbasic.lex.cpp mbasic.l

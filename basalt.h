@@ -5,6 +5,7 @@
 #include <string>
 
 #include "codegen.h"
+#include "ast.h"
 
 class Filename : public std::string
 {
@@ -96,9 +97,5 @@ extern int g_lineNumber;
 extern Filename g_inputFilename;
 
 extern LanguageProfile g_profile;
-
-extern std::map<std::string, CodeGenerator::ASTExpr *> m_globalStringConstants;
-extern CodeGenerator::VariableList g_variables;
-extern CodeGenerator::ASTExprList g_expressions;
 
 #endif // BASALT_H_

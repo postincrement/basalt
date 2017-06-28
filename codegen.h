@@ -25,9 +25,48 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Passes/PassBuilder.h"
 
-namespace CodeGenerator  {
+#include "ast.h"
 
-using namespace llvm;
+class CodeGenerator  
+{
+	public:
+		CodeGenerator(std::ostream & errorStream, const std::string & name = "basalt")
+	  	: m_module(llvm::make_unique<llvm::Module>(name, m_context))
+			, m_builder(m_context)
+			, m_errorStream(errorStream)
+		{ 
+  	}
+
+
+		llvm::BasicBlock * StartMain();
+		void EndMain(llvm::BasicBlock * block);
+
+  	void Dump()
+  	{
+	    m_module->dump();
+  	}
+
+		llvm::Value * LogError(const std::string & str);
+
+	  llvm::Value * Generate(AST::Expr & expr);
+		llvm::Value * Generate(AST::ConstantInt16Expr & expr);
+		llvm::Value * Generate(AST::VariableExpr & expr);
+		llvm::Value * Generate(AST::BinaryExpr & expr);
+
+		llvm::Value * Generate(AST::UnaryExpr & expr);
+		llvm::Value * Generate(AST::CallExpr & expr);
+		llvm::Value * Generate(AST::VarExpr & expr);
+
+		llvm::LLVMContext m_context;
+		std::unique_ptr<llvm::Module> m_module;	
+		llvm::IRBuilder<> m_builder;
+		std::ostream & m_errorStream;
+		std::map<std::string, llvm::AllocaInst *> m_namedValues;
+};
+
+// new classes
+
+#if 0
 
 class Module
 {
@@ -47,76 +86,64 @@ class Module
 		llvm::Module * m_module;
 };
 
-class ASTExpr
+
+class Call0Expr : public ExprAST
 {
 	public:
-		ASTExpr()
+		Call0Expr(const std::string & name)
+			: ExprAST()
+			, m_name(name)
 		{ }
 
-		virtual ~ASTExpr()
-		{ }
-
-		virtual llvm::Value * Generate(Module & module) = 0;
-};
-
-struct GetInt16Ty     { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt16Ty(); } };
-struct GetInt32Ty     { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt32Ty(); } };
-
-struct GetPtrToInt8Ty  { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt8Ty()->getPointerTo(); } };
-struct GetPtrToInt16Ty { llvm::Type * operator()(Module & module) { return module.GetBuilder().getInt16Ty()->getPointerTo(); } };
-
-
-class ValuedASTExpr : public ASTExpr
-{
-	public:
-		ValuedASTExpr()
-		  : m_llvmValue(nullptr)
-		{ }
-
-		virtual llvm::Value * Generate(Module & module)
+		virtual llvm::Value * Generate(Module & module) override
 		{
-			if (m_llvmValue == nullptr)
-				m_llvmValue = GenerateOnce(module);
-
-			return m_llvmValue;
+		  GenerateCall0(module, m_name);
+		  return NULL;
 		}
 
-		virtual llvm::Value * GenerateOnce(Module & module) = 0;
-
-  private:
-  	llvm::Value * m_llvmValue;	
+		std::string m_name;
 };
 
 
-typedef std::vector<ASTExpr *> ASTExprList;
+/*
+void GenerateCall0(Module & module, 
+	      const std::string & name);
 
-class Variable : public ValuedASTExpr
+void GenerateCall1(Module & module, 
+                  const std::string & name, 
+                  std::vector<llvm::Type *> & argTypes, 
+                  llvm::Value * arg);
+
+
+template<class ArgTypeFunc>
+class Call1Expr : public ExprAST
 {
 	public:
-		enum Type
-		{
-			eInteger,
-			eSingle,
-			eDouble,
-			eString
-		};
-
-		Variable(Type type, const std::string & name, bool global)
-			: m_type(type)
+		Call1Expr(const std::string & name, ExprAST * arg)
+			: ExprAST()
 			, m_name(name)
-			, m_global(global)
+			, m_arg(arg)
 		{ }
 
-		Type GetType() const
-		{ return m_type; }
+		virtual llvm::Value * Generate(Module & module) override
+		{
+			llvm::Value * arg = m_arg->Generate(module);
 
-		Type m_type;
+			std::vector<llvm::Type *> argTypes;
+		  argTypes.push_back(m_argType(module));
+
+		  GenerateCall1(module, m_name, argTypes, arg);
+		  return NULL;
+		}
+
 		std::string m_name;
-		bool m_global;
+		ArgTypeFunc m_argType;
+		ExprAST * m_arg;
 };
+*/
 
 template <class IntType, class TypeFunc, int NumBits>
-class IntVariable : public Variable
+class IntVariable : public VariableExprAst
 {
 	public:
 		IntVariable(const std::string & name, bool global)
@@ -160,7 +187,7 @@ class StringVariable : public Variable
 };
 
 template <class IntType, class TypeFunc, int NumBits>
-class ConstantIntExpr : public ASTExpr
+class ConstantIntExpr : public ExprAST
 {
 	public:
 		ConstantIntExpr(IntType val)
@@ -182,7 +209,7 @@ typedef ConstantIntExpr<int16_t, GetInt16Ty, 16> ConstantInt16Expr;
 
 typedef ConstantIntExpr<int32_t, GetInt32Ty, 32> ConstantInt32Expr;
 
-class ConstantStringExpr : public ValuedASTExpr
+class ConstantStringExpr : public ValuedExprAST
 {
 	public:
 		ConstantStringExpr(const std::string & value, bool global)
@@ -203,72 +230,21 @@ class ConstantStringExpr : public ValuedASTExpr
 };
 
 
-void GenerateCall0(Module & module, 
-	      const std::string & name);
-
-void GenerateCall1(Module & module, 
-                  const std::string & name, 
-                  std::vector<llvm::Type *> & argTypes, 
-                  llvm::Value * arg);
-
-class FunctionASTExpr
+class FunctionExprAST
 {
 	public:
-		FunctionASTExpr(const std::string & name, ASTExpr * body);
+		FunctionExprAST(const std::string & name, ExprAST * body);
 		virtual llvm::Function * Generate(Module & module);
 
 		std::string m_name;
-		ASTExpr * m_body;
+		ExprAST * m_body;
 	};
 
-class Call0Expr : public ASTExpr
+class NumericAssignExpr : public ExprAST
 {
 	public:
-		Call0Expr(const std::string & name)
-			: ASTExpr()
-			, m_name(name)
-		{ }
-
-		virtual llvm::Value * Generate(Module & module) override
-		{
-		  GenerateCall0(module, m_name);
-		  return NULL;
-		}
-
-		std::string m_name;
-};
-
-template<class ArgTypeFunc>
-class Call1Expr : public ASTExpr
-{
-	public:
-		Call1Expr(const std::string & name, ASTExpr * arg)
-			: ASTExpr()
-			, m_name(name)
-			, m_arg(arg)
-		{ }
-
-		virtual llvm::Value * Generate(Module & module) override
-		{
-			llvm::Value * arg = m_arg->Generate(module);
-
-			std::vector<llvm::Type *> argTypes;
-		  argTypes.push_back(m_argType(module));
-
-		  GenerateCall1(module, m_name, argTypes, arg);
-		  return NULL;
-		}
-
-		std::string m_name;
-		ArgTypeFunc m_argType;
-		ASTExpr * m_arg;
-};
-
-class NumericAssignExpr : public ASTExpr
-{
-	public:
-		NumericAssignExpr(Variable * variable, ASTExpr * expr)
-			: ASTExpr()
+		NumericAssignExpr(Variable * variable, ExprAST * expr)
+			: ExprAST()
 			, m_lhs(variable)
 			, m_rhs(expr)
 		{ 			
@@ -276,8 +252,8 @@ class NumericAssignExpr : public ASTExpr
 
 		virtual llvm::Value * Generate(Module & module) override
 		{
-			llvm::Value * lhs = m_lhs->Generate(module);
 			llvm::Value * rhs = m_rhs->Generate(module);
+			llvm::Value * lhs = m_lhs->Generate(module);
 
 			llvm::StoreInst * val = new llvm::StoreInst(rhs, lhs, false, module.GetBuilder().GetInsertBlock());
       val->setAlignment(2);
@@ -286,35 +262,25 @@ class NumericAssignExpr : public ASTExpr
 		}
 
 		Variable * m_lhs;
-		ASTExpr * m_rhs;
+		ExprAST * m_rhs;
 };
 
-class StringAssignExpr : public ASTExpr
+class StringAssignExpr : public ExprAST
 {
 	public:
-		StringAssignExpr(Variable * variable, ASTExpr * expr)
-			: ASTExpr()
+		StringAssignExpr(Variable * variable, ExprAST * expr)
+			: ExprAST()
 			, m_lhs(variable)
 			, m_rhs(expr)
 		{ }
 
 		virtual llvm::Value * Generate(Module & module) override
 		{
-			/*
-			llvm::Value * arg = m_arg->Generate(module);
-
-		  // generator code for void puts(i8 *)
-		  std::vector<llvm::Type *> argTypes;
-		  argTypes.push_back(module.GetBuilder().getInt8Ty()->getPointerTo());
-
-		  GenerateCall1(module, "puts", argTypes, arg);
-      */
-
 		  return NULL;
 		}
 
 		Variable * m_lhs;
-		ASTExpr * m_rhs;
+		ExprAST * m_rhs;
 };
 
 struct VariableList 
@@ -341,7 +307,36 @@ struct VariableList
 	std::map<std::string, Variable *> m_vars;
 };
 
-} // namespace CodeGenerator
+#endif
+
+
+#if 0
+
+struct GetInt16Ty     { llvm::Type * operator()(CodeGen & cg) { return cg.m_builder.getInt16Ty(); } };
+struct GetInt32Ty     { llvm::Type * operator()(CodeGen & cg) { return cg.m_builder.getInt32Ty(); } };
+
+struct GetPtrToInt8Ty  { llvm::Type * operator()(CodeGen & cg) { return cg.m_builder.getInt8Ty()->getPointerTo(); } };
+struct GetPtrToInt16Ty { llvm::Type * operator()(CodeGen & cg) { return cg.m_builder.getInt16Ty()->getPointerTo(); } };
+
+
+/// NumberTypeExprAST - Expression class for typed numeric literals
+template<class IntType, class LLVMTypeFunc>
+class IntNumberTypeExprAST : public NumberExprAST 
+{
+	public:
+  	IntNumberTypeExprAST(IntType val) 
+  		: m_val(val) {}
+
+  	llvm::Value * Generate(CodeGen & cg) override
+  	{
+  		return llvm::ConstantInt::get(m_typeFunc(), m_val, true);
+		}
+
+  	IntType m_val;
+  	LLVMTypeFunc m_typeFunc;
+};
+
+typedef IntNumberTypeExprAST<uint16_t, GetInt16Ty> Int16NumberTypeExprAST;
 
 
 struct PrintElement 
@@ -351,33 +346,11 @@ struct PrintElement
     , m_expr(nullptr)
   { }
   bool m_isTab;
-  CodeGenerator::ASTExpr * m_expr;
-};
-
-struct SingleFloat 
-{
-	SingleFloat(const std::string & str)
-		: m_lexeme(str)
-	{
-		m_value = atof(str.c_str());
-	}
-	std::string m_lexeme;
-	double m_value;
-};
-
-struct DoubleFloat 
-{
-	DoubleFloat(const std::string & str)
-		: m_lexeme(str)
-	{
-		m_value = atof(str.c_str());
-	}	
-	std::string m_lexeme;
-	double m_value;
+  CodeGenerator::ExprAST * m_expr;
 };
 
 typedef std::vector<PrintElement *> PrintElementList;
 
-
+#endif 
 
 #endif // CODEGEN_H

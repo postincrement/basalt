@@ -10,10 +10,7 @@ int g_lineNumber = 1;
 int g_errorCount = 0;
 
 LanguageProfile g_profile;
-
-std::map<std::string, CodeGenerator::ASTExpr *> m_globalStringConstants;
-CodeGenerator::VariableList g_variables;
-CodeGenerator::ASTExprList g_expressions;
+AST::ExprList g_expressions;
 
 struct ArgDef 
 {
@@ -166,6 +163,11 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
+  ///////////////////////////////////////////////////////////////////////////////
+  //
+  // parse input file
+  //
+
   // open input file
   g_inputFilename = Filename(argv[index]);
 
@@ -180,13 +182,9 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  // create output filename
-  Filename objectFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename() + ".o");
-
   if (g_verbose)
-    cout << "info: compiling '" << g_inputFilename.GetFilename() << "' to '" << objectFilename.GetFilename() << "'" << endl;
+    cout << "info: parsing '" << g_inputFilename.GetFilename() << "'" << endl;
 
-  // parse input file
   MBASIC_parse();
 
   if (g_errorCount > 0) {
@@ -194,32 +192,63 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  //cout << "generating code" << endl;
+  ///////////////////////////////////////////////////////////////////////////////
+  //
+  //  code generation
+  //
 
-  llvm::StringRef targetTriple(g_targetTripleStr);
-  
-  CodeGenerator::Module module;
+  if (g_verbose)
+    cout << "info: generating code" << endl;
 
-  CodeGenerator::FunctionASTExpr * mainFunc = new CodeGenerator::FunctionASTExpr("main", NULL);
+  CodeGenerator cg(cerr);
 
-  llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc->Generate(module));
-  module.GetBuilder().SetInsertPoint(entry);
+  llvm::BasicBlock * block = cg.StartMain();
 
-  GenerateCall0(module, "basalt_init");  
+  {    
+    std::vector<llvm::Value *> ArgsV;
 
-  for (auto & r : g_expressions) {
-    if (r != nullptr)      
-      r->Generate(module);
+    /*
+    for (unsigned i = 0, e = Args.size(); i != e; ++i) {
+      ArgsV.push_back(Args[i]->codegen());
+      if (!ArgsV.back())
+        return nullptr;
+    }
+    */
+    llvm::FunctionType * FT = llvm::FunctionType::get(llvm::Type::getVoidTy(cg.m_context), false);
+    llvm::Function * calleeF = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage, "basalt_init", cg.m_module.get());    
+    cg.m_builder.CreateCall(calleeF, ArgsV, "calltmp");    
+
+    llvm::CallInst* int64_4 = llvm::CallInst::Create(calleeF, "", block);
+    int64_4->setCallingConv(llvm::CallingConv::C);
+    int64_4->setTailCall(false);    
   }
 
-  module.GetBuilder().CreateRetVoid();
+  for (auto & r : g_expressions) {
+    if (r != nullptr)
+      cg.Generate(*r);
+  }
 
-  //module.Optimize();
+  cg.EndMain(block);
+
+  //GenerateCall0(module, "basalt_init");    
+  //CodeGenerator::FunctionASTExpr * mainFunc = new CodeGenerator::FunctionASTExpr("main", NULL);
+
+  //llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc->Generate(module));
+  //module.GetBuilder().SetInsertPoint(entry);
 
   if (g_dumpAsm)
-    module.Dump();
+    cg.Dump();
 
   /////////////////////////////////////////////////////////////
+  //
+  //  outputting object file
+  //
+
+  // create output filename
+  Filename objectFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename() + ".o");
+
+  if (g_verbose)
+    cout << "info: creating '" << objectFilename.GetFilename() << "'" << endl;
 
   // Initialize the target registry etc.
   llvm::InitializeAllTargetInfos();
@@ -229,7 +258,7 @@ int Basalt::Main(int argc, char const *argv[])
   llvm::InitializeAllAsmPrinters();  
 
   std::string Error;
-  auto Target = llvm::TargetRegistry::lookupTarget(targetTriple, Error);
+  auto Target = llvm::TargetRegistry::lookupTarget(g_targetTripleStr, Error);
 
   // Print an error and exit if we couldn't find the requested target.
   // This generally occurs if we've forgotten to initialise the
@@ -245,13 +274,10 @@ int Basalt::Main(int argc, char const *argv[])
   llvm::TargetOptions opt;
   auto RM = llvm::Reloc::Model();  
 
-//  llvm::TargetOptions opt;
-//  auto RM = llvm::Optional<llvm::Reloc::Model>();
+  auto TargetMachine = Target->createTargetMachine(g_targetTripleStr, CPU, Features, opt, RM);  
 
-  auto TargetMachine = Target->createTargetMachine(targetTriple, CPU, Features, opt, RM);  
-
-  module.GetModule().setDataLayout(TargetMachine->createDataLayout());
-  module.GetModule().setTargetTriple(targetTriple);  
+  cg.m_module->setDataLayout(TargetMachine->createDataLayout());
+  cg.m_module->setTargetTriple(g_targetTripleStr);  
 
   std::error_code EC;
   llvm::raw_fd_ostream dest(objectFilename.c_str(), EC, llvm::sys::fs::F_None);
@@ -269,7 +295,7 @@ int Basalt::Main(int argc, char const *argv[])
     return 1;
   }
 
-  pass.run(module.GetModule());
+  pass.run(*cg.m_module);
 
   dest.flush();  
 
@@ -281,7 +307,10 @@ int Basalt::Main(int argc, char const *argv[])
   std::stringstream cmd;
   cmd << "clang " << objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
 
-  (void)system(cmd.str().c_str());
+
+  int result = system(cmd.str().c_str());
+  if (result != 0)
+    cerr << "error: linker failed" << endl;
 
   return 0;
 }

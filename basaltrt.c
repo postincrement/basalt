@@ -11,6 +11,7 @@ static int g_outputColumn = 0;
 
 int basalt_init()
 {
+  printf("hello\n");
   return 0;
 }
 

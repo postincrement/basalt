@@ -1,5 +1,187 @@
 #include "codegen.h"
 
+#include <sstream>
+
+using namespace std;
+
+llvm::BasicBlock * CodeGenerator::StartMain()
+{
+  // declare argument list for main
+  std::vector<llvm::Type*>FuncTy_1_args;
+
+#if 0
+  FuncTy_1_args.push_back(llvm::IntegerType::get(m_module->getContext(), 32));
+  llvm::PointerType* PointerTy_3 = llvm::PointerType::get(llvm::IntegerType::get(m_module->getContext(), 8), 0);
+  llvm::PointerType* PointerTy_2 = llvm::PointerType::get(PointerTy_3, 0);
+  FuncTy_1_args.push_back(PointerTy_2);
+#endif
+
+  // create function prototype for main
+  llvm::FunctionType* FuncTy_1 = llvm::FunctionType::get(
+  /*Result=*/llvm::IntegerType::get(m_module->getContext(), 32),
+  /*Params=*/FuncTy_1_args,
+  /*isVarArg=*/false);  
+
+  // create code for main  
+  llvm::Function * func_main = llvm::Function::Create(
+        /*Type=*/    FuncTy_1,
+        /*Linkage=*/ llvm::GlobalValue::ExternalLinkage,
+        /*Name=*/    "main", 
+                     m_module.get()
+                     );
+
+  func_main->setCallingConv(llvm::CallingConv::C);
+
+  llvm::AttributeSet func_main_PAL;
+  {
+    llvm::SmallVector<llvm::AttributeSet, 4> Attrs;
+    llvm::AttributeSet PAS;
+    {
+      llvm::AttrBuilder B;
+      B.addAttribute(llvm::Attribute::NoUnwind);
+      B.addAttribute(llvm::Attribute::UWTable);
+      PAS = llvm::AttributeSet::get(m_context, ~0U, B);
+    }
+
+    Attrs.push_back(PAS);
+    func_main_PAL = llvm::AttributeSet::get(m_context, Attrs);
+  }
+  func_main->setAttributes(func_main_PAL);
+
+
+  llvm::BasicBlock * label_10;
+  {
+#if 0    
+    llvm::Function::arg_iterator args = func_main->arg_begin();
+    llvm::ilist_iterator<llvm::Argument> int32_argc = args++;
+    int32_argc->setName("argc");
+    llvm::ilist_iterator<llvm::Argument> ptr_argv = args++;
+    ptr_argv->setName("argv");
+#endif
+
+    label_10 = llvm::BasicBlock::Create(m_context, "", func_main,0);  
+
+#if 0
+    // Block  (label_10)
+    llvm::AllocaInst* ptr_11 = new llvm::AllocaInst(llvm::IntegerType::get(m_context, 32), "", label_10);
+    ptr_11->setAlignment(4);
+    llvm::AllocaInst* ptr_12 = new llvm::AllocaInst(PointerTy_2, "", label_10);
+    ptr_12->setAlignment(8);
+    llvm::StoreInst* void_13 = new llvm::StoreInst(int32_argc, ptr_11, false, label_10);
+    void_13->setAlignment(4);
+    llvm::StoreInst* void_14 = new llvm::StoreInst(ptr_argv, ptr_12, false, label_10);
+    void_14->setAlignment(8);
+    llvm::StoreInst* void_15 = new llvm::StoreInst(const_int16_8, gvar_int16_a, false, label_10);
+    void_15->setAlignment(2);
+    llvm::LoadInst* int16_16 = new llvm::LoadInst(gvar_int16_a, "", false, label_10);
+    int16_16->setAlignment(2);
+    llvm::StoreInst* void_17 = new llm::StoreInst(int16_16, gvar_int16_b, false, label_10);
+    void_17->setAlignment(2);
+#endif
+  }
+
+  return label_10;
+}
+
+void CodeGenerator::EndMain(llvm::BasicBlock * block)
+{
+  llvm::ConstantInt * const_int32_9 = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
+  llvm::ReturnInst::Create(m_context, const_int32_9, block);
+}
+
+llvm::Value * CodeGenerator::LogError(const std::string & str)
+{
+  m_errorStream << str << endl;
+  return nullptr;
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::Expr & expr)
+{
+  return nullptr;
+}
+
+llvm::Value * CodeGenerator::Generate(AST::ConstantInt16Expr & expr)
+{
+  return llvm::ConstantInt::get(m_builder.getInt16Ty(), llvm::APInt(16, expr.m_intValue));
+}
+
+llvm::Value * CodeGenerator::Generate(AST::VariableExpr & expr)
+{
+  llvm::Value * value = m_namedValues[expr.m_name];
+  if (!value) {
+    std::stringstream strm;
+    strm << "Unknown variable name '" << expr.m_name << "'";
+    return LogError(strm.str());
+  }
+
+  return value;
+}
+
+llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
+{
+  llvm::Value * lhs = Generate(*expr.m_lhs);
+  llvm::Value * rhs = Generate(*expr.m_rhs);
+
+  if (!lhs || !rhs)
+    return nullptr;
+
+  switch (expr.m_op) {
+    case '+':
+      return m_builder.CreateFAdd(lhs, rhs, "addtmp");
+    case '-':
+      return m_builder.CreateFSub(lhs, rhs, "subtmp");
+    case '*':
+      return m_builder.CreateFMul(lhs, rhs, "multmp");
+    case '<':
+      lhs = m_builder.CreateFCmpULT(lhs, rhs, "cmptmp");
+      // Convert bool 0/1 to double 0.0 or 1.0
+      return m_builder.CreateUIToFP(lhs, llvm::Type::getDoubleTy(m_context), "booltmp");
+    default:
+      {
+        std::stringstream strm;
+        strm << "Invalid binary operator '" << expr.m_op << "'";
+        return LogError(strm.str());
+      }
+  }
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::CallExpr & expr)
+{
+  // Look up the name in the global module table.
+  llvm::Function * calleeF = m_module->getFunction(expr.m_callee);
+  if (!calleeF) {
+    std::stringstream strm;
+    strm << "Unknown function '" << expr.m_callee << "' referenced";
+    return LogError(strm.str());
+  }
+
+  // If argument mismatch error.
+  if (calleeF->arg_size() != expr.m_args.size()) {
+    std::stringstream strm;
+    strm << "Incorrect number of arguments passed to '" << expr.m_callee
+         << "' - should be " << calleeF->arg_size() << ", is " << expr.m_args.size();
+    return LogError(strm.str());
+  }
+
+  std::vector<llvm::Value *> argsV;
+  for (unsigned i = 0, e = expr.m_args.size(); i != e; ++i) {
+    argsV.push_back(Generate(*expr.m_args[i]));
+    if (!argsV.back())
+      return nullptr;
+  }
+
+  return m_builder.CreateCall(calleeF, argsV, "calltmp");
+}
+
+#if 0 
+
+typedef ConstantIntExpr<int16_t> ConstantInt16Expr;
+typedef ConstantIntExpr<int32_t> ConstantInt32Expr;
+
+
+
 CodeGenerator::Module::Module(const char * name)
   : m_context(llvm::getGlobalContext())
   , m_builder(m_context) 
@@ -54,12 +236,12 @@ void CodeGenerator::GenerateCall1(Module & module,
 
 /////////////////////////////////////////////////////////////
 
-CodeGenerator::FunctionASTExpr::FunctionASTExpr(const std::string & name, ASTExpr * body)
+CodeGenerator::FunctionExprAST::FunctionExprAST(const std::string & name, ExprAST * body)
   : m_name(name)
   , m_body(body)
 { }
 
-llvm::Function * CodeGenerator::FunctionASTExpr::Generate(Module & module)
+llvm::Function * CodeGenerator::FunctionExprAST::Generate(Module & module)
 {
   FunctionType * funcType = llvm::FunctionType::get(module.GetBuilder().getInt32Ty(), false);
   Function     * func     = llvm::Function::Create(funcType, 
@@ -77,3 +259,5 @@ llvm::Function * CodeGenerator::FunctionASTExpr::Generate(Module & module)
 
   return func;
 }
+
+#endif
