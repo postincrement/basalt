@@ -123,7 +123,6 @@ llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
       strm << "Unknown variable '" << lhse->m_name << "'";
       return LogError(strm.str());      
     }
-    cout << "creating store " << endl;
 
     m_builder.CreateStore(val, var, false); 
     return var;    
@@ -137,15 +136,17 @@ llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
 
   switch (expr.m_op) {
     case '+':
-      return m_builder.CreateFAdd(lhs, rhs, "addtmp");
+      return m_builder.CreateAdd(lhs, rhs, "addtmp");
     case '-':
-      return m_builder.CreateFSub(lhs, rhs, "subtmp");
+      return m_builder.CreateSub(lhs, rhs, "subtmp");
     case '*':
-      return m_builder.CreateFMul(lhs, rhs, "multmp");
-    case '<':
-      lhs = m_builder.CreateFCmpULT(lhs, rhs, "cmptmp");
-      // Convert bool 0/1 to double 0.0 or 1.0
-      return m_builder.CreateUIToFP(lhs, llvm::Type::getDoubleTy(m_context), "booltmp");
+      return m_builder.CreateMul(lhs, rhs, "multmp");
+    case '/':
+      return m_builder.CreateSDiv(lhs, rhs, "multmp");
+    //case '<':
+    //  lhs = m_builder.CreateCmpULT(lhs, rhs, "cmptmp");
+    //  // Convert bool 0/1 to double 0.0 or 1.0
+    //  return m_builder.CreateUIToFP(lhs, llvm::Type::getDoubleTy(m_context), "booltmp");
     default:
       {
         std::stringstream strm;
@@ -173,11 +174,7 @@ llvm::Value * CodeGenerator::Generate(AST::VariableRefExpr & expr)
 
 llvm::Value * CodeGenerator::Generate(AST::ConstantInt16Expr & expr)
 {
-  cout << "constant int " << expr.m_intValue << endl;
-  return 
-       llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_intValue));
-
-       //llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_intValue, 10));  
+  return llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_intValue));
 }
 
 
@@ -185,13 +182,78 @@ llvm::Value * CodeGenerator::Generate(AST::Int16VariableDefExpr & expr)
 {
   llvm::AllocaInst * var = m_namedValues[expr.m_name];
 
-  //llvm::Function * TheFunction = m_builder.GetInsertBlock()->getParent();
-
   if (!var) {
     var = new llvm::AllocaInst(llvm::IntegerType::get(m_context, 16), expr.m_name, m_mainBlock);
     m_namedValues[expr.m_name] = var;
   }
 
+  return nullptr; 
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::ConstantStringExpr & expr)
+{
+  //if (expr.m_global)
+    return m_builder.CreateGlobalStringPtr(expr.m_value);
+
+  //return nullptr; 
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::BIFExpr & expr)
+{
+  if (expr.m_name == "print") {
+    for (auto & r : *expr.m_args) {
+
+      llvm::Value * val = r->Generate(*this);
+      llvm::Type * type = val->getType();
+      std::string funcName;
+
+      std::vector<llvm::Value *> args;
+      args.push_back(val);
+      std::vector<llvm::Type *> argTypes;
+
+      if (type == llvm::Type::getInt8PtrTy(m_context)) {
+        argTypes.push_back(type);
+        funcName = "basalt_print_string";
+      }
+      else if (type == llvm::Type::getInt16Ty(m_context)) {
+        argTypes.push_back(type);
+        funcName = "basalt_print_integer";  
+      }
+      else {
+        std::string type_str;
+        llvm::raw_string_ostream rso(type_str);
+        type->print(rso);
+        cerr << "error: unknown argument type to print '" << rso.str() << "'" << endl;
+        return nullptr;
+      }
+
+      llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
+      llvm::FunctionType * funcType = llvm::FunctionType::get(m_builder.getVoidTy(), argsRef, false);
+      llvm::Constant     * func     = m_module->getOrInsertFunction(funcName, funcType);  
+      m_builder.CreateCall(func, args);  
+    }
+  }
+  else {
+    cerr << "error: unknown built-in function '" << expr.m_name << "'" << endl;
+  }
+  return nullptr;
+}
+
+llvm::Value * CodeGenerator::Generate(AST::Call1Expr<char *> & expr)
+{
+  //llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
+  //llvm::FunctionType * funcType = llvm::FunctionType::get(module.GetBuilder().getInt32Ty(), argsRef, false);
+  //llvm::Constant * func         = module.GetModule().getOrInsertFunction(name, funcType);  
+  //m_builder.CreateCall(func, arg);  
+
+  return nullptr; 
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::Call1Expr<int16_t *> & expr)
+{
   return nullptr; 
 }
 
@@ -334,7 +396,7 @@ llvm::Function * CodeGenerator::FunctionExprAST::Generate(Module & module)
                                                    m_name, 
                                                    &module.GetModule());
 
-  // Create a new basic block to start insertion into.
+  // Create a new BasicBlockic block to start insertion into.
   //llvm::BasicBlock * BB = llvm::BasicBlock::Create(module.GetContext(), "entry", func);
   //module.GetBuilder().SetInsertPoint(BB); 
 

@@ -12,28 +12,6 @@ int g_errorCount = 0;
 LanguageProfile g_profile;
 AST::ExprList g_expressions;
 
-struct ArgDef 
-{
-  const char   m_short;
-  const char * m_long;
-  const char * m_type;
-  void       * m_data;
-  const char * m_usage;
-};
-
-class Basalt
-{
-  public:
-    int Main(int argc, char const *argv[]);
-
-    int ParseArguments(ArgDef * defs, int argc, char const *argv[], int index);
-    void DecodeOpt(ArgDef * def);
-    void Usage(const ArgDef * defs);
-
-    std::string m_progname;
-};
-
-
 Basalt g_application;
 
 int g_verbose = 0;
@@ -176,8 +154,8 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  MBASIC_in = fopen(g_inputFilename.c_str(), "r");
-  if (MBASIC_in == NULL) {
+  m_inputFile.open(g_inputFilename);
+  if (!m_inputFile) {
     cerr << "error: cannot open input file '" << g_inputFilename << "'" << endl;
     return -1;
   }
@@ -185,6 +163,7 @@ int Basalt::Main(int argc, char const *argv[])
   if (g_verbose)
     cout << "info: parsing '" << g_inputFilename.GetFilename() << "'" << endl;
 
+  m_lineOffs = 2;
   MBASIC_parse();
 
   if (g_errorCount > 0) {
@@ -216,7 +195,6 @@ int Basalt::Main(int argc, char const *argv[])
     */
     llvm::FunctionType * FT = llvm::FunctionType::get(llvm::Type::getVoidTy(cg.m_context), false);
     llvm::Function * calleeF = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage, "basalt_init", cg.m_module.get());    
-    //cg.m_builder.CreateCall(calleeF, ArgsV, "calltmp");    
 
     llvm::CallInst* int64_4 = llvm::CallInst::Create(calleeF, "", block);
     int64_4->setCallingConv(llvm::CallingConv::C);
@@ -319,11 +297,54 @@ int Basalt::Main(int argc, char const *argv[])
   return 0;
 }
 
-void MBASIC_error(const char * msg)
+
+
+char Basalt::ReadNextChar()
+{
+  if (m_lineOffs > m_line.length()) {
+    if (!getline(m_inputFile, m_line))
+      return 0;
+    m_lineOffs = 0;
+  }
+
+  if (m_lineOffs == m_line.length()) {
+    m_lineOffs++;
+    return '\n';
+  }
+
+  return m_line[m_lineOffs++];
+}
+
+
+void Basalt::OnError(const char * msg)
 {
   g_errorCount++;
-  cout << g_inputFilename << " (" << g_lineNumber << "): " << msg << endl;
+  cout << g_inputFilename << ":" << g_lineNumber << ":" << m_lineOffs << ": " << msg << endl;
+  cout << m_line << endl;
+  size_t i;
+  for (i = 0; i < m_lineOffs-1; i++)
+    cout << " ";
+  cout << "^" << endl;
 }
+
+
+void MBASIC_yyinput(char * buf, int * result, int maxSize)
+{
+  char ch = g_application.ReadNextChar();
+
+  if (ch == 0)
+    *result = 0;
+  else {
+    buf[0] = ch;
+    *result = 1;
+  }
+}
+
+void MBASIC_error(const char * msg)
+{
+  g_application.OnError(msg);
+}
+
 
 int main(int argc, char const *argv[])
 {

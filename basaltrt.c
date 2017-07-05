@@ -11,11 +11,10 @@ static int g_outputColumn = 0;
 
 int basalt_init()
 {
-  printf("hello\n");
   return 0;
 }
 
-int basalt_puts_string(const char * str)
+int basalt_print_string(const char * str)
 {
   int len = strlen(str);
   write(STDOUT_FD, str, len);
@@ -23,16 +22,16 @@ int basalt_puts_string(const char * str)
   return 0;
 }
 
-int basalt_puts_integer(uint16_t * value)
+int basalt_print_integer(uint16_t value)
 {
   char buffer[10];
-  int len = sprintf(buffer, "%i", *value);
+  int len = sprintf(buffer, "%i", value);
   write(STDOUT_FD, buffer, len);
   g_outputColumn += len;
   return 0;
 }
 
-int basalt_puts_tab()
+int basalt_print_tab()
 {  
   int spaces = g_tabLen - (g_outputColumn % g_tabLen);
   int i;
@@ -42,7 +41,7 @@ int basalt_puts_tab()
   return 0;
 }
 
-int basalt_puts_eol()
+int basalt_print_eol()
 {
   write(STDOUT_FD, "\n", 1);
   g_outputColumn = 0;

@@ -44,7 +44,27 @@ class ConstantIntExpr : public NumberExpr
     virtual llvm::Value * Generate(CodeGenerator & cg);
 };
 
-typedef ConstantIntExpr<uint16_t> ConstantInt16Expr;
+typedef ConstantIntExpr<int16_t> ConstantInt16Expr;
+
+
+//////////////////////////////////////////////////////////////////
+//
+// StringExpr - Expression class for string literals
+//
+class ConstantStringExpr : public Expr
+{
+  public:
+    ConstantStringExpr(const std::string & value, bool global)
+      : m_global(global)
+      , m_value(value)
+    { }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+
+    bool m_global;
+    std::string m_value;
+};
+
 
 //////////////////////////////////////////////////////////////////
 //
@@ -78,7 +98,7 @@ class IntVariableDefExpr : public VariableDefExpr
     virtual llvm::Value * Generate(CodeGenerator & cg);
 };
 
-typedef IntVariableDefExpr<uint16_t> Int16VariableDefExpr;
+typedef IntVariableDefExpr<int16_t> Int16VariableDefExpr;
 
 //////////////////////////////////////////////////////////////////
 //
@@ -147,7 +167,26 @@ class BinaryExpr : public Expr
     Expr * m_rhs;
 
     virtual llvm::Value * Generate(CodeGenerator & cg);
-  };
+};
+
+//////////////////////////////////////////////////////////////////
+//
+// BIFExpr - Expression class for built in functions
+//
+class BIFExpr : public Expr
+{
+  public:
+    BIFExpr(const std::string & name, ExprList * args)
+      : m_name(name)
+      , m_args(args)
+    { }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+
+    std::string m_name;
+    ExprList * m_args;
+};
+
 
 //////////////////////////////////////////////////////////////////
 //
@@ -156,8 +195,11 @@ class BinaryExpr : public Expr
 class CallExpr : public Expr
 {
   public:
-    CallExpr(const std::string & callee,
-                std::vector<std::unique_ptr<Expr>> args)
+    CallExpr(const std::string & callee)
+      : m_callee(callee)
+    { }
+
+    CallExpr(const std::string & callee, std::vector<std::unique_ptr<Expr>> args)
       : m_callee(callee)
       , m_args(std::move(args))
     { }
@@ -165,6 +207,21 @@ class CallExpr : public Expr
     std::string m_callee;
     std::vector<std::unique_ptr<Expr>> m_args;
 };
+
+
+template<class ArgType>
+class Call1Expr : public CallExpr
+{
+  public:
+    Call1Expr(const std::string & name, Expr * arg)
+      : CallExpr(name)
+    {
+      m_args.push_back(std::unique_ptr<Expr>(arg));
+    }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+};
+
 
 } // namespace AST
 
@@ -233,7 +290,7 @@ class Call0Expr : public Expr
 };
 
 
-/*
+
 void GenerateCall0(Module & module, 
         const std::string & name);
 
@@ -243,32 +300,6 @@ void GenerateCall1(Module & module,
                   llvm::Value * arg);
 
 
-template<class ArgTypeFunc>
-class Call1Expr : public Expr
-{
-  public:
-    Call1Expr(const std::string & name, Expr * arg)
-      : Expr()
-      , m_name(name)
-      , m_arg(arg)
-    { }
-
-    virtual llvm::Value * Generate(Module & module) override
-    {
-      llvm::Value * arg = m_arg->Generate(module);
-
-      std::vector<llvm::Type *> argTypes;
-      argTypes.push_back(m_argType(module));
-
-      GenerateCall1(module, m_name, argTypes, arg);
-      return NULL;
-    }
-
-    std::string m_name;
-    ArgTypeFunc m_argType;
-    Expr * m_arg;
-};
-*/
 
 template <class IntType, class TypeFunc, int NumBits>
 class IntVariable : public VariableExpr

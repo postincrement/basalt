@@ -50,10 +50,6 @@ extern void MBASIC_SetRemMode();
 
   AST::Expr     * expr;
   AST::ExprList * exprlist;
-  //AST::Variable * varname;
-
-  //PrintElement               * printel;
-  //PrintElementList           * printellist; 
 }
 
 %token EOL_TOKEN
@@ -62,10 +58,10 @@ extern void MBASIC_SetRemMode();
 %token PRINT_TOKEN
 %token REM_TOKEN
 
-%token <sval> IDENTIFIER INTEGER_VARNAME STRING_VARNAME
-%token <sval> QUOTED_STRING
-%token <uval> POSITIVE_INT
-%token <ival> NEGATIVE_INT
+%token <sval>   IDENTIFIER INTEGER_VARNAME STRING_VARNAME
+%token <sval>   QUOTED_STRING
+%token <uval>   POSITIVE_INT
+%token <ival>   NEGATIVE_INT
 %token <dfloat> DOUBLE
 %token <sfloat> SINGLE
 
@@ -73,13 +69,15 @@ extern void MBASIC_SetRemMode();
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
-%type <expr>        PRINT_statement 
-%type <printel>     print_expression 
-%type <printellist> print_expression_list 
+%type <expr>        PRINT_statement print_expression
+%type <exprlist>    print_expression_list 
 
 %type <exprlist>    LET_statement assign_expression 
-%type <expr>        numeric_expression string_expression string_constant
+%type <expr>        numeric_expression numeric_expr2 numeric_expr3 number 
+%type <expr>        string_expression 
 %type <expr>        const_integer_expr
+
+%type <sval>        string_constant
 
 %%
 
@@ -211,54 +209,11 @@ assign_expression:  IDENTIFIER '=' numeric_expression
                           delete $1;
                           */
                         }
-                    ;
-
-numeric_expression: const_integer_expr
-                      { 
-                        $$ = $1; 
-                      }
-                    | SINGLE
-                      { 
-                        return 0;
-                        //$$ = new CodeGenerator::ConstantInt16Expr($1->m_value);
-                        //delete $1; 
-                      }
-                    | DOUBLE
-                      { 
-                        return 0;
-                        //$$ = NULL; 
-                      }
-                    | IDENTIFIER
-                      { 
-                        $$ = new AST::VariableRefExpr(*$1 + "%");
-                      } 
-                    | numeric_expression '*' numeric_expression 
-                      { 
-                        return 0;
-                        //$$ = NULL; 
-                      }
-                    | numeric_expression '/' numeric_expression 
-                      { 
-                        return 0;
-                        //$$ = NULL; 
-                      }
-                    | numeric_expression '-' numeric_expression 
-                      { 
-                        return 0;
-                        //$$ = NULL; 
-                      }
-                    | numeric_expression '+' numeric_expression 
-                      { 
-                        return 0;
-                        //$$ = NULL; 
-                      }
-                    ;
-                    
-string_expression:  string_constant
-                      {
-                        //$$ = $1; 
-                        return 0;
-                      }
+                    | numeric_expression
+                        {
+                          $$ = new AST::ExprList();
+                          $$->push_back($1);
+                        }    
                     ;
 
 /********************************************************* 
@@ -269,20 +224,9 @@ string_expression:  string_constant
 
 PRINT_statement:  print_keyword print_expression_list
                     {
-                      //for (auto & r : *$2) {
-                      //  CodeGenerator::ExprAST * expr = nullptr;
-                      //  if (r->m_isTab)
-                      //    expr = new CodeGenerator::Call0Expr("basalt_puts_tab");
-                      //  else if (r->m_expr != nullptr)  
-                      //    expr = r->m_expr;
-                      //  if (expr != nullptr)  
-                      //    g_expressions.push_back(expr);
-                      //}
-                      //size_t len = $2->size();
-                      //if ((len > 0) && !(*$2)[len-1]->m_isTab && ((*$2)[len-1]->m_expr != nullptr)) 
-                      //  g_expressions.push_back(new CodeGenerator::Call0Expr("basalt_puts_eol"));
+                      $$ = new AST::BIFExpr("print", $2);
                     }
-                 ;
+                  ;
 
 print_keyword:   PRINT_TOKEN
                  | '?'
@@ -293,42 +237,29 @@ print_keyword:   PRINT_TOKEN
 
 print_expression_list: /* empty */
                           {
-                            //$$ = new PrintElementList;
+                            $$ = new AST::ExprList;
                           }  
                        | print_expression_list print_expression
                           {
-                            //if ($1 != nullptr) {
-                            //  $1->push_back($2);
-                            //  $$ = $1;
-                            //}
+                            $1->push_back($2);
                           }
                        ;
 
-print_expression:      string_constant
+print_expression:      string_expression
                           {
-                            //$$ = new PrintElement();
-                            //$$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt8Ty>(
-                            //         "basalt_puts_string", 
-                            //         $1
-                            //         );
+                            $$ = $1;
                           }
                        | ',' 
                           {
-                            //$$ = new PrintElement();
-                            //$$->m_isTab = true;
+                            $$ = nullptr; //new PrintElement();
                           }
                        | ';'
                           {
-                            //$$ = new PrintElement();
-                            //$$->m_expr = nullptr;
+                            $$ = nullptr; //new PrintElement();
                           }
                        | numeric_expression
                           {
-                            //$$ = new PrintElement();
-                            //$$->m_expr = new CodeGenerator::Call1Expr<CodeGenerator::GetPtrToInt16Ty>(
-                            //         "basalt_puts_integer", 
-                            //         $1
-                            //         );
+                            $$ = $1;
                           }
                        ;                           
 
@@ -349,6 +280,90 @@ REM_statement: rem_keyword
                 { cout << "warning: single quote REM not supported in basic-8k" << endl; }
               ;              
 
+
+
+/********************************************************* 
+
+ numeric expression              
+
+ *********************************************************/ 
+
+numeric_expression: numeric_expression '-' numeric_expr2 
+                      { 
+                        $$ = new AST::BinaryExpr('-', $1, $3);
+                      }
+                    | numeric_expression '+' numeric_expr2 
+                      { 
+                        $$ = new AST::BinaryExpr('+', $1, $3);
+                      }
+                    | numeric_expr2
+                      {
+                        $$ = $1;
+                      }
+                    ;
+
+
+numeric_expr2:      numeric_expr2 '*' numeric_expr3 
+                      { 
+                        $$ = new AST::BinaryExpr('*', $1, $3);
+                      }
+                    | numeric_expr2 '/' numeric_expr3 
+                      { 
+                        $$ = new AST::BinaryExpr('/', $1, $3);
+                      }
+                    | numeric_expr3
+                      {
+                        $$ = $1;
+                      }  
+                    ;
+
+numeric_expr3:      '(' numeric_expression ')'
+                      {
+                        $$ = $2;
+                      }                    
+                    | '-' numeric_expr3
+                      {
+                        $$ = $2;
+                      }
+                    | number
+                      {
+                        $$ = $1;
+                      }  
+                    ;
+                      
+number:             const_integer_expr
+                      {
+                        $$ = $1;
+                      }
+                    | SINGLE
+                      { 
+                        $$ = nullptr;
+                        //$$ = new CodeGenerator::ConstantInt16Expr($1->m_value);
+                        //delete $1; 
+                      }
+                    | DOUBLE
+                      { 
+                        $$ = nullptr;
+                        //$$ = NULL; 
+                      }
+                    | IDENTIFIER
+                      { 
+                        $$ = new AST::VariableRefExpr(*$1 + "%");
+                      } 
+                    ;  
+
+/********************************************************* 
+
+ string expression              
+ 
+ *********************************************************/ 
+
+string_expression:  string_constant
+                      {
+                        $$ = new AST::ConstantStringExpr(*$1, false);
+                        delete $1;
+                      }
+                    ;
 
 /********************************************************* 
 
@@ -374,6 +389,7 @@ integer:        POSITIVE_INT
 
 string_constant:    QUOTED_STRING
                     {
+                      $$ = $1;
                       //auto r = m_globalStringConstants.find(*$1);
                       //if (r != m_globalStringConstants.end())
                       //  $$ = r->second;
@@ -384,3 +400,4 @@ string_constant:    QUOTED_STRING
                       //}  
                       //delete $1;  
                     }                    
+                    ;
