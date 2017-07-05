@@ -216,16 +216,20 @@ int Basalt::Main(int argc, char const *argv[])
     */
     llvm::FunctionType * FT = llvm::FunctionType::get(llvm::Type::getVoidTy(cg.m_context), false);
     llvm::Function * calleeF = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage, "basalt_init", cg.m_module.get());    
-    cg.m_builder.CreateCall(calleeF, ArgsV, "calltmp");    
+    //cg.m_builder.CreateCall(calleeF, ArgsV, "calltmp");    
 
     llvm::CallInst* int64_4 = llvm::CallInst::Create(calleeF, "", block);
     int64_4->setCallingConv(llvm::CallingConv::C);
     int64_4->setTailCall(false);    
   }
 
+  cout << "generating code for " << g_expressions.size() << " expressions" << endl;
+
   for (auto & r : g_expressions) {
-    if (r != nullptr)
-      cg.Generate(*r);
+    if (r != nullptr) {
+      //cout << "generating code for non-null expression" << endl;
+      r->Generate(cg);
+    }
   }
 
   cg.EndMain(block);

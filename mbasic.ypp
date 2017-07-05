@@ -12,6 +12,13 @@ using namespace std;
 
 #define YYDEBUG 1
 
+namespace std {
+template<typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&&... args) {
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+}
+
 extern void MBASIC_SetRemMode();
 
 %}
@@ -48,25 +55,26 @@ extern void MBASIC_SetRemMode();
 
 %type <ival>     integer
 
-%type <exprlist>    MBASIC_file line opt_statement_list statement_list 
-
-%type <expr>        statement
+%type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
 %type <expr>        PRINT_statement 
 %type <printel>     print_expression 
 %type <printellist> print_expression_list 
 
-%type <expr>        LET_statement 
-
-assign_expression numeric_expression string_expression string_constant
-
-%type <expr>     const_integer_expr
+%type <exprlist>    LET_statement assign_expression 
+%type <expr>        numeric_expression string_expression string_constant
+%type <expr>        const_integer_expr
 
 %%
 
 MBASIC_file:  line
                 {
-                  $$ = $1;
+                  if ($1 != nullptr) {
+                    for (auto & r : *$1) {
+                      g_expressions.push_back(r);
+                    }
+                    delete $1;
+                  }
                 }
               | MBASIC_file line
                 {
@@ -74,9 +82,8 @@ MBASIC_file:  line
                     for (auto & r : *$2) {
                       g_expressions.push_back(r);
                     }
+                    delete $2;
                   }
-                  delete $2;
-
                 } 
               ;
 
@@ -108,15 +115,16 @@ opt_statement_list : /* empty */
 
 statement_list : statement
                   {
-                    $$ = new AST::ExprList();
-                    if ($1 != nullptr)
-                      $$->push_back($1);
+                    $$ = $1;
                   }   
                | statement_list ':' statement
                   {
                     $$ = $1;
-                    if ($3 != nullptr)
-                      $$->push_back($3);
+                    if ($3 != nullptr) {
+                      for (auto & r : *$3)
+                        $$->push_back(r);
+                    }
+                    delete $3;  
                   }   
                ;
 
@@ -126,7 +134,8 @@ statement:     LET_statement
                   }
                | PRINT_statement 
                   {
-                    $$ = $1;
+                    $$ = new AST::ExprList();
+                    $$->push_back($1);
                   }
                | REM_statement
                   {
@@ -157,40 +166,37 @@ opt_LET_TOKEN:  /* empty */
 
 assign_expression:  IDENTIFIER '=' numeric_expression
                         {
-                          $$ = nullptr;
-                        /*
-                          CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::Int16Variable>(*$1, true);
-                          if (var == NULL) {
-                            cerr << "Variable '" << *$1 << " redefined type" << endl;
-                            $$ = nullptr;
-                          }
-                          else
-                            $$ = new CodeGenerator::NumericAssignExpr(var, $3);
+                          std::string name(*$1 + "%");
+                          $$ = new AST::ExprList();
+                          $$->push_back(
+                                    new AST::Int16VariableDefExpr(name, false)
+                                      );
+                          $$->push_back(
+                                    new AST::BinaryExpr('=', 
+                                                   new AST::VariableRefExpr(name), 
+                                                   $3
+                                                   )
+                                       );
                           delete $1;
-                        */  
                         }
                     | INTEGER_VARNAME '=' numeric_expression
-                        {
-                          $$ = nullptr;
-                         /*
-                          CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::Int16Variable>(*$1, true);
-                          if (var == NULL) {
-                            cerr << "Variable '" << *$1 << " redefined type" << endl;
-                            $$ = nullptr;
-                          }  
-                          else
-                            $$ = new CodeGenerator::NumericAssignExpr(var, $3);
-                          delete $1;
-                         */ 
+                        {                        
+                          $$ = new AST::ExprList();
+                          std::string name(*$1 + "%");
+                          //AST::Expr * expr = new AST::IntVariableDefExpr(*$1 + "%", false);                          
+                          //$$ = new AST::BinaryExpr('=', expr, $3);
+                          //delete $1;
                         }
                     | STRING_VARNAME '=' string_expression
                         {
-                          $$ = nullptr;
+                          $$ = new AST::ExprList();
                           /*
                           CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::StringVariable>(*$1, true);
                           if (var == NULL) {
                             cerr << "Variable '" << *$1 << " redefined type" << endl;
-                            $$ = nullptr;
+                                AST::Expr * expr = new IntVariableExpr()
+                          $$ = new AST::BinaryExpr('=', $1, $2);
+                          $$ = nullptr;
                           }
                           else 
                             $$ = new CodeGenerator::StringAssignExpr(var, $3);
@@ -201,40 +207,41 @@ assign_expression:  IDENTIFIER '=' numeric_expression
 
 numeric_expression: const_integer_expr
                       { 
-                        //$$ = new CodeGenerator::ConstantInt16Expr($1); 
+                        $$ = $1; 
                       }
                     | SINGLE
                       { 
+                        return 0;
                         //$$ = new CodeGenerator::ConstantInt16Expr($1->m_value);
                         //delete $1; 
                       }
                     | DOUBLE
                       { 
+                        return 0;
                         //$$ = NULL; 
                       }
                     | IDENTIFIER
                       { 
-                        //auto r = g_variables.m_vars.find(*$1);
-                        //if (r == g_variables.m_vars.end()) {
-                        //  cerr << "error: undefined variable '" << *$1 << "'" << endl;
-                        //  return 0;
-                        //}
-                        //$$ = r->second;
+                        $$ = new AST::VariableRefExpr(*$1 + "%");
                       } 
                     | numeric_expression '*' numeric_expression 
                       { 
+                        return 0;
                         //$$ = NULL; 
                       }
                     | numeric_expression '/' numeric_expression 
                       { 
+                        return 0;
                         //$$ = NULL; 
                       }
                     | numeric_expression '-' numeric_expression 
                       { 
+                        return 0;
                         //$$ = NULL; 
                       }
                     | numeric_expression '+' numeric_expression 
                       { 
+                        return 0;
                         //$$ = NULL; 
                       }
                     ;
@@ -242,6 +249,7 @@ numeric_expression: const_integer_expr
 string_expression:  string_constant
                       {
                         //$$ = $1; 
+                        return 0;
                       }
                     ;
 

@@ -4,19 +4,29 @@
 
 #include <iostream>
 
+class CodeGenerator;
+
 namespace AST {
 
-/// Expr - Base class for all expression nodes.
+//////////////////////////////////////////////////////////////////
+//
+// Expr - Base class for all expression nodes.
+//
 class Expr
 {
   public:
     virtual ~Expr()
     { }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg) = 0;
 };
 
 typedef std::vector<Expr *> ExprList;
 
-/// NumberExpr - base Expression class for numeric literals
+//////////////////////////////////////////////////////////////////
+//
+// NumberExpr - base Expression class for numeric literals
+//
 class NumberExpr : public Expr 
 {
 };
@@ -30,40 +40,80 @@ class ConstantIntExpr : public NumberExpr
     { }
 
     IntType m_intValue;
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
 };
 
 typedef ConstantIntExpr<uint16_t> ConstantInt16Expr;
 
-/// VariableExpr - Expression class for referencing a variable, like "a".
-class VariableExpr : public Expr
+//////////////////////////////////////////////////////////////////
+//
+//  VariableDefExpr - Expression class for creating a variable on the LHS of an expression
+//
+
+class VariableDefExpr : public Expr
 {
   public:
-    enum Type
-    {
-      eInteger,
-      eSingle,
-      eDouble,
-      eString
-    };
-
-    VariableExpr(Type type, const std::string & name, bool global)
-      : m_type(type)
-      , m_name(name)
+    VariableDefExpr(const std::string & name, bool global)
+      : m_name(name)
       , m_global(global)
     { }
-
-    Type GetType() const
-    { return m_type; }
 
     const std::string & GetName() const
     { return m_name; }
 
-    Type m_type;
     std::string m_name;
     bool m_global;
 };
 
-/// UnaryExpr - Expression class for a unary operator.
+template <class IntType>
+class IntVariableDefExpr : public VariableDefExpr
+{
+  public:
+    IntVariableDefExpr(const std::string & name, bool global)
+      : VariableDefExpr(name, global)
+    {
+    }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+};
+
+typedef IntVariableDefExpr<uint16_t> Int16VariableDefExpr;
+
+//////////////////////////////////////////////////////////////////
+//
+//  VariableRefExpr - Expression class for referencing a variable, like "a".
+//
+class VariableRefExpr : public Expr
+{
+  public:
+    VariableRefExpr(const std::string & name)
+      : m_name(name)
+    { }
+
+    const std::string & GetName() const
+    { return m_name; }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+
+    std::string m_name;
+};
+
+class IntVariableRefExpr : public VariableRefExpr
+{
+  public:
+    IntVariableRefExpr(const std::string & name)
+      : VariableRefExpr(name)
+    {
+    }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+};
+
+//////////////////////////////////////////////////////////////////
+//
+// UnaryExpr - Expression class for a unary operator.
+//
 class UnaryExpr : public Expr 
 {
   public:
@@ -76,25 +126,33 @@ class UnaryExpr : public Expr
     std::unique_ptr<Expr> m_operand;
 };
 
-/// BinaryExpr - Expression class for a binary operator.
+//////////////////////////////////////////////////////////////////
+//
+// BinaryExpr - Expression class for a binary operator.
+//
 class BinaryExpr : public Expr
 {
   public:
     BinaryExpr(char op, 
-               std::unique_ptr<Expr> lhs,
-               std::unique_ptr<Expr> rhs)
+               Expr * lhs,
+               Expr * rhs)
     : m_op(op) 
-    , m_lhs(std::move(lhs))
-    , m_rhs(std::move(rhs)) 
+    , m_lhs(lhs)
+    , m_rhs(rhs) 
     {
     }   
 
     char m_op;
-    std::unique_ptr<Expr> m_lhs;
-    std::unique_ptr<Expr> m_rhs;
-};
+    Expr * m_lhs;
+    Expr * m_rhs;
 
-/// CallExpr - Expression class for function calls.
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+  };
+
+//////////////////////////////////////////////////////////////////
+//
+// CallExpr - Expression class for function calls.
+//
 class CallExpr : public Expr
 {
   public:
@@ -106,23 +164,6 @@ class CallExpr : public Expr
 
     std::string m_callee;
     std::vector<std::unique_ptr<Expr>> m_args;
-};
-
-/// VarExpr - Expression class for declaring variables
-class VarExpr : public Expr 
-{
-  public:
-    VarExpr(const std::string & name, 
-               std::unique_ptr<Expr> x,
-               std::unique_ptr<Expr> body)
-      : m_name(name)
-      , m_x(std::move(x))
-      , m_body(std::move(body))
-    { }
-
-    std::string m_name;
-    std::unique_ptr<Expr> m_x;
-    std::unique_ptr<Expr> m_body;
 };
 
 } // namespace AST

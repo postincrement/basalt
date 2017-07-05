@@ -5,12 +5,12 @@ BISON = bison
 LINK.cc=c++
 
 CXXFLAGS += -std=c++11 -g `llvm-config --cxxflags` 
-BASALT_LDFLAGS  += `llvm-config --ldflags` 
+BASALT_LDFLAGS  += -g `llvm-config --ldflags` 
 BASALT_LDLIBS   += `llvm-config --libs --system-libs all` 
 
 all: basalt libbasaltrt.a
 
-basalt: basalt.o mbasic.lex.o mbasic.tab.o codegen.o
+basalt: basalt.o mbasic.lex.o mbasic.tab.o codegen.o ast.o
 	g++ $^ $(LOADLIBES) $(BASALT_LDFLAGS) $(BASALT_LDLIBS) -o $@
 
 basalt.o mbasic.lex.o mbasic.tab.o codegen.o: codegen.h

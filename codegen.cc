@@ -4,6 +4,16 @@
 
 using namespace std;
 
+/// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
+/// the function.  This is used for mutable variables etc.
+llvm::AllocaInst * CodeGenerator::CreateEntryBlockAlloca(
+                                         llvm::Function * TheFunction,
+                                        const std::string & VarName)
+{
+  llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+  return TmpB.CreateAlloca(llvm::Type::getDoubleTy(m_context), nullptr, VarName.c_str());
+}
+
 llvm::BasicBlock * CodeGenerator::StartMain()
 {
   // declare argument list for main
@@ -48,8 +58,6 @@ llvm::BasicBlock * CodeGenerator::StartMain()
   }
   func_main->setAttributes(func_main_PAL);
 
-
-  llvm::BasicBlock * label_10;
   {
 #if 0    
     llvm::Function::arg_iterator args = func_main->arg_begin();
@@ -59,7 +67,7 @@ llvm::BasicBlock * CodeGenerator::StartMain()
     ptr_argv->setName("argv");
 #endif
 
-    label_10 = llvm::BasicBlock::Create(m_context, "", func_main,0);  
+    m_mainBlock = llvm::BasicBlock::Create(m_context, "", func_main,0);  
 
 #if 0
     // Block  (label_10)
@@ -80,7 +88,9 @@ llvm::BasicBlock * CodeGenerator::StartMain()
 #endif
   }
 
-  return label_10;
+  m_builder.SetInsertPoint(m_mainBlock);   
+
+  return m_mainBlock;
 }
 
 void CodeGenerator::EndMain(llvm::BasicBlock * block)
@@ -95,33 +105,33 @@ llvm::Value * CodeGenerator::LogError(const std::string & str)
   return nullptr;
 }
 
-
-llvm::Value * CodeGenerator::Generate(AST::Expr & expr)
-{
-  return nullptr;
-}
-
-llvm::Value * CodeGenerator::Generate(AST::ConstantInt16Expr & expr)
-{
-  return llvm::ConstantInt::get(m_builder.getInt16Ty(), llvm::APInt(16, expr.m_intValue));
-}
-
-llvm::Value * CodeGenerator::Generate(AST::VariableExpr & expr)
-{
-  llvm::Value * value = m_namedValues[expr.m_name];
-  if (!value) {
-    std::stringstream strm;
-    strm << "Unknown variable name '" << expr.m_name << "'";
-    return LogError(strm.str());
-  }
-
-  return value;
-}
-
 llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
 {
-  llvm::Value * lhs = Generate(*expr.m_lhs);
-  llvm::Value * rhs = Generate(*expr.m_rhs);
+  if (expr.m_op == '=') {
+    AST::VariableRefExpr * lhse = dynamic_cast<AST::VariableRefExpr *>(expr.m_lhs);
+    if (!lhse) {
+      std::stringstream strm;
+      strm << "LHS of assignment must be variable";
+      return LogError(strm.str());      
+    }
+    llvm::Value * val = expr.m_rhs->Generate(*this);
+    if (val == NULL)
+      cout << "RHS of assignment is null" << endl;
+    llvm::Value * var = m_namedValues[lhse->m_name];
+    if (!var) {
+      std::stringstream strm;
+      strm << "Unknown variable '" << lhse->m_name << "'";
+      return LogError(strm.str());      
+    }
+    cout << "creating store " << endl;
+
+    //new llvm::StoreInst(val, var, false, m_mainBlock);
+    m_builder.CreateStore(val, var, false); 
+    return var;    
+  }
+
+  llvm::Value * lhs = expr.m_lhs->Generate(*this);
+  llvm::Value * rhs = expr.m_rhs->Generate(*this);
 
   if (!lhs || !rhs)
     return nullptr;
@@ -146,6 +156,84 @@ llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
   }
 }
 
+
+llvm::Value * CodeGenerator::Generate(AST::VariableRefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedValues[expr.m_name];
+
+  if (!var) {
+    std::stringstream strm;
+    strm << "Reference to unknown variable '" << expr.m_name << "'";
+    return LogError(strm.str());      
+  }
+
+  // Load the value.
+  return m_builder.CreateLoad(var, expr.m_name.c_str());
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::ConstantInt16Expr & expr)
+{
+  cout << "constant int " << expr.m_intValue << endl;
+  return 
+       llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_intValue));
+
+       //llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_intValue, 10));  
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::Int16VariableDefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedValues[expr.m_name];
+
+  //llvm::Function * TheFunction = m_builder.GetInsertBlock()->getParent();
+
+  if (!var) {
+    var = new llvm::AllocaInst(llvm::IntegerType::get(m_context, 16), expr.m_name, m_mainBlock);
+    m_namedValues[expr.m_name] = var;
+  }
+
+  return nullptr; 
+}
+
+#if 0
+
+llvm::Value * CodeGenerator::Generate(AST::Expr & expr)
+{
+  cout << "primitive generate called" << endl;
+  return nullptr;
+}
+
+
+
+
+llvm::Value * CodeGenerator::Generate(AST::IntVariableDefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedValues[expr.m_name];
+
+  if (!var) {
+    var = CreateEntryBlockAlloca(TheFunction, expr.m_name);
+    m_namedValues[expr.m_name] = var;
+  }
+
+  return nullptr;
+}
+
+llvm::Value * CodeGenerator::Generate(AST::IntVariableDefExpr & expr)
+{
+/*  
+  AllocaInst * var = m_namedValues[expr.m_name];
+
+  if (!value) {
+    var = CreateEntryBlockAlloca(TheFunction, expr.m_name);
+    m_namedValues[expr.m_name] = var;
+  }
+
+  // Load the value.
+  return Builder.CreateLoad(V, Name.c_str());
+  */
+  return nullptr;
+}
 
 llvm::Value * CodeGenerator::Generate(AST::CallExpr & expr)
 {
@@ -174,8 +262,6 @@ llvm::Value * CodeGenerator::Generate(AST::CallExpr & expr)
 
   return m_builder.CreateCall(calleeF, argsV, "calltmp");
 }
-
-#if 0 
 
 typedef ConstantIntExpr<int16_t> ConstantInt16Expr;
 typedef ConstantIntExpr<int32_t> ConstantInt32Expr;
