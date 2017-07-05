@@ -125,7 +125,6 @@ llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
     }
     cout << "creating store " << endl;
 
-    //new llvm::StoreInst(val, var, false, m_mainBlock);
     m_builder.CreateStore(val, var, false); 
     return var;    
   }

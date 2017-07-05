@@ -7,6 +7,8 @@
 #include "basalt.h"
 #include "mbasic.tab.hpp"
 
+#define   YY_INPUT(buf,result,max_size)   MBASIC_yyinput(buf, &result, max_size)
+
 %}
 
 %option noyywrap

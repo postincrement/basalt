@@ -3,6 +3,7 @@
 #define BASALT_H_
 
 #include <string>
+#include <fstream>
 
 #include "codegen.h"
 #include "ast.h"
@@ -87,11 +88,40 @@ struct LanguageProfile
   bool m_fullVarNames;  
 };
 
+struct ArgDef 
+{
+  const char   m_short;
+  const char * m_long;
+  const char * m_type;
+  void       * m_data;
+  const char * m_usage;
+};
+
+class Basalt
+{
+  public:
+    int Main(int argc, char const *argv[]);
+
+    int ParseArguments(ArgDef * defs, int argc, char const *argv[], int index);
+    void DecodeOpt(ArgDef * def);
+    void Usage(const ArgDef * defs);
+    char ReadNextChar();
+    void OnError(const char * msg);
+
+    std::string m_progname;
+    size_t m_lineOffs;
+    std::string m_line;
+    std::ifstream m_inputFile;
+};
+
+
 extern int MBASIC_lex();
 extern int MBASIC_parse();
 extern void MBASIC_error(const char * msg);
-extern FILE * MBASIC_in;
+//extern FILE * MBASIC_in;
 extern int MBASIC_debug;
+extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
+
 
 extern int g_lineNumber;
 extern Filename g_inputFilename;
