@@ -34,6 +34,44 @@ static AST::ExprList * ConcatExprLists(AST::ExprList * a, AST::ExprList * b)
   return a;
 }
 
+template<class ExprType>
+static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
+                                         const std::string & name_, 
+                                         const std::string & suffix,
+                                                AST::Expr * expr)
+{
+  if (name_.length() > g_profile.m_identifierLen+1) {
+    stringstream strm;
+    strm << "identifier longer than maximum of " << g_profile.m_identifierLen;
+    g_application.OnWarning(strm.str());
+  }
+
+  std::string name   (name_.substr(0, g_profile.m_identifierLen) + suffix);
+  std::string defName(name_ + suffix);
+
+  auto r = g_variables.find(name);
+  if (r == g_variables.end()) {
+    g_variables[name] = AST::VariableDef(type, name, defName);
+  }
+  else if (r->second.m_defName != defName) {
+    stringstream strm;
+    strm << "identifier first defined as " << r->second.m_defName << " now defined as " << defName;
+    g_application.OnWarning(strm.str());
+  }
+
+  cout << "defining variable " << name << " from " << defName << endl;
+
+  AST::ExprList * exprList = new AST::ExprList();
+  exprList->push_back(
+            new ExprType(name, false)
+              );
+  exprList->push_back(
+            new AST::BinaryExpr('=', new AST::VariableRefExpr(name), expr)
+               );
+
+  return exprList;             
+}
+
 
 extern void MBASIC_SetRemMode();
 
@@ -58,7 +96,7 @@ extern void MBASIC_SetRemMode();
 %token PRINT_TOKEN
 %token REM_TOKEN
 
-%token <sval>   IDENTIFIER INTEGER_VARNAME STRING_VARNAME
+%token <sval>   IDENTIFIER INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
 %token <sval>   QUOTED_STRING
 %token <uval>   POSITIVE_INT
 %token <ival>   NEGATIVE_INT
@@ -172,48 +210,19 @@ opt_LET_TOKEN:  /* empty */
 
 assign_expression:  IDENTIFIER '=' numeric_expression
                         {
-                          std::string name(*$1 + "%");
-                          $$ = new AST::ExprList();
-                          $$->push_back(
-                                    new AST::Int16VariableDefExpr(name, false)
-                                      );
-                          $$->push_back(
-                                    new AST::BinaryExpr('=', 
-                                                   new AST::VariableRefExpr(name), 
-                                                   $3
-                                                   )
-                                       );
+                          $$ = DefineVariable<AST::Int16VariableDefExpr>(AST::VariableDef::eInt16, *$1, "%", $3);
                           delete $1;
                         }
                     | INTEGER_VARNAME '=' numeric_expression
-                        {                        
-                          $$ = new AST::ExprList();
-                          std::string name(*$1 + "%");
-                          //AST::Expr * expr = new AST::IntVariableDefExpr(*$1 + "%", false);                          
-                          //$$ = new AST::BinaryExpr('=', expr, $3);
-                          //delete $1;
+                        {
+                          $$ = DefineVariable<AST::Int16VariableDefExpr>(AST::VariableDef::eInt16, *$1, "", $3);
+                          delete $1;
                         }
                     | STRING_VARNAME '=' string_expression
                         {
-                          $$ = new AST::ExprList();
-                          /*
-                          CodeGenerator::Variable * var = g_variables.Add<CodeGenerator::StringVariable>(*$1, true);
-                          if (var == NULL) {
-                            cerr << "Variable '" << *$1 << " redefined type" << endl;
-                                AST::Expr * expr = new IntVariableExpr()
-                          $$ = new AST::BinaryExpr('=', $1, $2);
-                          $$ = nullptr;
-                          }
-                          else 
-                            $$ = new CodeGenerator::StringAssignExpr(var, $3);
+                          $$ = DefineVariable<AST::StringVariableDefExpr>(AST::VariableDef::eString, *$1, "", $3);
                           delete $1;
-                          */
                         }
-                    | numeric_expression
-                        {
-                          $$ = new AST::ExprList();
-                          $$->push_back($1);
-                        }    
                     ;
 
 /********************************************************* 
@@ -335,20 +344,23 @@ number:             const_integer_expr
                       {
                         $$ = $1;
                       }
+                    | IDENTIFIER
+                      {
+                        $$ = new AST::VariableRefExpr(*$1 + "%");
+                        delete $1;
+                      }
                     | SINGLE
                       { 
                         $$ = nullptr;
-                        //$$ = new CodeGenerator::ConstantInt16Expr($1->m_value);
-                        //delete $1; 
                       }
                     | DOUBLE
                       { 
                         $$ = nullptr;
                         //$$ = NULL; 
                       }
-                    | IDENTIFIER
+                    | INTEGER_VARNAME
                       { 
-                        $$ = new AST::VariableRefExpr(*$1 + "%");
+                        $$ = new AST::VariableRefExpr(*$1);
                       } 
                     ;  
 
@@ -361,6 +373,11 @@ number:             const_integer_expr
 string_expression:  string_constant
                       {
                         $$ = new AST::ConstantStringExpr(*$1, false);
+                        delete $1;
+                      }
+                    | STRING_VARNAME
+                      {
+                        $$ = new AST::VariableRefExpr(*$1);
                         delete $1;
                       }
                     ;

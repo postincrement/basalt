@@ -18,6 +18,9 @@ class Filename : public std::string
       : std::string(str)
     { }
 
+    Filename & operator =(const std::string & str)
+    { this->std::string::operator=(str); return *this; }
+
     std::string GetDir() const
     { 
       size_t pos = find_last_of('/');
@@ -73,19 +76,19 @@ struct LanguageProfile
   {
     switch (dialect) {
       case Basic80_5_0_Extended:
-        m_fullVarNames = true;
+        m_identifierLen = 40;
         break;
       case Basic80_5_0_Disk:
-        m_fullVarNames = true;
+        m_identifierLen = 40;
         break;
       case Basic80_5_0_8k:
       default:
-        m_fullVarNames = false;
+        m_identifierLen = 2;
         break;
     } 
   }
 
-  bool m_fullVarNames;  
+  size_t m_identifierLen;
 };
 
 struct ArgDef 
@@ -106,7 +109,12 @@ class Basalt
     void DecodeOpt(ArgDef * def);
     void Usage(const ArgDef * defs);
     char ReadNextChar();
-    void OnError(const char * msg);
+
+    void OnError(const std::string & msg);
+    void OnWarning(const std::string & msg);
+    void DisplayError(const std::string & msg, const std::string & type);
+
+    bool m_interactive;
 
     std::string m_progname;
     size_t m_lineOffs;
@@ -122,7 +130,7 @@ extern void MBASIC_error(const char * msg);
 extern int MBASIC_debug;
 extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
 
-
+extern Basalt g_application;
 extern int g_lineNumber;
 extern Filename g_inputFilename;
 

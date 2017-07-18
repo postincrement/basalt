@@ -86,6 +86,31 @@ class VariableDefExpr : public Expr
     bool m_global;
 };
 
+struct VariableDef
+{
+  enum Type {
+    eString,
+    eInt16,
+    eSingle,
+    eDouble
+  };
+
+  VariableDef()
+  { }
+
+  VariableDef(Type type, const std::string & name, const std::string & defName)
+    : m_type(type)
+    , m_name(name)
+    , m_defName(defName)
+  { }
+
+  Type m_type;
+  std::string m_name;
+  std::string m_defName;
+};
+
+typedef std::map<std::string, VariableDef> VariableDefList;
+
 template <class IntType>
 class IntVariableDefExpr : public VariableDefExpr
 {
@@ -99,6 +124,17 @@ class IntVariableDefExpr : public VariableDefExpr
 };
 
 typedef IntVariableDefExpr<int16_t> Int16VariableDefExpr;
+
+class StringVariableDefExpr : public VariableDefExpr
+{
+  public:
+    StringVariableDefExpr(const std::string & name, bool global)
+      : VariableDefExpr(name, global)
+    { }
+
+    virtual llvm::Value * Generate(CodeGenerator & cg);
+};
+
 
 //////////////////////////////////////////////////////////////////
 //
@@ -248,6 +284,7 @@ struct DoubleFloat
 };
 
 extern AST::ExprList g_expressions;
+extern AST::VariableDefList g_variables;
 
 // new classes
 

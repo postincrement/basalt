@@ -64,6 +64,8 @@ class CodeGenerator
 
 	  llvm::Value * Generate(AST::BIFExpr & expr);
 
+	  llvm::Value * Generate(AST::StringVariableDefExpr & expr);
+
 		llvm::Value * Generate(AST::Call1Expr<char *> & expr);
 		llvm::Value * Generate(AST::Call1Expr<int16_t *> & expr);
 

@@ -73,6 +73,16 @@
       return INTEGER_VARNAME;
     }
 
+[a-zA-Z0-9]+\! {
+      MBASIC_lval.sval = new std::string(yytext);
+      return SINGLE_VARNAME;
+    }
+
+[a-zA-Z0-9]+\# {
+      MBASIC_lval.sval = new std::string(yytext);
+      return DOUBLE_VARNAME;
+    }
+
 [_a-zA-Z0-9]+ {
 		  MBASIC_lval.sval = new std::string(yytext);
 		  return IDENTIFIER;

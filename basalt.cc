@@ -2,15 +2,20 @@
 #include <sstream>
 using namespace std;
 
+#include <unistd.h>
+
 #include "basalt.h"
 #include "codegen.h"
 
 Filename g_inputFilename;
-int g_lineNumber = 1;
-int g_errorCount = 0;
+int g_lineNumber   = 1;
+int g_errorCount   = 0;
+int g_warningCount = 0;
 
-LanguageProfile g_profile;
-AST::ExprList g_expressions;
+
+LanguageProfile          g_profile;
+AST::ExprList            g_expressions;
+AST::VariableDefList     g_variables;
 
 Basalt g_application;
 
@@ -129,6 +134,8 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
 
 int Basalt::Main(int argc, char const *argv[])
 {
+  m_interactive = false;
+
   {
     auto targetTriple = llvm::sys::getDefaultTargetTriple();
     g_targetTripleStr = targetTriple; 
@@ -137,9 +144,25 @@ int Basalt::Main(int argc, char const *argv[])
   // parse options and arguments
   int index = ParseArguments(g_argDefs, argc, argv);
   if (index >= argc) {
-    Usage(g_argDefs);
-    return -1;
+    m_interactive = true;
+    g_inputFilename = "<stdin>";
+    cout << "> " << flush;
+    while (getline(cin, m_line)) {
+      m_lineOffs = 0;
+      g_errorCount = 0;
+      g_expressions.clear();
+      MBASIC_parse();
+      if (g_errorCount == 0) {
+        cout << "compile here" << endl;
+      }
+      cout << "> " << flush;
+    }
+    return 0;
   }
+
+  //  Usage(g_argDefs);
+  //  return -1;
+  //}
 
   ///////////////////////////////////////////////////////////////////////////////
   //
@@ -302,6 +325,8 @@ int Basalt::Main(int argc, char const *argv[])
 char Basalt::ReadNextChar()
 {
   if (m_lineOffs > m_line.length()) {
+    if (m_interactive)
+      return 0;
     if (!getline(m_inputFile, m_line))
       return 0;
     m_lineOffs = 0;
@@ -316,13 +341,24 @@ char Basalt::ReadNextChar()
 }
 
 
-void Basalt::OnError(const char * msg)
+void Basalt::OnError(const std::string & msg)
 {
   g_errorCount++;
-  cout << g_inputFilename << ":" << g_lineNumber << ":" << m_lineOffs << ": " << msg << endl;
+  DisplayError(msg, "error");
+}
+
+void Basalt::OnWarning(const std::string & msg)
+{
+  g_warningCount++;
+  DisplayError(msg, "error");
+}
+
+void Basalt::DisplayError(const std::string & msg, const std::string & type)
+{
+  cout << g_inputFilename << ":" << g_lineNumber << ":" << m_lineOffs << ": " << type << " - " << msg << endl;
   cout << m_line << endl;
   size_t i;
-  for (i = 0; i < m_lineOffs-1; i++)
+  for (i = 0; i < m_lineOffs-2; i++)
     cout << " ";
   cout << "^" << endl;
 }

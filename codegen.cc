@@ -190,6 +190,18 @@ llvm::Value * CodeGenerator::Generate(AST::Int16VariableDefExpr & expr)
   return nullptr; 
 }
 
+llvm::Value * CodeGenerator::Generate(AST::StringVariableDefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedValues[expr.m_name];
+
+  if (!var) {
+    var = new llvm::AllocaInst(llvm::Type::getInt8PtrTy(m_context), expr.m_name, m_mainBlock);
+    m_namedValues[expr.m_name] = var;
+  }
+
+  return nullptr; 
+}
+
 
 llvm::Value * CodeGenerator::Generate(AST::ConstantStringExpr & expr)
 {
@@ -205,7 +217,13 @@ llvm::Value * CodeGenerator::Generate(AST::BIFExpr & expr)
   if (expr.m_name == "print") {
     for (auto & r : *expr.m_args) {
 
+      if (r == nullptr)
+        continue;
+
       llvm::Value * val = r->Generate(*this);
+      if (val == nullptr)
+        continue;
+      
       llvm::Type * type = val->getType();
       std::string funcName;
 

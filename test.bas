@@ -1,4 +1,5 @@
-10 print "hello, world"
-20 b = 7
-30 a = b - 4
-40 print a
+10 a$="hello, world"
+20 a=42
+30 b=2 + 2 * a
+40 print "string is " ; a$
+50 print "var is " b
