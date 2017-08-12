@@ -1,26 +1,23 @@
 #include "codegen.h"
 
-llvm::Value * AST::IntVariableRefExpr::Generate(CodeGenerator & cg)
+llvm::Value * AST::Int16VariableRefExpr::Generate(CodeGenerator & cg)
 {
   return cg.Generate(*this);
 }
 
-llvm::Value * AST::BinaryExpr::Generate(CodeGenerator & cg)
+llvm::Value * AST::Int16BinaryExpr::Generate(CodeGenerator & cg)
 {
   return cg.Generate(*this);
 }
 
-llvm::Value * AST::VariableRefExpr::Generate(CodeGenerator & cg)
+
+
+llvm::Value * AST::StringVariableRefExpr::Generate(CodeGenerator & cg)
 {
   return cg.Generate(*this);
 }
 
-llvm::Value * AST::ConstantStringExpr::Generate(CodeGenerator & cg)
-{
-  return cg.Generate(*this);
-}
-
-llvm::Value * AST::BIFExpr::Generate(CodeGenerator & cg)
+llvm::Value * AST::StringConstantExpr::Generate(CodeGenerator & cg)
 {
   return cg.Generate(*this);
 }
@@ -29,6 +26,19 @@ llvm::Value * AST::StringVariableDefExpr::Generate(CodeGenerator & cg)
 {
   return cg.Generate(*this);
 }
+
+llvm::Value * AST::StringBinaryExpr::Generate(CodeGenerator & cg)
+{
+  return cg.Generate(*this);
+}
+
+
+
+llvm::Value * AST::BIFExpr::Generate(CodeGenerator & cg)
+{
+  return cg.Generate(*this);
+}
+
 
 namespace AST {
 

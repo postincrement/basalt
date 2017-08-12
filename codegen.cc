@@ -4,6 +4,11 @@
 
 using namespace std;
 
+/*
+
+
+*/
+
 /// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
 /// the function.  This is used for mutable variables etc.
 llvm::AllocaInst * CodeGenerator::CreateEntryBlockAlloca(
@@ -16,6 +21,8 @@ llvm::AllocaInst * CodeGenerator::CreateEntryBlockAlloca(
 
 llvm::BasicBlock * CodeGenerator::StartMain()
 {
+  //StructDef m_stringStruct;
+
   // declare argument list for main
   std::vector<llvm::Type*>FuncTy_1_args;
 
@@ -105,10 +112,48 @@ llvm::Value * CodeGenerator::LogError(const std::string & str)
   return nullptr;
 }
 
-llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//  Int16 functions
+//
+
+llvm::Value * CodeGenerator::Generate(AST::Int16ConstantExpr & expr)
+{
+  return llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_intValue));
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::Int16VariableDefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedInt16Values[expr.m_name];
+
+  if (!var) {
+    var = new llvm::AllocaInst(llvm::IntegerType::get(m_context, 16), expr.m_name, m_mainBlock);
+    m_namedInt16Values[expr.m_name] = var;
+  }
+
+  return nullptr; 
+}
+
+llvm::Value * CodeGenerator::Generate(AST::Int16VariableRefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedInt16Values[expr.m_name];
+
+  if (!var) {
+    std::stringstream strm;
+    strm << "Reference to unknown int16 variable '" << expr.m_name << "'";
+    return LogError(strm.str());      
+  }
+
+  // Load the value.
+  return m_builder.CreateLoad(var, expr.m_name.c_str());
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::Int16BinaryExpr & expr)
 {
   if (expr.m_op == '=') {
-    AST::VariableRefExpr * lhse = dynamic_cast<AST::VariableRefExpr *>(expr.m_lhs);
+    AST::Int16VariableRefExpr * lhse = dynamic_cast<AST::Int16VariableRefExpr *>(expr.m_lhs);
     if (!lhse) {
       std::stringstream strm;
       strm << "LHS of assignment must be variable";
@@ -117,15 +162,22 @@ llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
     llvm::Value * val = expr.m_rhs->Generate(*this);
     if (val == NULL)
       cout << "RHS of assignment is null" << endl;
-    llvm::Value * var = m_namedValues[lhse->m_name];
+    llvm::Value * var = m_namedInt16Values[lhse->m_name];
     if (!var) {
       std::stringstream strm;
-      strm << "Unknown variable '" << lhse->m_name << "'";
+      strm << "Unknown integer variable '" << lhse->m_name << "'";
       return LogError(strm.str());      
     }
 
     m_builder.CreateStore(val, var, false); 
     return var;    
+  }
+
+  if (!expr.m_lhs || !expr.m_rhs) {
+    std::stringstream strm;
+    strm << "Int16 binary expression '" << expr.m_op << "' failed";
+    LogError(strm.str());      
+    return nullptr;  
   }
 
   llvm::Value * lhs = expr.m_lhs->Generate(*this);
@@ -156,59 +208,151 @@ llvm::Value * CodeGenerator::Generate(AST::BinaryExpr & expr)
   }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//  String functions
+//
 
-llvm::Value * CodeGenerator::Generate(AST::VariableRefExpr & expr)
+
+llvm::AllocaInst * CodeGenerator::CreateString(const std::string & name)
 {
-  llvm::AllocaInst * var = m_namedValues[expr.m_name];
+  // get, or create, struct structure definition
+  llvm::StructType * stringStruct = m_module.get()->getTypeByName(STRING_VAR_TYPE);
+
+  if (stringStruct == nullptr) {
+    stringStruct = llvm::StructType::create(m_context, STRING_VAR_TYPE);
+
+    std::vector<llvm::Type*> stringStructFields;
+
+    // point to data
+    stringStructFields.push_back(llvm::PointerType::get(llvm::IntegerType::get(m_context, 8), 0));
+
+    // length
+    stringStructFields.push_back(llvm::IntegerType::get(m_context, 8));
+
+    // bool isStatic
+    stringStructFields.push_back(llvm::IntegerType::get(m_context, 8));
+
+    if (stringStruct->isOpaque())
+      stringStruct->setBody(stringStructFields, /*isPacked=*/false);
+  }
+
+  // instantiate string
+  llvm::AllocaInst * varPtr = new llvm::AllocaInst(stringStruct, name, m_mainBlock);
+  varPtr->setAlignment(8);
+
+  return varPtr;
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::StringVariableDefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedStringValues[expr.m_name];
+
+  if (!var) {
+    var = CreateString(expr.m_name);
+    m_namedStringValues[expr.m_name] = var;
+  }
+
+  return nullptr; 
+}
+
+
+llvm::Value * CodeGenerator::Generate(AST::StringConstantExpr & expr)
+{
+  //if (expr.m_global)
+    return m_builder.CreateGlobalStringPtr(expr.m_value);
+
+  //return nullptr; 
+}
+
+llvm::Value * CodeGenerator::Generate(AST::StringVariableRefExpr & expr)
+{
+  llvm::AllocaInst * var = m_namedStringValues[expr.m_name];
 
   if (!var) {
     std::stringstream strm;
-    strm << "Reference to unknown variable '" << expr.m_name << "'";
+    strm << "Reference to unknown string variable '" << expr.m_name << "'";
     return LogError(strm.str());      
   }
+
+  //llvm::ConstantInt * dataPtr = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
+  //llvm::ConstantInt * length  = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
+
+  /*
+  llvm::GetElementPtrInst::Create(stringStruct, varPtr, {
+        dataPtr, 
+        length
+  }, "", m_mainBlock);
+  */
 
   // Load the value.
   return m_builder.CreateLoad(var, expr.m_name.c_str());
 }
 
 
-llvm::Value * CodeGenerator::Generate(AST::ConstantInt16Expr & expr)
+llvm::Value * CodeGenerator::Generate(AST::StringBinaryExpr & expr)
 {
-  return llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_intValue));
-}
+  if (expr.m_op == '=') {
+    AST::StringVariableRefExpr * lhse = dynamic_cast<AST::StringVariableRefExpr *>(expr.m_lhs);
+    if (!lhse) {
+      std::stringstream strm;
+      strm << "LHS of assignment must be variable";
+      return LogError(strm.str());      
+    }
+    llvm::Value * val = expr.m_rhs->Generate(*this);
+    if (val == NULL)
+      cout << "RHS of assignment is null" << endl;
+    llvm::Value * var = m_namedStringValues[lhse->m_name];
+    if (!var) {
+      std::stringstream strm;
+      strm << "Unknown string variable '" << lhse->m_name << "'";
+      return LogError(strm.str());      
+    }
 
+#if 0
+    %TODO need assignment here
+    ConstantInt * const_int32_7 = ConstantInt::get(mod->getContext(), APInt(32, StringRef("1"), 10));
+    ConstantInt * const_int32_8 = ConstantInt::get(mod->getContext(), APInt(32, StringRef("0"), 10));
 
-llvm::Value * CodeGenerator::Generate(AST::Int16VariableDefExpr & expr)
-{
-  llvm::AllocaInst * var = m_namedValues[expr.m_name];
+    GetElementPtrInst * ptr_22 = GetElementPtrInst::Create(StructTy_struct_String, ptr_a, {
+     const_int32_8, 
+     const_int32_7
+    }, "", label_13);
 
-  if (!var) {
-    var = new llvm::AllocaInst(llvm::IntegerType::get(m_context, 16), expr.m_name, m_mainBlock);
-    m_namedValues[expr.m_name] = var;
+    StoreInst* void_23 = new StoreInst(const_int8_12, ptr_22, false, label_13);    
+
+    m_builder.CreateStore(val, var, false); 
+#endif
+
+    return var;    
   }
 
-  return nullptr; 
-}
-
-llvm::Value * CodeGenerator::Generate(AST::StringVariableDefExpr & expr)
-{
-  llvm::AllocaInst * var = m_namedValues[expr.m_name];
-
-  if (!var) {
-    var = new llvm::AllocaInst(llvm::Type::getInt8PtrTy(m_context), expr.m_name, m_mainBlock);
-    m_namedValues[expr.m_name] = var;
+  if (!expr.m_lhs || !expr.m_rhs) {
+    std::stringstream strm;
+    strm << "String binary expression failed";
+    LogError(strm.str());      
+    return nullptr;
   }
 
-  return nullptr; 
-}
+  llvm::Value * lhs = expr.m_lhs->Generate(*this);
+  llvm::Value * rhs = expr.m_rhs->Generate(*this);
 
+  if (!lhs || !rhs)
+    return nullptr;
 
-llvm::Value * CodeGenerator::Generate(AST::ConstantStringExpr & expr)
-{
-  //if (expr.m_global)
-    return m_builder.CreateGlobalStringPtr(expr.m_value);
-
-  //return nullptr; 
+  switch (expr.m_op) {
+    case '+':
+    case '-':
+    case '*':
+    case '/':
+    default:
+      {
+        std::stringstream strm;
+        strm << "Invalid binary operator '" << expr.m_op << "'";
+        return LogError(strm.str());
+      }
+  }
 }
 
 

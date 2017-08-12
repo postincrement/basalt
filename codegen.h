@@ -27,6 +27,9 @@
 
 #include "ast.h"
 
+#define	STRING_VAR_TYPE			"basalt_StringType"
+
+
 class CodeGenerator  
 {
 	public:
@@ -37,6 +40,7 @@ class CodeGenerator
 		{ 
   	}
 
+  	//StructDef m_stringStruct;
 
 		llvm::BasicBlock * StartMain();
 		void EndMain(llvm::BasicBlock * block);
@@ -54,33 +58,29 @@ class CodeGenerator
 
 		//virtual llvm::Value * Generate() = 0;
 
-		llvm::Value * Generate(AST::BinaryExpr & expr);
-		llvm::Value * Generate(AST::VariableRefExpr & expr);
-
-		llvm::Value * Generate(AST::ConstantInt16Expr & expr);
+		llvm::Value * Generate(AST::Int16VariableRefExpr & expr);
+		llvm::Value * Generate(AST::Int16ConstantExpr & expr);
 		llvm::Value * Generate(AST::Int16VariableDefExpr & expr);
+		llvm::Value * Generate(AST::Int16BinaryExpr & expr);
 
-	  llvm::Value * Generate(AST::ConstantStringExpr & expr);
+		llvm::Value * Generate(AST::StringVariableRefExpr & expr);
+	  llvm::Value * Generate(AST::StringVariableDefExpr & expr);
+	  llvm::Value * Generate(AST::StringConstantExpr & expr);
+		llvm::Value * Generate(AST::StringBinaryExpr & expr);
 
 	  llvm::Value * Generate(AST::BIFExpr & expr);
-
-	  llvm::Value * Generate(AST::StringVariableDefExpr & expr);
 
 		llvm::Value * Generate(AST::Call1Expr<char *> & expr);
 		llvm::Value * Generate(AST::Call1Expr<int16_t *> & expr);
 
-
-	  //llvm::Value * Generate(AST::Expr & expr);
-		//llvm::Value * Generate(AST::IntVariableDefExpr & expr);
-
-		//llvm::Value * Generate(AST::UnaryExpr & expr);
-		//llvm::Value * Generate(AST::CallExpr & expr);
+		llvm::AllocaInst * CreateString(const std::string & name);
 
 		llvm::LLVMContext m_context;
 		std::unique_ptr<llvm::Module> m_module;	
 		llvm::IRBuilder<> m_builder;
 		std::ostream & m_errorStream;
-		std::map<std::string, llvm::AllocaInst *> m_namedValues;
+		std::map<std::string, llvm::AllocaInst *> m_namedInt16Values;
+		std::map<std::string, llvm::AllocaInst *> m_namedStringValues;
 
 		llvm::BasicBlock * m_mainBlock;
 };

@@ -226,6 +226,19 @@ int Basalt::Main(int argc, char const *argv[])
 
   cout << "generating code for " << g_expressions.size() << " expressions" << endl;
 
+/*
+    llvm::StoreInst* void_10 = new llvm::StoreInst(const_ptr_6, ptr_9, false, label_8);
+    void_10->setAlignment(8);
+    llvm::GetElementPtrInst* ptr_11 = llvm::GetElementPtrInst::Create(StructTy_struct_String, ptr_a, {
+     const_int32_5, 
+     const_int32_4
+    }, "", label_8);
+
+    llvm::StoreInst* void_12 = new llvm::StoreInst(const_int8_7, ptr_11, false, label_8);
+    void_12->setAlignment(8);
+  }
+ */   
+
   for (auto & r : g_expressions) {
     if (r != nullptr) {
       //cout << "generating code for non-null expression" << endl;
@@ -311,7 +324,6 @@ int Basalt::Main(int argc, char const *argv[])
   Filename exeFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename());
   std::stringstream cmd;
   cmd << "clang " << objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
-
 
   int result = system(cmd.str().c_str());
   if (result != 0)

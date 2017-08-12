@@ -34,11 +34,11 @@ static AST::ExprList * ConcatExprLists(AST::ExprList * a, AST::ExprList * b)
   return a;
 }
 
-template<class ExprType>
+template<class DefExprType, class RefExprType, class BinExprType>
 static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
-                                         const std::string & name_, 
-                                         const std::string & suffix,
-                                                AST::Expr * expr)
+                                      const std::string & name_, 
+                                      const std::string & suffix,
+                                              AST::Expr * expr)
 {
   if (name_.length() > g_profile.m_identifierLen+1) {
     stringstream strm;
@@ -63,10 +63,10 @@ static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
 
   AST::ExprList * exprList = new AST::ExprList();
   exprList->push_back(
-            new ExprType(name, false)
+            new DefExprType(name, false)
               );
   exprList->push_back(
-            new AST::BinaryExpr('=', new AST::VariableRefExpr(name), expr)
+            new BinExprType('=', new RefExprType(name), expr)
                );
 
   return exprList;             
@@ -210,17 +210,32 @@ opt_LET_TOKEN:  /* empty */
 
 assign_expression:  IDENTIFIER '=' numeric_expression
                         {
-                          $$ = DefineVariable<AST::Int16VariableDefExpr>(AST::VariableDef::eInt16, *$1, "%", $3);
+                          $$ = DefineVariable<AST::Int16VariableDefExpr,
+                                              AST::Int16VariableRefExpr,
+                                              AST::Int16BinaryExpr>(
+                                                  AST::VariableDef::eInt16,
+                                                  *$1, "%", $3
+                                              );
                           delete $1;
                         }
                     | INTEGER_VARNAME '=' numeric_expression
                         {
-                          $$ = DefineVariable<AST::Int16VariableDefExpr>(AST::VariableDef::eInt16, *$1, "", $3);
+                          $$ = DefineVariable<AST::Int16VariableDefExpr,
+                                              AST::Int16VariableRefExpr,
+                                              AST::Int16BinaryExpr>(
+                                                  AST::VariableDef::eInt16,
+                                                  *$1, "", $3
+                                              );
                           delete $1;
                         }
                     | STRING_VARNAME '=' string_expression
                         {
-                          $$ = DefineVariable<AST::StringVariableDefExpr>(AST::VariableDef::eString, *$1, "", $3);
+                          $$ = DefineVariable<AST::StringVariableDefExpr,
+                                              AST::StringVariableRefExpr,
+                                              AST::StringBinaryExpr>(
+                                                  AST::VariableDef::eString,
+                                                  *$1, "", $3
+                                              );
                           delete $1;
                         }
                     ;
@@ -299,11 +314,11 @@ REM_statement: rem_keyword
 
 numeric_expression: numeric_expression '-' numeric_expr2 
                       { 
-                        $$ = new AST::BinaryExpr('-', $1, $3);
+                        $$ = new AST::Int16BinaryExpr('-', $1, $3);
                       }
                     | numeric_expression '+' numeric_expr2 
                       { 
-                        $$ = new AST::BinaryExpr('+', $1, $3);
+                        $$ = new AST::Int16BinaryExpr('+', $1, $3);
                       }
                     | numeric_expr2
                       {
@@ -314,11 +329,11 @@ numeric_expression: numeric_expression '-' numeric_expr2
 
 numeric_expr2:      numeric_expr2 '*' numeric_expr3 
                       { 
-                        $$ = new AST::BinaryExpr('*', $1, $3);
+                        $$ = new AST::Int16BinaryExpr('*', $1, $3);
                       }
                     | numeric_expr2 '/' numeric_expr3 
                       { 
-                        $$ = new AST::BinaryExpr('/', $1, $3);
+                        $$ = new AST::Int16BinaryExpr('/', $1, $3);
                       }
                     | numeric_expr3
                       {
@@ -346,7 +361,7 @@ number:             const_integer_expr
                       }
                     | IDENTIFIER
                       {
-                        $$ = new AST::VariableRefExpr(*$1 + "%");
+                        $$ = new AST::Int16VariableRefExpr(*$1 + "%");
                         delete $1;
                       }
                     | SINGLE
@@ -360,7 +375,7 @@ number:             const_integer_expr
                       }
                     | INTEGER_VARNAME
                       { 
-                        $$ = new AST::VariableRefExpr(*$1);
+                        $$ = new AST::Int16VariableRefExpr(*$1);
                       } 
                     ;  
 
@@ -372,12 +387,12 @@ number:             const_integer_expr
 
 string_expression:  string_constant
                       {
-                        $$ = new AST::ConstantStringExpr(*$1, false);
+                        $$ = new AST::StringConstantExpr(*$1, false);
                         delete $1;
                       }
                     | STRING_VARNAME
                       {
-                        $$ = new AST::VariableRefExpr(*$1);
+                        $$ = new AST::StringVariableRefExpr(*$1);
                         delete $1;
                       }
                     ;
@@ -390,7 +405,7 @@ string_expression:  string_constant
 
 const_integer_expr: integer
                       {
-                        $$ = new AST::ConstantInt16Expr($1);
+                        $$ = new AST::Int16ConstantExpr($1);
                       }
                     ;
 
