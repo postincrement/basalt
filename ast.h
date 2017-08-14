@@ -272,6 +272,35 @@ class BIFExpr : public Expr
     ExprList * m_args;
 };
 
+//////////////////////////////////////////////////////////////////
+//
+// PrintCommaExpr - placeholder for printing commas
+//
+class PrintCommaExpr : public Expr
+{
+  public:
+    PrintCommaExpr()
+    { }   
+
+    virtual llvm::Value * Generate(CodeGenerator & cg)
+    { return nullptr; }
+};
+
+
+//////////////////////////////////////////////////////////////////
+//
+// PrintSemiColonExpr - placeholder for concatenation, and disabling trailing newline
+//
+class PrintSemiColonExpr : public Expr
+{
+  public:
+    PrintSemiColonExpr()
+    { }   
+    
+    virtual llvm::Value * Generate(CodeGenerator & cg)
+    { return nullptr; }
+};
+
 
 //////////////////////////////////////////////////////////////////
 //
@@ -309,6 +338,8 @@ class Call1Expr : public CallExpr
 
 
 } // namespace AST
+
+////////////////////////////////////////////////////////////////////////////
 
 struct SingleFloat 
 {

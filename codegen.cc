@@ -359,41 +359,65 @@ llvm::Value * CodeGenerator::Generate(AST::StringBinaryExpr & expr)
 llvm::Value * CodeGenerator::Generate(AST::BIFExpr & expr)
 {
   if (expr.m_name == "print") {
+    bool addNewLine = true;
     for (auto & r : *expr.m_args) {
+
+      addNewLine = true;
+
+      std::string funcName;
+      std::vector<llvm::Value *> args;
+      std::vector<llvm::Type *> argTypes;
 
       if (r == nullptr)
         continue;
 
-      llvm::Value * val = r->Generate(*this);
-      if (val == nullptr)
-        continue;
-      
-      llvm::Type * type = val->getType();
-      std::string funcName;
-
-      std::vector<llvm::Value *> args;
-      args.push_back(val);
-      std::vector<llvm::Type *> argTypes;
-
-      if (type == llvm::Type::getInt8PtrTy(m_context)) {
-        argTypes.push_back(type);
-        funcName = "basalt_print_string";
+      if (dynamic_cast<AST::PrintCommaExpr *>(r) != nullptr) {
+        funcName = "basalt_print_tab";
+        addNewLine = false;
       }
-      else if (type == llvm::Type::getInt16Ty(m_context)) {
-        argTypes.push_back(type);
-        funcName = "basalt_print_integer";  
+
+      else if (dynamic_cast<AST::PrintSemiColonExpr *>(r) != nullptr) {
+        addNewLine = false;
       }
+
       else {
-        std::string type_str;
-        llvm::raw_string_ostream rso(type_str);
-        type->print(rso);
-        cerr << "error: unknown argument type to print '" << rso.str() << "'" << endl;
-        return nullptr;
+
+        llvm::Value * val = r->Generate(*this);
+        if (val == nullptr)
+          continue;
+        
+        llvm::Type * type = val->getType();
+        args.push_back(val);
+
+        if (type == llvm::Type::getInt8PtrTy(m_context)) {
+          argTypes.push_back(type);
+          funcName = "basalt_print_string";
+        }
+        else if (type == llvm::Type::getInt16Ty(m_context)) {
+          argTypes.push_back(type);
+          funcName = "basalt_print_integer";  
+        }
+        else {
+          std::string type_str;
+          llvm::raw_string_ostream rso(type_str);
+          type->print(rso);
+          cerr << "error: unknown argument type to print '" << rso.str() << "'" << endl;
+          return nullptr;
+        }
       }
 
-      llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
+      if (!funcName.empty()) {
+        llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
+        llvm::FunctionType * funcType = llvm::FunctionType::get(m_builder.getVoidTy(), argsRef, false);
+        llvm::Constant     * func     = m_module->getOrInsertFunction(funcName, funcType);  
+        m_builder.CreateCall(func, args);  
+      }
+    }
+    if (addNewLine) {
+      std::vector<llvm::Value *>  args;
+      llvm::ArrayRef<llvm::Type*> argsRef;
       llvm::FunctionType * funcType = llvm::FunctionType::get(m_builder.getVoidTy(), argsRef, false);
-      llvm::Constant     * func     = m_module->getOrInsertFunction(funcName, funcType);  
+      llvm::Constant     * func     = m_module->getOrInsertFunction("basalt_print_eol", funcType);  
       m_builder.CreateCall(func, args);  
     }
   }
