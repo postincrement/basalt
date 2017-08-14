@@ -72,7 +72,6 @@ static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
   return exprList;             
 }
 
-
 extern void MBASIC_SetRemMode();
 
 %}
@@ -103,7 +102,7 @@ extern void MBASIC_SetRemMode();
 %token <dfloat> DOUBLE
 %token <sfloat> SINGLE
 
-%type <ival>     integer
+%type <ival>     integer opt_line_number
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
@@ -111,21 +110,27 @@ extern void MBASIC_SetRemMode();
 %type <exprlist>    print_expression_list 
 
 %type <exprlist>    LET_statement assign_expression 
-%type <expr>        numeric_expression numeric_expr2 numeric_expr3 number 
+%type <expr>        integer_expression int_mult_expression int_paren_expression number 
 %type <expr>        string_expression 
-%type <expr>        const_integer_expr
 
+%type <expr>        const_integer_expr
 %type <sval>        string_constant
 
 %%
 
 MBASIC_file:  line
                 {
+                  if ($1->m_lineNumber >= 0) {
+                    // insert line number here
+                  }
                   ConcatExprLists(&g_expressions, $1);
                   delete $1;
                 }
               | MBASIC_file line
                 {
+                  if ($2->m_lineNumber >= 0) {
+                    // insert line number here
+                  }
                   ConcatExprLists(&g_expressions, $2);
                   delete $2;
                 } 
@@ -140,11 +145,14 @@ MBASIC_file:  line
 line:     opt_line_number opt_statement_list eol
             {
               $$ = $2;
+              $$->m_lineNumber = $1;
             }
           ;
 
 opt_line_number: /* empty */
+                    { $$ = -1; }
                  | POSITIVE_INT
+                    { $$ = $1; }
                  ; 
 
 opt_statement_list : /* empty */
@@ -208,7 +216,7 @@ opt_LET_TOKEN:  /* empty */
                 | LET_TOKEN
                 ;
 
-assign_expression:  IDENTIFIER '=' numeric_expression
+assign_expression:  IDENTIFIER '=' integer_expression
                         {
                           $$ = DefineVariable<AST::Int16VariableDefExpr,
                                               AST::Int16VariableRefExpr,
@@ -218,7 +226,7 @@ assign_expression:  IDENTIFIER '=' numeric_expression
                                               );
                           delete $1;
                         }
-                    | INTEGER_VARNAME '=' numeric_expression
+                    | INTEGER_VARNAME '=' integer_expression
                         {
                           $$ = DefineVariable<AST::Int16VariableDefExpr,
                                               AST::Int16VariableRefExpr,
@@ -273,6 +281,10 @@ print_expression:      string_expression
                           {
                             $$ = $1;
                           }
+                       | integer_expression
+                          {
+                            $$ = $1;
+                          }
                        | ',' 
                           {
                             $$ = nullptr; //new PrintElement();
@@ -280,10 +292,6 @@ print_expression:      string_expression
                        | ';'
                           {
                             $$ = nullptr; //new PrintElement();
-                          }
-                       | numeric_expression
-                          {
-                            $$ = $1;
                           }
                        ;                           
 
@@ -308,75 +316,73 @@ REM_statement: rem_keyword
 
 /********************************************************* 
 
- numeric expression              
+ integer expression              
 
  *********************************************************/ 
 
-numeric_expression: numeric_expression '-' numeric_expr2 
+integer_expression: int_mult_expression '-' int_mult_expression 
                       { 
                         $$ = new AST::Int16BinaryExpr('-', $1, $3);
                       }
-                    | numeric_expression '+' numeric_expr2 
+
+                    | int_mult_expression '+' int_mult_expression 
                       { 
                         $$ = new AST::Int16BinaryExpr('+', $1, $3);
                       }
-                    | numeric_expr2
-                      {
-                        $$ = $1;
-                      }
                     ;
 
-
-numeric_expr2:      numeric_expr2 '*' numeric_expr3 
+int_mult_expression:  int_paren_expression '*' int_paren_expression 
                       { 
                         $$ = new AST::Int16BinaryExpr('*', $1, $3);
                       }
-                    | numeric_expr2 '/' numeric_expr3 
+
+                    | int_paren_expression '/' int_paren_expression 
                       { 
                         $$ = new AST::Int16BinaryExpr('/', $1, $3);
                       }
-                    | numeric_expr3
-                      {
-                        $$ = $1;
-                      }  
                     ;
+                    
+int_paren_expression: '(' integer_expression ')'
+                        {
+                          $$ = $2;
+                        } 
 
-numeric_expr3:      '(' numeric_expression ')'
-                      {
-                        $$ = $2;
-                      }                    
-                    | '-' numeric_expr3
-                      {
-                        $$ = $2;
-                      }
-                    | number
-                      {
-                        $$ = $1;
-                      }  
-                    ;
+                      | '-' integer_expression 
+                        {
+                          $$ = $2;
+                        }
+
+                      | number
+                        {
+                          $$ = $1;
+                        }  
+                      ;
                       
 number:             const_integer_expr
                       {
                         $$ = $1;
                       }
+
                     | IDENTIFIER
                       {
                         $$ = new AST::Int16VariableRefExpr(*$1 + "%");
                         delete $1;
                       }
-                    | SINGLE
-                      { 
-                        $$ = nullptr;
-                      }
-                    | DOUBLE
-                      { 
-                        $$ = nullptr;
-                        //$$ = NULL; 
-                      }
+
                     | INTEGER_VARNAME
                       { 
                         $$ = new AST::Int16VariableRefExpr(*$1);
                       } 
+
+                    | SINGLE
+                      { 
+                        $$ = nullptr;
+                      }
+
+                    | DOUBLE
+                      { 
+                        $$ = nullptr;
+                      }
                     ;  
 
 /********************************************************* 
@@ -390,6 +396,7 @@ string_expression:  string_constant
                         $$ = new AST::StringConstantExpr(*$1, false);
                         delete $1;
                       }
+
                     | STRING_VARNAME
                       {
                         $$ = new AST::StringVariableRefExpr(*$1);

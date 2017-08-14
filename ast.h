@@ -52,7 +52,15 @@ class Expr
     virtual llvm::Value * Generate(CodeGenerator & cg) = 0;
 };
 
-typedef std::vector<Expr *> ExprList;
+struct ExprList : public std::vector<Expr *> 
+{
+  ExprList()
+    : m_lineNumber(-1)
+  { }
+  signed m_lineNumber;  
+};
+
+
 
 //////////////////////////////////////////////////////////////////
 //
