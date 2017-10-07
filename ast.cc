@@ -152,43 +152,6 @@ bool AST::Dumper::Visit(ExprList & expr)
   return true;
 }
 
-bool AST::Dumper::Visit(StringVariableDefExpr & expr)
-{
-  m_strm << "string var '" << expr.m_name << "'" << endl; 
-  return true;
-}
-
-bool AST::Dumper::Visit(IntVariableDefExpr<int16_t> & expr)
-{ 
-  m_strm << "int16 var '" << expr.m_name << "'" << endl; 
-  return true;
-}
-
-bool AST::Dumper::Visit(StringVariableRefExpr & expr)
-{
-  std::string temp = CreateTemp();
-  m_strm << temp << " = '" << expr.m_name << "'" << endl; 
-  m_vars.push_back(temp);
-  return true;
-}
-
-bool AST::Dumper::Visit(Int16VariableRefExpr & expr)
-{ 
-  std::string temp = CreateTemp();
-  m_strm << temp << " = '" << expr.m_name << "'" << endl; 
-  m_vars.push_back(temp);
-  return true;
-  
-}
-
-bool AST::Dumper::Visit(StringConstantExpr & expr)
-{
-  std::string temp = CreateTemp();  
-  m_strm << temp << " = '" << expr.m_value << "'" << endl;
-  m_vars.push_back(temp);
-  return true;
-}
-
 bool AST::Dumper::Visit(VariableDefExpr & expr)
 {
   return DumpError(expr);
@@ -207,6 +170,30 @@ bool AST::Dumper::Visit(UnaryExpr & expr)
 bool AST::Dumper::Visit(BinaryExpr & expr)
 {
   return DumpError(expr);
+}
+
+///////////////////////////////////////////////////////////////////////
+
+bool AST::Dumper::Visit(StringConstantExpr & expr)
+{
+  std::string temp = CreateTemp();  
+  m_strm << temp << " = '" << expr.m_value << "'" << endl;
+  m_vars.push_back(temp);
+  return true;
+}
+
+bool AST::Dumper::Visit(StringVariableDefExpr & expr)
+{
+  m_strm << "string var '" << expr.m_name << "'" << endl; 
+  return true;
+}
+
+bool AST::Dumper::Visit(StringVariableRefExpr & expr)
+{
+  std::string temp = CreateTemp();
+  m_strm << temp << " = '" << expr.m_name << "'" << endl; 
+  m_vars.push_back(temp);
+  return true;
 }
 
 bool AST::Dumper::Visit(StringBinaryExpr & expr)
@@ -246,6 +233,30 @@ bool AST::Dumper::Visit(StringBinaryExpr & expr)
   return true;
 }
 
+///////////////////////////////////////////////////////////////////////
+
+bool AST::Dumper::Visit(ConstantIntExpr<short int> & expr)
+{
+  std::string temp = CreateTemp();  
+  m_strm << temp << " = '" << expr.m_intValue << "'" << endl;
+  m_vars.push_back(temp);
+  return true;
+}
+
+bool AST::Dumper::Visit(IntVariableDefExpr<int16_t> & expr)
+{ 
+  m_strm << "int16 var '" << expr.m_name << "'" << endl; 
+  return true;
+}
+
+bool AST::Dumper::Visit(Int16VariableRefExpr & expr)
+{ 
+  std::string temp = CreateTemp();
+  m_strm << temp << " = '" << expr.m_name << "'" << endl; 
+  m_vars.push_back(temp);
+  return true;  
+}
+
 bool AST::Dumper::Visit(Int16BinaryExpr & expr)
 {
   assert(expr.m_lhs != nullptr);
@@ -283,10 +294,26 @@ bool AST::Dumper::Visit(Int16BinaryExpr & expr)
   return true;
 }
 
+///////////////////////////////////////////////////////////////////////
 
 bool AST::Dumper::Visit(BIFExpr & expr)
 {
-  m_strm << "BIF" << endl;
+  std::vector<std::string> args;
+  for (auto & r : *expr.m_args) {
+    r->Accept(*this);
+    assert(m_vars.size() > 0);  
+    std::string result = m_vars.back();
+    args.push_back(result);
+  }
+  m_strm << expr.m_name << "(";
+  bool first = true;
+  for (auto & r : args) {
+    if (!first)
+      m_strm << ", ";
+    m_strm << r;
+    first = false;
+  }
+  m_strm << ")" << endl;
   return true;
 }
 
@@ -303,14 +330,6 @@ bool AST::Dumper::Visit(PrintSemiColonExpr & expr)
 bool AST::Dumper::Visit(CallExpr & expr)
 {
   return DumpError(expr);
-}
-
-bool AST::Dumper::Visit(ConstantIntExpr<short int> & expr)
-{
-  std::string temp = CreateTemp();  
-  m_strm << temp << " = '" << expr.m_intValue << "'" << endl;
-  m_vars.push_back(temp);
-  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////

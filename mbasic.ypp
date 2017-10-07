@@ -72,49 +72,6 @@ static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
   return exprList;             
 }
 
-
-#if 0
-
-template<class DefExprType, class RefExprType, class BinExprType>
-static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
-                                      const std::string & name_, 
-                                             const char * suffix,
-                                              AST::Expr * expr)
-{
-  if (name_.length() > g_profile.m_identifierLen+1) {
-    stringstream strm;
-    strm << "identifier longer than maximum of " << g_profile.m_identifierLen;
-    g_application.OnWarning(strm.str());
-  }
-
-  std::string name   (name_.substr(0, g_profile.m_identifierLen) + suffix);
-  std::string defName(name_ + suffix);
-
-  auto r = g_variables.find(name);
-  if (r == g_variables.end()) {
-    g_variables[name] = AST::VariableDef(type, name, defName);
-  }
-  else if (r->second.m_defName != defName) {
-    stringstream strm;
-    strm << "identifier first defined as " << r->second.m_defName << " now defined as " << defName;
-    g_application.OnWarning(strm.str());
-  }
-
-  //cout << "defining variable " << name << " from " << defName << endl;
-
-  AST::ExprList * exprList = new AST::ExprList();
-  exprList->push_back(
-            new DefExprType(name, false)
-              );
-  exprList->push_back(
-            new BinExprType('=', new RefExprType(name), expr)
-               );
-
-  return exprList;             
-}
-
-#endif
-
 extern void MBASIC_SetRemMode();
 
 %}
@@ -310,6 +267,7 @@ assign_expression:  IDENTIFIER '=' integer_expression
 
 PRINT_statement:  print_keyword print_expression_list
                     {
+                      cout << "print has " << $2->size() << " args" << endl;
                       $$ = new AST::BIFExpr("print", $2);
                     }
                   ;
@@ -327,24 +285,30 @@ print_expression_list: /* empty */
                           }  
                        | print_expression_list print_expression
                           {
+                            cout << "adding print expression" << endl;
                             $1->push_back($2);
+                            $$ = $1;
                           }
                        ;
 
 print_expression:      string_expression
                           {
+                            cout << "  adding string expression" << endl;
                             $$ = $1;
                           }
                        | integer_expression
                           {
+                            cout << "  adding integer expression" << endl;
                             $$ = $1;
                           }
                        | ',' 
                           {
+                            cout << "  adding , expression" << endl;
                             $$ = new AST::PrintCommaExpr();
                           }
                        | ';'
                           {
+                            cout << "  adding ; expression" << endl;
                             $$ = new AST::PrintSemiColonExpr();
                           }
                        ;                           
