@@ -5,13 +5,13 @@ using namespace std;
 #include <unistd.h>
 
 #include "basalt.h"
-#include "codegen.h"
+
+//#include "codegen.h"
 
 Filename g_inputFilename;
 int g_lineNumber   = 1;
 int g_errorCount   = 0;
 int g_warningCount = 0;
-
 
 LanguageProfile          g_profile;
 AST::ExprList            g_expressions;
@@ -137,8 +137,8 @@ int Basalt::Main(int argc, char const *argv[])
   m_interactive = false;
 
   {
-    auto targetTriple = llvm::sys::getDefaultTargetTriple();
-    g_targetTripleStr = targetTriple; 
+    //auto targetTriple = llvm::sys::getDefaultTargetTriple();
+    //g_targetTripleStr = targetTriple; 
   }
 
   // parse options and arguments
@@ -194,6 +194,10 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
+  AST::Dumper dumper(g_expressions, cout);
+  g_expressions.Accept(dumper);
+
+#if 0
   ///////////////////////////////////////////////////////////////////////////////
   //
   //  code generation
@@ -328,6 +332,8 @@ int Basalt::Main(int argc, char const *argv[])
   int result = system(cmd.str().c_str());
   if (result != 0)
     cerr << "error: linker failed" << endl;
+
+#endif    
 
   return 0;
 }

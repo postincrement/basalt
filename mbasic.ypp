@@ -37,7 +37,7 @@ static AST::ExprList * ConcatExprLists(AST::ExprList * a, AST::ExprList * b)
 template<class DefExprType, class RefExprType, class BinExprType>
 static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
                                       const std::string & name_, 
-                                      const std::string & suffix,
+                                             const char * suffix,
                                               AST::Expr * expr)
 {
   if (name_.length() > g_profile.m_identifierLen+1) {
@@ -59,7 +59,48 @@ static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
     g_application.OnWarning(strm.str());
   }
 
-  cout << "defining variable " << name << " from " << defName << endl;
+  AST::ExprList * exprList = new AST::ExprList();
+
+  exprList->push_back(
+            new DefExprType(name, false)
+              );
+
+  exprList->push_back(
+            new BinExprType('=', new RefExprType(name), expr)
+               );
+
+  return exprList;             
+}
+
+
+#if 0
+
+template<class DefExprType, class RefExprType, class BinExprType>
+static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
+                                      const std::string & name_, 
+                                             const char * suffix,
+                                              AST::Expr * expr)
+{
+  if (name_.length() > g_profile.m_identifierLen+1) {
+    stringstream strm;
+    strm << "identifier longer than maximum of " << g_profile.m_identifierLen;
+    g_application.OnWarning(strm.str());
+  }
+
+  std::string name   (name_.substr(0, g_profile.m_identifierLen) + suffix);
+  std::string defName(name_ + suffix);
+
+  auto r = g_variables.find(name);
+  if (r == g_variables.end()) {
+    g_variables[name] = AST::VariableDef(type, name, defName);
+  }
+  else if (r->second.m_defName != defName) {
+    stringstream strm;
+    strm << "identifier first defined as " << r->second.m_defName << " now defined as " << defName;
+    g_application.OnWarning(strm.str());
+  }
+
+  //cout << "defining variable " << name << " from " << defName << endl;
 
   AST::ExprList * exprList = new AST::ExprList();
   exprList->push_back(
@@ -71,6 +112,8 @@ static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
 
   return exprList;             
 }
+
+#endif
 
 extern void MBASIC_SetRemMode();
 
@@ -153,7 +196,7 @@ line:     opt_line_number opt_statement_list eol
               $$ = $2;
               if ($1 >= 0) {
                 if ($$ == nullptr)
-                  cout << "line " << $1 << " has no statements" << endl;
+                  ; //cout << "line " << $1 << " has no statements" << endl;
                 else  
                   $$->m_lineNumber = $1;
               }

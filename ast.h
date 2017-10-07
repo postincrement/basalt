@@ -3,11 +3,111 @@
 #define AST_H
 
 #include <iostream>
+#include <map>
+#include <vector>
+#include <memory>
+#include <deque>
+#include <sstream>
 
-class CodeGenerator;
+#define DECLARE_EXPR_VISITOR() \
+virtual bool Accept(AST::Visitor & visitor)
+
+#define IMPLEMENT_EXPR_VISITOR() \
+DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
+
+#define DECLARE_EXPR_VISIT_FUNCTIONS() \
+virtual bool Visit(Expr & expr); \
+virtual bool Visit(ExprList & expr); \
+\
+virtual bool Visit(VariableDefExpr & expr); \
+virtual bool Visit(VariableRefExpr & expr); \
+virtual bool Visit(UnaryExpr & expr); \
+virtual bool Visit(BinaryExpr & expr); \
+\
+virtual bool Visit(StringVariableDefExpr & expr); \
+virtual bool Visit(StringVariableRefExpr & expr); \
+virtual bool Visit(StringConstantExpr & expr); \
+virtual bool Visit(StringBinaryExpr & expr); \
+\
+virtual bool Visit(IntVariableDefExpr<int16_t> & expr); \
+virtual bool Visit(Int16VariableRefExpr & expr); \
+virtual bool Visit(ConstantIntExpr<int16_t> & expr); \
+virtual bool Visit(Int16BinaryExpr & expr); \
+\
+virtual bool Visit(BIFExpr & expr); \
+virtual bool Visit(PrintCommaExpr & expr); \
+virtual bool Visit(PrintSemiColonExpr & expr); \
+virtual bool Visit(CallExpr & expr) \
 
 namespace AST {
 
+  class AbstractDispatcher;
+
+  class Expr;
+  class ExprList;
+
+  class VariableDefExpr;
+  class VariableRefExpr;
+  class BinaryExpr;
+  class UnaryExpr;
+  
+  class StringVariableDefExpr;
+  class StringVariableRefExpr;
+  class StringConstantExpr;
+  class StringBinaryExpr;
+  
+  template <typename> class IntVariableDefExpr;
+  class Int16VariableRefExpr;
+  template <typename> class ConstantIntExpr;  
+  class Int16BinaryExpr;
+  
+  class BIFExpr;
+  class PrintCommaExpr;
+  class PrintSemiColonExpr;
+  class CallExpr;
+
+  class Visitor
+  {
+    public:
+      virtual ~Visitor() { }
+
+      // dispatcher functions
+      virtual bool Accept(AbstractDispatcher & dispatcher) = 0;
+
+      // visit functions
+      DECLARE_EXPR_VISIT_FUNCTIONS();
+  };
+
+  class Dumper;
+  
+  class AbstractDispatcher
+  {
+    public:
+      virtual bool Dispatch(Dumper & dumper) = 0;  
+  };
+
+  class Dumper : public Visitor
+  {
+    public:
+      Dumper(ExprList & tree, std::ostream & strm); 
+  
+      DECLARE_EXPR_VISIT_FUNCTIONS();      
+
+      virtual bool Accept(AbstractDispatcher & dispatcher) override
+      { return dispatcher.Dispatch(*this); }
+
+      ExprList & m_tree;
+      std::ostream & m_strm;
+
+      std::deque<std::string> m_vars;
+  };
+  
+  class Dispatcher : public AbstractDispatcher
+  {
+    public:
+      virtual bool Dispatch(Dumper & dumper);
+  };
+    
 //////////////////////////////////////////////////////////////////
 //
 // used to track variables
@@ -41,7 +141,7 @@ typedef std::map<std::string, VariableDef> VariableDefList;
 //////////////////////////////////////////////////////////////////
 //
 // Expr - Base class for all expression nodes.
-//
+// 
 
 class Expr
 {
@@ -49,17 +149,21 @@ class Expr
     virtual ~Expr()
     { }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg) = 0;
-};
+    IMPLEMENT_EXPR_VISITOR();
+  };
 
 struct ExprList : public std::vector<Expr *> 
 {
   ExprList()
     : m_lineNumber(-1)
   { }
+
+  virtual ~ExprList() { }
+  
+  IMPLEMENT_EXPR_VISITOR();
+
   signed m_lineNumber;  
 };
-
 
 
 //////////////////////////////////////////////////////////////////
@@ -80,11 +184,10 @@ class ConstantIntExpr : public NumberExpr
 
     IntType m_intValue;
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 typedef ConstantIntExpr<int16_t> Int16ConstantExpr;
-
 
 //////////////////////////////////////////////////////////////////
 //
@@ -98,8 +201,8 @@ class StringConstantExpr : public Expr
       , m_value(value)
     { }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
-
+    IMPLEMENT_EXPR_VISITOR();
+  
     bool m_global;
     std::string m_value;
 };
@@ -121,6 +224,8 @@ class VariableDefExpr : public Expr
     const std::string & GetName() const
     { return m_name; }
 
+    IMPLEMENT_EXPR_VISITOR();
+
     std::string m_name;
     bool m_global;
 };
@@ -135,10 +240,10 @@ class IntVariableDefExpr : public VariableDefExpr
     {
     }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
 
-typedef IntVariableDefExpr<int16_t> Int16VariableDefExpr;
+typedef class IntVariableDefExpr<int16_t> Int16VariableDefExpr;
 
 class StringVariableDefExpr : public VariableDefExpr
 {
@@ -147,7 +252,7 @@ class StringVariableDefExpr : public VariableDefExpr
       : VariableDefExpr(name, global)
     { }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 
@@ -161,6 +266,8 @@ class VariableRefExpr : public Expr
     VariableRefExpr(const std::string & name)
       : m_name(name)
     { }
+
+    IMPLEMENT_EXPR_VISITOR();
 
     const std::string & GetName() const
     { return m_name; }
@@ -176,7 +283,7 @@ class Int16VariableRefExpr : public VariableRefExpr
     {
     }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 class StringVariableRefExpr : public VariableRefExpr
@@ -187,7 +294,7 @@ class StringVariableRefExpr : public VariableRefExpr
     {
     }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 //////////////////////////////////////////////////////////////////
@@ -201,6 +308,8 @@ class UnaryExpr : public Expr
       : m_op(op)
       , m_operand(std::move(operand))
     { }
+
+    IMPLEMENT_EXPR_VISITOR();
 
     char m_op;
     std::unique_ptr<Expr> m_operand;
@@ -220,8 +329,10 @@ class BinaryExpr : public Expr
     , m_lhs(lhs)
     , m_rhs(rhs) 
     {
-    }   
-
+    }  
+    
+    IMPLEMENT_EXPR_VISITOR();
+    
     char m_op;
     Expr * m_lhs;
     Expr * m_rhs;
@@ -237,7 +348,7 @@ class Int16BinaryExpr : public BinaryExpr
     {
     }   
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 class StringBinaryExpr : public BinaryExpr
@@ -250,7 +361,7 @@ class StringBinaryExpr : public BinaryExpr
     {
     }   
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 
@@ -266,8 +377,8 @@ class BIFExpr : public Expr
       , m_args(args)
     { }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
-
+    IMPLEMENT_EXPR_VISITOR();
+    
     std::string m_name;
     ExprList * m_args;
 };
@@ -282,8 +393,7 @@ class PrintCommaExpr : public Expr
     PrintCommaExpr()
     { }   
 
-    virtual llvm::Value * Generate(CodeGenerator & cg)
-    { return nullptr; }
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 
@@ -297,8 +407,7 @@ class PrintSemiColonExpr : public Expr
     PrintSemiColonExpr()
     { }   
     
-    virtual llvm::Value * Generate(CodeGenerator & cg)
-    { return nullptr; }
+    IMPLEMENT_EXPR_VISITOR();
 };
 
 
@@ -318,6 +427,8 @@ class CallExpr : public Expr
       , m_args(std::move(args))
     { }
 
+    IMPLEMENT_EXPR_VISITOR();
+
     std::string m_callee;
     std::vector<std::unique_ptr<Expr>> m_args;
 };
@@ -333,9 +444,8 @@ class Call1Expr : public CallExpr
       m_args.push_back(std::unique_ptr<Expr>(arg));
     }
 
-    virtual llvm::Value * Generate(CodeGenerator & cg);
+    IMPLEMENT_EXPR_VISITOR();
 };
-
 
 } // namespace AST
 
@@ -362,6 +472,7 @@ struct DoubleFloat
   std::string m_lexeme;
   double m_value;
 };
+
 
 extern AST::ExprList g_expressions;
 extern AST::VariableDefList g_variables;

@@ -5,7 +5,6 @@
 #include <string>
 #include <fstream>
 
-#include "codegen.h"
 #include "ast.h"
 
 class Filename : public std::string
