@@ -31,6 +31,11 @@ bool AST::Visitor::Visit(ExprList & expr)
   return true;
 }
 
+bool AST::Visitor::Visit(LineMarkerExpr & expr)
+{
+  return true;
+}
+
 bool AST::Visitor::Visit(StringVariableDefExpr & expr)
 { 
   return VisitError(expr);
@@ -139,6 +144,12 @@ bool AST::Dumper::Visit(ExprList & expr)
   for (auto & r : expr) {
     r->Accept(*this);
   }
+  return true;
+}
+
+bool AST::Dumper::Visit(LineMarkerExpr & expr)
+{
+  m_strm << "; " << expr.m_line << endl;
   return true;
 }
 

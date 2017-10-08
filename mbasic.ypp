@@ -104,7 +104,8 @@ extern void MBASIC_SetRemMode();
 %token <dfloat> DOUBLE
 %token <sfloat> SINGLE
 
-%type <ival>     integer opt_line_number
+%type <ival>     integer 
+%type <sval>     opt_line_number
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
@@ -128,17 +129,11 @@ extern void MBASIC_SetRemMode();
 
 MBASIC_file:  line
                 {
-                  if ($1->m_lineNumber >= 0) {
-                    // insert line number here
-                  }
                   ConcatExprLists(&g_expressions, $1);
                   delete $1;
                 }
               | MBASIC_file line
                 {
-                  if ($2->m_lineNumber >= 0) {
-                    // insert line number here
-                  }
                   ConcatExprLists(&g_expressions, $2);
                   delete $2;
                 } 
@@ -150,22 +145,37 @@ MBASIC_file:  line
 
  *********************************************************/ 
 
-line:     opt_line_number opt_statement_list eol
+line:     opt_line_number
             {
-              $$ = $2;
-              if ($1 >= 0) {
-                if ($$ == nullptr)
-                  ; //cout << "line " << $1 << " has no statements" << endl;
-                else  
-                  $$->m_lineNumber = $1;
+              AST::LineMarkerExpr * marker; 
+              if ($1 == nullptr)
+                marker = new AST::LineMarkerExpr();
+              else {
+                marker = new AST::LineMarkerExpr(*$1);
+                delete $1;
               }
+              marker->m_line = g_application.m_line;
+              $<expr>$ = marker;
+            }
+          opt_statement_list eol
+            {
+              $$ = new AST::ExprList();
+              $$->push_back($<expr>2);
+              ConcatExprLists($$, $3);
             }
           ;
 
 opt_line_number: /* empty */
-                    { $$ = -1; }
+                    { $$ = nullptr; }
                  | POSITIVE_INT
-                    { $$ = $1; }
+                    {
+                      // extract line number literal string
+                      std::string & line = g_application.m_line;
+                      size_t i;
+                      for (i = 0; i < line.length() && !isspace(line[i]); ++i)
+                        ;
+                      $$ = new std::string(line.substr(0, i));
+                    }
                  ; 
 
 opt_statement_list : /* empty */

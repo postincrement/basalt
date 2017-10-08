@@ -35,7 +35,8 @@ virtual bool Visit(ConstantIntExpr<int16_t> & expr); \
 virtual bool Visit(Int16BinaryExpr & expr); \
 \
 virtual bool Visit(BIFExpr & expr); \
-virtual bool Visit(CallExpr & expr) \
+virtual bool Visit(CallExpr & expr); \
+virtual bool Visit(LineMarkerExpr & expr) \
 
 namespace AST {
 
@@ -61,6 +62,7 @@ namespace AST {
   
   class BIFExpr;
   class CallExpr;
+  class LineMarkerExpr;
 
   class Visitor
   {
@@ -151,16 +153,32 @@ class Expr
 struct ExprList : public std::vector<Expr *> 
 {
   ExprList()
-    : m_lineNumber(-1)
   { }
 
   virtual ~ExprList() { }
   
   IMPLEMENT_EXPR_VISITOR();
-
-  signed m_lineNumber;  
 };
 
+//////////////////////////////////////////////////////////////////
+//
+// Used to mark lines, i.e for BASIC line numbers
+//
+
+struct LineMarkerExpr : public Expr 
+{
+  LineMarkerExpr()
+  { }
+
+  LineMarkerExpr(const std::string & marker)
+    : m_marker(marker)
+  { }
+
+  IMPLEMENT_EXPR_VISITOR();
+
+  std::string m_marker;
+  std::string m_line;
+};
 
 //////////////////////////////////////////////////////////////////
 //
