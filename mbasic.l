@@ -9,6 +9,14 @@
 
 #define   YY_INPUT(buf,result,max_size)   MBASIC_yyinput(buf, &result, max_size)
 
+/*
+[_a-zA-Z0-9]+ {
+		  MBASIC_lval.sval = new std::string(yytext);
+		  return IDENTIFIER;
+		}
+*/    
+
+
 %}
 
 %option noyywrap
@@ -21,8 +29,24 @@
     BEGIN(INITIAL);
   }
 
+[Cc][Ll][Ee][Aa][Rr]  {
+					return CLEAR_TOKEN;
+				}
+
+[Ff][Oo][Rr]  {
+					return FOR_TOKEN;
+				}
+
+[Nn][Ee][Xx][Tt]  {
+					return NEXT_TOKEN;
+				}
+
 [Ll][Ee][Tt]  {
 					return LET_TOKEN;
+				}
+
+[Nn][Ee][Xx][Tt]  {
+					return NEXT_TOKEN;
 				}
 
 [Pp][Rr][Ii][Nn][Tt]  {
@@ -32,6 +56,18 @@
 [Rr][Ee][Mm]  {
           return REM_TOKEN;
         }
+
+[Ss][Tt][Ee][Pp]  {
+          return STEP_TOKEN;
+        }
+
+[Tt][Oo]  {
+          return TO_TOKEN;
+        }
+
+[Ww][Ii][Dd][Tt][Hh] {
+          return WIDTH_TOKEN;
+        }        
         
 \"[^\"\n]*\" {
       MBASIC_lval.sval = new std::string(yytext+1, strlen(yytext)-2);
@@ -83,10 +119,11 @@
       return DOUBLE_VARNAME;
     }
 
-[_a-zA-Z0-9]+ {
-		  MBASIC_lval.sval = new std::string(yytext);
-		  return IDENTIFIER;
-		}
+[a-zA-Z0-9]+ {
+      MBASIC_lval.sval = new std::string(yytext);
+      return INTEGER_VARNAME;
+    }
+
 		
 [ \t]*  	{}
 

@@ -172,7 +172,12 @@ int Basalt::Main(int argc, char const *argv[])
   // open input file
   g_inputFilename = Filename(argv[index]);
 
-  if (g_inputFilename.GetExtension() != ".bas") {
+  std::string ext = g_inputFilename.GetExtension();
+  for (auto & r : ext) {
+    r = tolower(r);
+  }
+
+  if (ext != ".bas") {
     cerr << "error: unknown input file extension '" << g_inputFilename.GetExtension() << "'" << endl;
     return -1;
   }

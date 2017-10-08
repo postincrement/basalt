@@ -93,9 +93,16 @@ extern void MBASIC_SetRemMode();
 
 %token EOL_TOKEN
 %token EOF_TOKEN
+
+%token CLEAR_TOKEN
+%token FOR_TOKEN
 %token LET_TOKEN
+%token NEXT_TOKEN
 %token PRINT_TOKEN
 %token REM_TOKEN
+%token STEP_TOKEN
+%token TO_TOKEN
+%token WIDTH_TOKEN
 
 %token <sval>   IDENTIFIER INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
 %token <sval>   QUOTED_STRING
@@ -115,6 +122,8 @@ extern void MBASIC_SetRemMode();
 %type <exprlist>    LET_statement assign_expression 
 %type <expr>        integer_expression number /* int_mult_expression int_paren_expression */  
 %type <expr>        string_expression 
+
+%type <expr>        WIDTH_statement
 
 %type <expr>        const_integer_expr
 %type <sval>        string_constant
@@ -194,23 +203,42 @@ statement_list : statement
                   }   
                | statement_list ':' statement
                   {
-                    ConcatExprLists($1, $3);
-                    delete $3;  
+                    if ($1 == nullptr)
+                      $$ = $1;
+                    else {  
+                      ConcatExprLists($1, $3);
+                      delete $3;
+                    }
                   }   
                ;
 
-statement:     LET_statement
+statement:     CLEAR_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | FOR_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | LET_statement
                   {
                     $$ = $1;
                   }
+               | NEXT_statement
+                  {
+                    $$ = nullptr;
+                  }
                | PRINT_statement 
                   {
-                    $$ = new AST::ExprList();
-                    ConcatExprLists($$, $1);
+                    $$ = $1;
                   }
                | REM_statement
                   {
                     $$ = nullptr;
+                  }
+               | WIDTH_statement
+                  {
+                    $$ = new AST::ExprList($1);
                   }
                | error /* bison error handler */   
                   {
@@ -222,6 +250,35 @@ eol:    EOL_TOKEN
         | EOF_TOKEN
           { return 0; }
         ;               
+
+/********************************************************* 
+
+  CLEAR
+
+ *********************************************************/ 
+
+CLEAR_statement: CLEAR_TOKEN integer_expression
+                 ;
+
+/********************************************************* 
+
+ FOR/NEXT/STEP
+
+ *********************************************************/ 
+
+FOR_statement: FOR_TOKEN INTEGER_VARNAME '=' integer_expression TO_TOKEN integer_expression opt_STEP_statement
+                ;
+
+NEXT_statement: NEXT_TOKEN opt_varname
+                ;
+
+opt_varname:    /* empty */
+                | INTEGER_VARNAME
+                ;                
+
+opt_STEP_statement: /* empty */
+                    | STEP_TOKEN integer_expression
+                    ;
 
 /********************************************************* 
 
@@ -317,15 +374,13 @@ print_expression_list: /* empty */
 print_expression:      string_expression
                           {
                             g_needsNewLine = true;
-                            AST::ExprList * args = new AST::ExprList;
-                            args->push_back($1);
+                            AST::ExprList * args = new AST::ExprList($1);
                             $$ = new AST::BIFExpr("print_string", args);
                           }
                        | integer_expression
                           {
                             g_needsNewLine = true;
-                            AST::ExprList * args = new AST::ExprList;
-                            args->push_back($1);
+                            AST::ExprList * args = new AST::ExprList($1);
                             $$ = new AST::BIFExpr("print_integer", args);
                           }
                        | ',' 
@@ -357,6 +412,17 @@ REM_statement: rem_keyword
                 { cout << "warning: single quote REM not supported in basic-8k" << endl; }
               ;              
 
+
+/********************************************************* 
+
+ WIDTH              
+ 
+ *********************************************************/ 
+
+WIDTH_statement: WIDTH_TOKEN POSITIVE_INT
+                  {
+                  }
+               ;
 
 
 /********************************************************* 

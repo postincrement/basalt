@@ -152,8 +152,11 @@ class Expr
 
 struct ExprList : public std::vector<Expr *> 
 {
-  ExprList()
-  { }
+  ExprList(Expr * expr = nullptr)
+  { 
+    if (expr != nullptr)
+      push_back(expr);
+  }
 
   virtual ~ExprList() { }
   
