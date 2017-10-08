@@ -95,11 +95,16 @@ extern void MBASIC_SetRemMode();
 %token EOF_TOKEN
 
 %token CLEAR_TOKEN
+%token DIM_TOKEN
+%token END_TOKEN
 %token FOR_TOKEN
+%token GOSUB_TOKEN
+%token GOTO_TOKEN
 %token LET_TOKEN
 %token NEXT_TOKEN
 %token PRINT_TOKEN
 %token REM_TOKEN
+%token RETURN_TOKEN
 %token STEP_TOKEN
 %token TO_TOKEN
 %token WIDTH_TOKEN
@@ -112,7 +117,7 @@ extern void MBASIC_SetRemMode();
 %token <sfloat> SINGLE
 
 %type <ival>     integer 
-%type <sval>     opt_line_number
+%type <sval>     opt_line_number line_number
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
@@ -176,7 +181,11 @@ line:     opt_line_number
 
 opt_line_number: /* empty */
                     { $$ = nullptr; }
-                 | POSITIVE_INT
+                 | line_number
+                    { $$ = $1; }
+                 ;
+
+line_number:    POSITIVE_INT
                     {
                       // extract line number literal string
                       std::string & line = g_application.m_line;
@@ -216,7 +225,23 @@ statement:     CLEAR_statement
                   {
                     $$ = nullptr;
                   }
+               | DIM_statement
+                  {
+                    $$ = nullptr;
+                  }   
+               | END_statement
+                  {
+                    $$ = nullptr;
+                  }   
                | FOR_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | GOTO_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | GOSUB_statement
                   {
                     $$ = nullptr;
                   }
@@ -233,6 +258,10 @@ statement:     CLEAR_statement
                     $$ = $1;
                   }
                | REM_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | RETURN_statement
                   {
                     $$ = nullptr;
                   }
@@ -262,6 +291,38 @@ CLEAR_statement: CLEAR_TOKEN integer_expression
 
 /********************************************************* 
 
+  DIM
+
+ *********************************************************/ 
+
+DIM_statement: DIM_TOKEN dim_var_list
+                 ;
+
+dim_var_list: dim_var_def
+              | dim_var_def ',' dim_var_list
+              ;
+
+dim_var_def:  INTEGER_VARNAME '(' dim_def opt_dim_def ')'
+              ;
+
+dim_def:      POSITIVE_INT
+              ;
+
+opt_dim_def:  /* empty */
+              | ',' dim_def
+              ;                            
+
+/*********************************************************
+
+ END
+
+ *********************************************************/ 
+              
+END_statement:  END_TOKEN
+                ;
+
+/********************************************************* 
+
  FOR/NEXT/STEP
 
  *********************************************************/ 
@@ -279,6 +340,27 @@ opt_varname:    /* empty */
 opt_STEP_statement: /* empty */
                     | STEP_TOKEN integer_expression
                     ;
+
+/*********************************************************
+
+ GOSUB/RETURN
+
+ *********************************************************/ 
+              
+GOSUB_statement:  GOSUB_TOKEN line_number
+                ;
+
+RETURN_statement:  RETURN_TOKEN
+                ;
+
+/*********************************************************
+
+ GOTO
+
+ *********************************************************/ 
+              
+GOTO_statement: GOTO_TOKEN line_number
+                ;
 
 /********************************************************* 
 

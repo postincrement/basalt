@@ -33,12 +33,24 @@
 					return CLEAR_TOKEN;
 				}
 
+[Dd][Ii][Mm]  {
+					return DIM_TOKEN;
+				}
+
+[Ee][Nn][Dd]  {
+					return END_TOKEN;
+				}
+
 [Ff][Oo][Rr]  {
 					return FOR_TOKEN;
 				}
 
-[Nn][Ee][Xx][Tt]  {
-					return NEXT_TOKEN;
+[Gg][Oo][Ss][Uu][Bb]  {
+					return GOSUB_TOKEN;
+				}
+
+[Gg][Oo][Tt][Oo]  {
+					return GOTO_TOKEN;
 				}
 
 [Ll][Ee][Tt]  {
@@ -55,6 +67,10 @@
 
 [Rr][Ee][Mm]  {
           return REM_TOKEN;
+        }
+
+[Rr][Ee][Tt][Uu][Rr][Nn]  {
+          return RETURN_TOKEN;
         }
 
 [Ss][Tt][Ee][Pp]  {
@@ -153,6 +169,10 @@
 "*"   { return yytext[0]; }
 
 "/"   { return yytext[0]; }
+
+"("   { return yytext[0]; }
+
+")"   { return yytext[0]; }
 
 .		{
 		}
