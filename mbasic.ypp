@@ -13,6 +13,8 @@ using namespace std;
 
 #define YYDEBUG 1
 
+static bool g_needsNewLine = false;
+
 namespace std {
 template<typename T, typename... Args>
 std::unique_ptr<T> make_unique(Args&&... args) {
@@ -106,8 +108,8 @@ extern void MBASIC_SetRemMode();
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
-%type <expr>        PRINT_statement print_expression
-%type <exprlist>    print_expression_list 
+%type <expr>        print_expression
+%type <exprlist>    PRINT_statement print_expression_list 
 
 %type <exprlist>    LET_statement assign_expression 
 %type <expr>        integer_expression number /* int_mult_expression int_paren_expression */  
@@ -194,7 +196,7 @@ statement:     LET_statement
                | PRINT_statement 
                   {
                     $$ = new AST::ExprList();
-                    $$->push_back($1);
+                    ConcatExprLists($$, $1);
                   }
                | REM_statement
                   {
@@ -265,10 +267,20 @@ assign_expression:  IDENTIFIER '=' integer_expression
  
  *********************************************************/ 
 
-PRINT_statement:  print_keyword print_expression_list
+PRINT_statement:  print_keyword
                     {
-                      cout << "print has " << $2->size() << " args" << endl;
-                      $$ = new AST::BIFExpr("print", $2);
+                      g_needsNewLine = true;
+                    }
+                  print_expression_list
+                    {
+                      if (g_needsNewLine) {
+                        if ($3 == nullptr)
+                          $$ = new AST::ExprList();
+                        else
+                          $$ = $3;
+                        $3->push_back(new AST::BIFExpr("print_newline", nullptr));
+                      }
+                      $$ = $3;
                     }
                   ;
 
@@ -282,34 +294,39 @@ print_keyword:   PRINT_TOKEN
 print_expression_list: /* empty */
                           {
                             $$ = new AST::ExprList;
+                            g_needsNewLine = true;
                           }  
                        | print_expression_list print_expression
                           {
-                            cout << "adding print expression" << endl;
-                            $1->push_back($2);
+                            if ($2 != nullptr)
+                              $1->push_back($2);
                             $$ = $1;
                           }
                        ;
 
 print_expression:      string_expression
                           {
-                            cout << "  adding string expression" << endl;
-                            $$ = $1;
+                            g_needsNewLine = true;
+                            AST::ExprList * args = new AST::ExprList;
+                            args->push_back($1);
+                            $$ = new AST::BIFExpr("print_string", args);
                           }
                        | integer_expression
                           {
-                            cout << "  adding integer expression" << endl;
-                            $$ = $1;
+                            g_needsNewLine = true;
+                            AST::ExprList * args = new AST::ExprList;
+                            args->push_back($1);
+                            $$ = new AST::BIFExpr("print_integer", args);
                           }
                        | ',' 
                           {
-                            cout << "  adding , expression" << endl;
-                            $$ = new AST::PrintCommaExpr();
+                            g_needsNewLine = false;
+                            $$ = new AST::BIFExpr("print_comma", nullptr);
                           }
                        | ';'
                           {
-                            cout << "  adding ; expression" << endl;
-                            $$ = new AST::PrintSemiColonExpr();
+                            g_needsNewLine = false;
+                            $$ = nullptr;
                           }
                        ;                           
 

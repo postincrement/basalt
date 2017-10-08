@@ -92,16 +92,6 @@ bool AST::Visitor::Visit(BIFExpr & expr)
   return VisitError(expr);
 }
 
-bool AST::Visitor::Visit(PrintCommaExpr & expr)
-{
-  return VisitError(expr);
-}
-
-bool AST::Visitor::Visit(PrintSemiColonExpr & expr)
-{
-  return VisitError(expr);
-}
-
 bool AST::Visitor::Visit(CallExpr & expr)
 {
   return VisitError(expr);
@@ -299,11 +289,13 @@ bool AST::Dumper::Visit(Int16BinaryExpr & expr)
 bool AST::Dumper::Visit(BIFExpr & expr)
 {
   std::vector<std::string> args;
-  for (auto & r : *expr.m_args) {
-    r->Accept(*this);
-    assert(m_vars.size() > 0);  
-    std::string result = m_vars.back();
-    args.push_back(result);
+  if (expr.m_args != nullptr) {
+    for (auto & r : *expr.m_args) {
+      r->Accept(*this);
+      assert(m_vars.size() > 0);  
+      std::string result = m_vars.back();
+      args.push_back(result);
+    }
   }
   m_strm << expr.m_name << "(";
   bool first = true;
@@ -315,16 +307,6 @@ bool AST::Dumper::Visit(BIFExpr & expr)
   }
   m_strm << ")" << endl;
   return true;
-}
-
-bool AST::Dumper::Visit(PrintCommaExpr & expr)
-{
-  return DumpError(expr);
-}
-
-bool AST::Dumper::Visit(PrintSemiColonExpr & expr)
-{
-  return DumpError(expr);
 }
 
 bool AST::Dumper::Visit(CallExpr & expr)

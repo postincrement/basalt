@@ -35,8 +35,6 @@ virtual bool Visit(ConstantIntExpr<int16_t> & expr); \
 virtual bool Visit(Int16BinaryExpr & expr); \
 \
 virtual bool Visit(BIFExpr & expr); \
-virtual bool Visit(PrintCommaExpr & expr); \
-virtual bool Visit(PrintSemiColonExpr & expr); \
 virtual bool Visit(CallExpr & expr) \
 
 namespace AST {
@@ -62,8 +60,6 @@ namespace AST {
   class Int16BinaryExpr;
   
   class BIFExpr;
-  class PrintCommaExpr;
-  class PrintSemiColonExpr;
   class CallExpr;
 
   class Visitor
@@ -381,33 +377,6 @@ class BIFExpr : public Expr
     
     std::string m_name;
     ExprList * m_args;
-};
-
-//////////////////////////////////////////////////////////////////
-//
-// PrintCommaExpr - placeholder for printing commas
-//
-class PrintCommaExpr : public Expr
-{
-  public:
-    PrintCommaExpr()
-    { }
-
-    IMPLEMENT_EXPR_VISITOR();
-};
-
-
-//////////////////////////////////////////////////////////////////
-//
-// PrintSemiColonExpr - placeholder for concatenation, and disabling trailing newline
-//
-class PrintSemiColonExpr : public Expr
-{
-  public:
-    PrintSemiColonExpr()
-    { }   
-    
-    IMPLEMENT_EXPR_VISITOR();
 };
 
 
