@@ -147,24 +147,26 @@ extern void MBASIC_SetRemMode();
 %token <sfloat> SINGLE
 
 // rules
-%type <sval>     opt_line_number line_number
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
-%type <expr>        print_expression
-%type <exprlist>    PRINT_statement print_expression_list 
-
 %type <exprlist>    LET_statement assign_expression 
-%type <expr>        expression   
+
+%type <exprlist>    FOR_statement
+
+%type <exprlist>    PRINT_statement print_expression_list 
+%type <expr>        print_expression
 
 %type <expr>        WIDTH_statement
 
-%type <expr>        const_expr var_ref
-
-%type <varval>      var_name
-
 %type <expr> AND_expression NOT_expression compare_expression ADD_expression
 %type <expr> MULT_expression NEGATE_expression POWER_expression subexpression
+
+%type <sval>     opt_line_number line_number
+%type <expr>        expression   
+%type <expr>        const_expr var_ref
+%type <varval>      var_name
+
 %type <expr> value
 %type <exprlist> expression_list
 
@@ -267,7 +269,7 @@ statement:     CLEAR_statement
                   }   
                | FOR_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | GOTO_statement
                   {
@@ -398,6 +400,9 @@ END_statement:  END_TOKEN
  *********************************************************/ 
 
 FOR_statement: FOR_TOKEN var_ref '=' expression TO_TOKEN expression opt_STEP_statement
+                {
+                  $$ = new AST::ExprList($2);
+                }
                 ;
 
 NEXT_statement: NEXT_TOKEN opt_varname
