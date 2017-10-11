@@ -24,12 +24,10 @@ virtual bool Visit(VariableRefExpr & expr); \
 virtual bool Visit(UnaryExpr & expr); \
 virtual bool Visit(BinaryExpr & expr); \
 \
-virtual bool Visit(StringVariableDefExpr & expr); \
 virtual bool Visit(StringVariableRefExpr & expr); \
 virtual bool Visit(StringConstantExpr & expr); \
 virtual bool Visit(StringBinaryExpr & expr); \
 \
-virtual bool Visit(IntVariableDefExpr<int16_t> & expr); \
 virtual bool Visit(Int16VariableRefExpr & expr); \
 virtual bool Visit(ConstantIntExpr<int16_t> & expr); \
 virtual bool Visit(Int16BinaryExpr & expr); \
@@ -111,7 +109,7 @@ namespace AST {
 // used to track variables
 //
 
-struct VariableDef
+struct Variable
 {
   enum Type {
     eString,
@@ -120,17 +118,23 @@ struct VariableDef
     eDouble
   };
 
-  VariableDef()
-  { }
-
-  VariableDef(Type type, const std::string & name, const std::string & defName)
+  Variable(Type type, const std::string & name)
     : m_type(type)
     , m_name(name)
-    , m_defName(defName)
   { }
 
   Type m_type;
-  std::string m_name;
+  std::string m_name;  
+};
+
+
+struct VariableDef : public Variable
+{
+  VariableDef(Type type, const std::string & name, const std::string & defName)
+    : Variable(type, name)
+    , m_defName(defName)
+  { }
+
   std::string m_defName;
 };
 
@@ -233,43 +237,21 @@ class StringConstantExpr : public Expr
 class VariableDefExpr : public Expr
 {
   public:
-    VariableDefExpr(const std::string & name, bool global)
-      : m_name(name)
+    VariableDefExpr(Variable & variable, bool global)
+      : m_variableName(variable)
       , m_global(global)
     { }
 
+    AST::Variable::Type GetType() const
+    { return m_variableName.m_type; }
+
     const std::string & GetName() const
-    { return m_name; }
+    { return m_variableName.m_name; }
 
     IMPLEMENT_EXPR_VISITOR();
 
-    std::string m_name;
+    Variable m_variableName;
     bool m_global;
-};
-
-
-template <class IntType>
-class IntVariableDefExpr : public VariableDefExpr
-{
-  public:
-    IntVariableDefExpr(const std::string & name, bool global)
-      : VariableDefExpr(name, global)
-    {
-    }
-
-    IMPLEMENT_EXPR_VISITOR();
-};
-
-typedef class IntVariableDefExpr<int16_t> Int16VariableDefExpr;
-
-class StringVariableDefExpr : public VariableDefExpr
-{
-  public:
-    StringVariableDefExpr(const std::string & name, bool global)
-      : VariableDefExpr(name, global)
-    { }
-
-    IMPLEMENT_EXPR_VISITOR();
 };
 
 

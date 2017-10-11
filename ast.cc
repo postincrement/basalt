@@ -37,17 +37,6 @@ bool AST::Visitor::Visit(LineMarkerExpr & expr)
   return true;
 }
 
-bool AST::Visitor::Visit(StringVariableDefExpr & expr)
-{ 
-  return VisitError(expr);
-}
-
-bool AST::Visitor::Visit(IntVariableDefExpr<int16_t> & expr)
-{ 
-  //return VisitError(expr);
-  return true;
-}
-
 bool AST::Visitor::Visit(StringVariableRefExpr & expr)
 { 
   return VisitError(expr);
@@ -156,7 +145,8 @@ bool AST::Dumper::Visit(LineMarkerExpr & expr)
 
 bool AST::Dumper::Visit(VariableDefExpr & expr)
 {
-  return DumpError(expr);
+  m_strm << "var '" << expr.GetName() << "'" << endl; 
+  return true;
 }
 
 bool AST::Dumper::Visit(VariableRefExpr & expr)
@@ -184,12 +174,6 @@ bool AST::Dumper::Visit(StringConstantExpr & expr)
   return true;
 }
 
-bool AST::Dumper::Visit(StringVariableDefExpr & expr)
-{
-  m_strm << "string var '" << expr.m_name << "'" << endl; 
-  return true;
-}
-
 bool AST::Dumper::Visit(StringVariableRefExpr & expr)
 {
   std::string temp = CreateTemp();
@@ -200,36 +184,38 @@ bool AST::Dumper::Visit(StringVariableRefExpr & expr)
 
 bool AST::Dumper::Visit(StringBinaryExpr & expr)
 {
-  assert(expr.m_lhs != nullptr);
-  assert(expr.m_rhs != nullptr);
+  if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
+    return true;
 
   if (expr.m_op == '=') {
     StringVariableRefExpr * var = dynamic_cast<StringVariableRefExpr *>(expr.m_lhs);
     assert(var != nullptr);
 
     expr.m_rhs->Accept(*this);
-    assert(m_vars.size() > 0);  
-    std::string rhs = m_vars.back();
-    m_vars.pop_back();
-
-    m_strm << var->m_name << " = " << rhs << endl;
-    m_vars.push_back(var->m_name);
+    if (m_vars.size() > 0) { 
+      std::string rhs = m_vars.back();
+      m_vars.pop_back();
+      m_strm << var->m_name << " = " << rhs << endl;
+      m_vars.push_back(var->m_name);
+    }
   }
   else {  
     std::string result = CreateTemp();
 
     expr.m_lhs->Accept(*this);
-    assert(m_vars.size() > 0);  
-    std::string lhs = m_vars.back();
-    m_vars.pop_back();
+    if (m_vars.size() > 0) { 
+      std::string lhs = m_vars.back();
+      m_vars.pop_back();
 
-    expr.m_rhs->Accept(*this);
-    assert(m_vars.size() > 0);  
-    std::string rhs = m_vars.back();
-    m_vars.pop_back();
+      expr.m_rhs->Accept(*this);
+      if (m_vars.size() > 0) { 
+        std::string rhs = m_vars.back();
+        m_vars.pop_back();
 
-    m_strm << result << " = " << lhs << " " << expr.m_op << " " << rhs << endl;
-    m_vars.push_back(result);
+        m_strm << result << " = " << lhs << " " << expr.m_op << " " << rhs << endl;
+        m_vars.push_back(result);
+      }
+    }
   }
 
   return true;
@@ -245,12 +231,6 @@ bool AST::Dumper::Visit(ConstantIntExpr<short int> & expr)
   return true;
 }
 
-bool AST::Dumper::Visit(IntVariableDefExpr<int16_t> & expr)
-{ 
-  m_strm << "int16 var '" << expr.m_name << "'" << endl; 
-  return true;
-}
-
 bool AST::Dumper::Visit(Int16VariableRefExpr & expr)
 { 
   std::string temp = CreateTemp();
@@ -261,36 +241,40 @@ bool AST::Dumper::Visit(Int16VariableRefExpr & expr)
 
 bool AST::Dumper::Visit(Int16BinaryExpr & expr)
 {
-  assert(expr.m_lhs != nullptr);
-  assert(expr.m_rhs != nullptr);
+  if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
+    return true;
 
   if (expr.m_op == '=') {
     Int16VariableRefExpr * var = dynamic_cast<Int16VariableRefExpr *>(expr.m_lhs);
-    assert(var != nullptr);
+    if (var == nullptr)
+      return true;
 
     expr.m_rhs->Accept(*this);
-    assert(m_vars.size() > 0);  
-    std::string rhs = m_vars.back();
-    m_vars.pop_back();
+    if (m_vars.size() > 0) {
+      std::string rhs = m_vars.back();
+      m_vars.pop_back();
 
-    m_strm << var->m_name << " = " << rhs << endl;
-    m_vars.push_back(var->m_name);
+      m_strm << var->m_name << " = " << rhs << endl;
+      m_vars.push_back(var->m_name);
+    }
   }
   else {  
     std::string result = CreateTemp();
 
     expr.m_lhs->Accept(*this);
-    assert(m_vars.size() > 0);  
-    std::string lhs = m_vars.back();
-    m_vars.pop_back();
+    if (m_vars.size() > 0) {
+      std::string lhs = m_vars.back();
+      m_vars.pop_back();
 
-    expr.m_rhs->Accept(*this);
-    assert(m_vars.size() > 0);  
-    std::string rhs = m_vars.back();
-    m_vars.pop_back();
+      expr.m_rhs->Accept(*this);
+      if (m_vars.size() > 0) {
+        std::string rhs = m_vars.back();
+        m_vars.pop_back();
 
-    m_strm << result << " = " << lhs << " " << expr.m_op << " " << rhs << endl;
-    m_vars.push_back(result);
+        m_strm << result << " = " << lhs << " " << expr.m_op << " " << rhs << endl;
+        m_vars.push_back(result);
+      }
+    }
   }
 
   return true;
@@ -304,9 +288,10 @@ bool AST::Dumper::Visit(BIFExpr & expr)
   if (expr.m_args != nullptr) {
     for (auto & r : *expr.m_args) {
       r->Accept(*this);
-      assert(m_vars.size() > 0);  
-      std::string result = m_vars.back();
-      args.push_back(result);
+      if (m_vars.size() > 0) {
+        std::string result = m_vars.back();
+        args.push_back(result);
+      }
     }
   }
   m_strm << expr.m_name << "(";

@@ -84,6 +84,8 @@ extern void MBASIC_SetRemMode();
   int           ival;
   std::string * sval;
 
+  AST::Variable    * varval;
+
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
 
@@ -94,13 +96,24 @@ extern void MBASIC_SetRemMode();
 %token EOL_TOKEN
 %token EOF_TOKEN
 
+// operators
 %token GREATERTHANEQUAL
 %token LESSTHANEQUAL
 %token NOT_EQUAL
-
 %token AND_TOKEN
-%token CLEAR_TOKEN
+
+// functions
 %token CHR_TOKEN
+%token INT_TOKEN
+%token LEFT_TOKEN 
+%token MID_TOKEN
+%token RIGHT_TOKEN
+%token SQR_TOKEN
+%token STR_TOKEN
+%token TAB_TOKEN
+
+// commands
+%token CLEAR_TOKEN
 %token DEF_TOKEN
 %token DIM_TOKEN
 %token ELSE_TOKEN
@@ -111,17 +124,13 @@ extern void MBASIC_SetRemMode();
 %token GOTO_TOKEN
 %token INPUT_TOKEN
 %token LET_TOKEN
-%token LEFT_TOKEN 
-%token MID_TOKEN
 %token NEXT_TOKEN
 %token OR_TOKEN
 %token ON_TOKEN
 %token PRINT_TOKEN
 %token REM_TOKEN
 %token RETURN_TOKEN
-%token RIGHT_TOKEN
 %token RUN_TOKEN 
-%token STR_TOKEN
 %token STEP_TOKEN
 %token SYSTEM_TOKEN
 %token STOP_TOKEN
@@ -129,12 +138,15 @@ extern void MBASIC_SetRemMode();
 %token TO_TOKEN
 %token WIDTH_TOKEN
 
-%token <sval>   IDENTIFIER INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
-%token <sval>   QUOTED_STRING
+// other lexemes
+%token USING_TOKEN
+%token <sval>   IDENTIFIER QUOTED_STRING
+%token <sval>   INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
 %token <ival>   INTEGER
 %token <dfloat> DOUBLE
 %token <sfloat> SINGLE
 
+// rules
 %type <sval>     opt_line_number line_number
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
@@ -148,6 +160,8 @@ extern void MBASIC_SetRemMode();
 %type <expr>        WIDTH_statement
 
 %type <expr>        const_expr var_ref
+
+%type <varval>      var_name
 
 %type <expr> AND_expression NOT_expression compare_expression ADD_expression
 %type <expr> MULT_expression NEGATE_expression POWER_expression subexpression
@@ -507,22 +521,25 @@ opt_on_list:     /* empty */
 
  PRINT              
  
- *********************************************************/ 
+ *********************************************************/   
 
 PRINT_statement:  print_keyword
                     {
                       g_needsNewLine = true;
                     }
+                  opt_USING
+                    {
+                    }  
                   print_expression_list
                     {
                       if (g_needsNewLine) {
-                        if ($3 == nullptr)
+                        if ($5 == nullptr)
                           $$ = new AST::ExprList();
                         else
-                          $$ = $3;
-                        $3->push_back(new AST::BIFExpr("print_newline", nullptr));
+                          $$ = $5;
+                        $$->push_back(new AST::BIFExpr("print_newline", nullptr));
                       }
-                      $$ = $3;
+                      $$ = $5;
                     }
                   ;
 
@@ -531,7 +548,11 @@ print_keyword:   PRINT_TOKEN
                     { 
                       cout << "warning: question mark PRINT not supported in basic-8k" << endl; 
                     }
-                 ;                 
+                 ;
+
+opt_USING:      /* empty */
+                | USING_TOKEN expression ';'
+                ;                       
 
 print_expression_list: /* empty */
                           {
@@ -724,9 +745,17 @@ subexpression: '(' expression ')'
 
 value:          var_ref
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                 | CHR_TOKEN '(' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | INT_TOKEN '(' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | LEFT_TOKEN '(' expression ',' expression ')'  
                   {
                     $$ = nullptr;
                   }
@@ -738,11 +767,15 @@ value:          var_ref
                   {
                     $$ = nullptr;
                   }
-                | LEFT_TOKEN '(' expression ',' expression ')'  
+                | STR_TOKEN '(' expression ')'  
                   {
                     $$ = nullptr;
                   }
-                | STR_TOKEN '(' expression ')'  
+                | SQR_TOKEN '(' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | TAB_TOKEN '(' expression ')'  
                   {
                     $$ = nullptr;
                   }
@@ -751,7 +784,7 @@ value:          var_ref
                     $$ = nullptr;
                   }
 
-expression_list:  expression ',' expression
+expression_list:  expression ',' expression_list
                     {
                       $$ = new AST::ExprList($1);
                     }
@@ -766,32 +799,45 @@ expression_list:  expression ',' expression
 
 var or array ref              
  
- *********************************************************/ 
+ *********************************************************/
 
 var_ref : var_name
             {
-              $$ = nullptr;
+              $$ = new AST::VariableDefExpr(*$1, true);
+              delete $1;
             }
-          | IDENTIFIER  
+          | var_name array_or_func_spec
             {
-              $$ = nullptr;
+              $$ = new AST::VariableDefExpr(*$1, true);
+              delete $1;
             }
-          | INTEGER_VARNAME array_or_func_spec
-            {
-              $$ = nullptr;
-            }
-          | IDENTIFIER array_or_func_spec  
-            {
-              //cout << "possible function " << *$1 << endl;
-              $$ = nullptr;
-            }
-            ;
+          ;
 
 var_name: IDENTIFIER
+            {
+              $$ = new AST::Variable(AST::Variable::eInt16, *$1);
+              delete $1;
+            }
           | INTEGER_VARNAME
+            {
+              $$ = new AST::Variable(AST::Variable::eInt16, *$1);
+              delete $1;
+            }
           | STRING_VARNAME
+            {
+              $$ = new AST::Variable(AST::Variable::eString, *$1);
+              delete $1;
+            }
           | SINGLE_VARNAME
+            {
+              $$ = new AST::Variable(AST::Variable::eSingle, *$1);
+              delete $1;
+            }
           | DOUBLE_VARNAME
+            {
+              $$ = new AST::Variable(AST::Variable::eDouble, *$1);
+              delete $1;
+            }
           ;
             
 

@@ -57,6 +57,10 @@
           return RIGHT_TOKEN;
         }
 
+[Uu][Ss][Ii][Nn][Gg] {
+          return USING_TOKEN;
+        }        
+
 [Ww][Ii][Dd][Tt][Hh] {
           return WIDTH_TOKEN;
         }        
@@ -129,8 +133,20 @@
           return RUN_TOKEN;
         }
 
+[Ss][Qq][Rr]  {
+          return SQR_TOKEN;
+        }
+
 [Ll][Ee][Tt]  {
 					return LET_TOKEN;
+				}
+
+[Ii][Nn][Tt]  {
+					return INT_TOKEN;
+				}
+
+[Tt][Aa][Bb]  {
+					return TAB_TOKEN;
 				}
 
 [Ii][Ff] {
