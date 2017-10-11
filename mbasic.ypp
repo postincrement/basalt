@@ -94,29 +94,47 @@ extern void MBASIC_SetRemMode();
 %token EOL_TOKEN
 %token EOF_TOKEN
 
+%token GREATERTHANEQUAL
+%token LESSTHANEQUAL
+%token NOT_EQUAL
+
+%token AND_TOKEN
 %token CLEAR_TOKEN
+%token CHR_TOKEN
+%token DEF_TOKEN
 %token DIM_TOKEN
+%token ELSE_TOKEN
 %token END_TOKEN
 %token FOR_TOKEN
+%token IF_TOKEN
 %token GOSUB_TOKEN
 %token GOTO_TOKEN
+%token INPUT_TOKEN
 %token LET_TOKEN
+%token LEFT_TOKEN 
+%token MID_TOKEN
 %token NEXT_TOKEN
+%token OR_TOKEN
+%token ON_TOKEN
 %token PRINT_TOKEN
 %token REM_TOKEN
 %token RETURN_TOKEN
+%token RIGHT_TOKEN
+%token RUN_TOKEN 
+%token STR_TOKEN
 %token STEP_TOKEN
+%token SYSTEM_TOKEN
+%token STOP_TOKEN
+%token THEN_TOKEN
 %token TO_TOKEN
 %token WIDTH_TOKEN
 
 %token <sval>   IDENTIFIER INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
 %token <sval>   QUOTED_STRING
-%token <uval>   POSITIVE_INT
-%token <ival>   NEGATIVE_INT
+%token <ival>   INTEGER
 %token <dfloat> DOUBLE
 %token <sfloat> SINGLE
 
-%type <ival>     integer 
 %type <sval>     opt_line_number line_number
 
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
@@ -125,31 +143,26 @@ extern void MBASIC_SetRemMode();
 %type <exprlist>    PRINT_statement print_expression_list 
 
 %type <exprlist>    LET_statement assign_expression 
-%type <expr>        integer_expression number /* int_mult_expression int_paren_expression */  
-%type <expr>        string_expression 
+%type <expr>        expression   
 
 %type <expr>        WIDTH_statement
 
-%type <expr>        const_integer_expr
-%type <sval>        string_constant
+%type <expr>        const_expr var_ref
 
-//%token NUM
-%left '-' '+'
-%left '*' '/'
-%left NEG     /* negation--unary minus */
-//%right '^'    /* exponentiation        */
+%type <expr> AND_expression NOT_expression compare_expression ADD_expression
+%type <expr> MULT_expression NEGATE_expression POWER_expression subexpression
+%type <expr> value
+%type <exprlist> expression_list
 
 %%
 
-MBASIC_file:  line
+MBASIC_file:  line              
                 {
                   ConcatExprLists(&g_expressions, $1);
-                  delete $1;
                 }
               | MBASIC_file line
                 {
                   ConcatExprLists(&g_expressions, $2);
-                  delete $2;
                 } 
               ;
 
@@ -185,7 +198,7 @@ opt_line_number: /* empty */
                     { $$ = $1; }
                  ;
 
-line_number:    POSITIVE_INT
+line_number:    INTEGER
                     {
                       // extract line number literal string
                       std::string & line = g_application.m_line;
@@ -217,6 +230,7 @@ statement_list : statement
                     else {  
                       ConcatExprLists($1, $3);
                       delete $3;
+                      $$ = $1;
                     }
                   }   
                ;
@@ -225,6 +239,10 @@ statement:     CLEAR_statement
                   {
                     $$ = nullptr;
                   }
+               | DEF_statement
+                  {
+                    $$ = nullptr;
+                  }   
                | DIM_statement
                   {
                     $$ = nullptr;
@@ -245,14 +263,26 @@ statement:     CLEAR_statement
                   {
                     $$ = nullptr;
                   }
+               | IF_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | INPUT_statement
+                  {
+                    $$ = nullptr;
+                  }
                | LET_statement
                   {
-                    $$ = $1;
+                    $$ = nullptr; //$1;
                   }
                | NEXT_statement
                   {
                     $$ = nullptr;
                   }
+               | ON_statement
+                  {
+                    $$ = nullptr;
+                  }   
                | PRINT_statement 
                   {
                     $$ = $1;
@@ -261,13 +291,25 @@ statement:     CLEAR_statement
                   {
                     $$ = nullptr;
                   }
+               | RUN_statement
+                  {
+                    $$ = nullptr;
+                  }
                | RETURN_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | STOP_statement
+                  {
+                    $$ = nullptr;
+                  }
+               | SYSTEM_statement
                   {
                     $$ = nullptr;
                   }
                | WIDTH_statement
                   {
-                    $$ = new AST::ExprList($1);
+                    $$ = nullptr; //new AST::ExprList($1);
                   }
                | error /* bison error handler */   
                   {
@@ -277,7 +319,7 @@ statement:     CLEAR_statement
 
 eol:    EOL_TOKEN
         | EOF_TOKEN
-          { return 0; }
+          { return 0; }  // yes, this is a return!
         ;               
 
 /********************************************************* 
@@ -286,8 +328,25 @@ eol:    EOL_TOKEN
 
  *********************************************************/ 
 
-CLEAR_statement: CLEAR_TOKEN integer_expression
+CLEAR_statement: CLEAR_TOKEN expression
                  ;
+
+/********************************************************* 
+
+  DEF
+
+ *********************************************************/ 
+
+DEF_statement:  DEF_TOKEN IDENTIFIER opt_def_args '=' expression 
+                ;
+
+opt_def_args: /* empty */
+              | '(' def_arg_list ')'
+              ;
+
+def_arg_list: IDENTIFIER 
+              | def_arg_list ',' IDENTIFIER
+              ;              
 
 /********************************************************* 
 
@@ -295,22 +354,19 @@ CLEAR_statement: CLEAR_TOKEN integer_expression
 
  *********************************************************/ 
 
-DIM_statement: DIM_TOKEN dim_var_list
-                 ;
+DIM_statement:  DIM_TOKEN dim_var_list
+                ;
 
 dim_var_list: dim_var_def
               | dim_var_def ',' dim_var_list
               ;
 
-dim_var_def:  INTEGER_VARNAME '(' dim_def opt_dim_def ')'
+dim_var_def:  var_name '(' dim_defs ')'
               ;
 
-dim_def:      POSITIVE_INT
+dim_defs:     INTEGER
+              | dim_defs ',' INTEGER
               ;
-
-opt_dim_def:  /* empty */
-              | ',' dim_def
-              ;                            
 
 /*********************************************************
 
@@ -327,18 +383,18 @@ END_statement:  END_TOKEN
 
  *********************************************************/ 
 
-FOR_statement: FOR_TOKEN INTEGER_VARNAME '=' integer_expression TO_TOKEN integer_expression opt_STEP_statement
+FOR_statement: FOR_TOKEN var_ref '=' expression TO_TOKEN expression opt_STEP_statement
                 ;
 
 NEXT_statement: NEXT_TOKEN opt_varname
                 ;
 
 opt_varname:    /* empty */
-                | INTEGER_VARNAME
+                | var_ref
                 ;                
 
 opt_STEP_statement: /* empty */
-                    | STEP_TOKEN integer_expression
+                    | STEP_TOKEN expression
                     ;
 
 /*********************************************************
@@ -362,6 +418,43 @@ RETURN_statement:  RETURN_TOKEN
 GOTO_statement: GOTO_TOKEN line_number
                 ;
 
+/*********************************************************
+
+ IF/THEN/ELSE
+
+ *********************************************************/ 
+
+IF_statement: IF_TOKEN expression THEN_TOKEN conditional_clause opt_ELSE_statement
+              ;
+
+opt_ELSE_statement:   /* empty */
+                      | ELSE_statement
+                      ;              
+
+ELSE_statement: ELSE_TOKEN conditional_clause
+                ;
+
+conditional_clause:   line_number
+                      | statement_list 
+                      ; 
+
+/********************************************************* 
+
+ INPUT  
+
+ *********************************************************/ 
+
+ INPUT_statement: INPUT_TOKEN QUOTED_STRING ';' input_var_list
+                  | INPUT_TOKEN input_var_list
+                  ;
+
+ input_var_list:  input_var
+                  | input_var_list ',' input_var
+                  ;
+
+ input_var:       var_ref
+                  ;       
+
 /********************************************************* 
 
  LET              
@@ -378,37 +471,37 @@ opt_LET_TOKEN:  /* empty */
                 | LET_TOKEN
                 ;
 
-assign_expression:  IDENTIFIER '=' integer_expression
+assign_expression:  var_ref '=' expression
                         {
-                          $$ = DefineVariable<AST::Int16VariableDefExpr,
-                                              AST::Int16VariableRefExpr,
-                                              AST::Int16BinaryExpr>(
-                                                  AST::VariableDef::eInt16,
-                                                  *$1, "%", $3
-                                              );
-                          delete $1;
-                        }
-                    | INTEGER_VARNAME '=' integer_expression
-                        {
-                          $$ = DefineVariable<AST::Int16VariableDefExpr,
-                                              AST::Int16VariableRefExpr,
-                                              AST::Int16BinaryExpr>(
-                                                  AST::VariableDef::eInt16,
-                                                  *$1, "", $3
-                                              );
-                          delete $1;
-                        }
-                    | STRING_VARNAME '=' string_expression
-                        {
-                          $$ = DefineVariable<AST::StringVariableDefExpr,
-                                              AST::StringVariableRefExpr,
-                                              AST::StringBinaryExpr>(
-                                                  AST::VariableDef::eString,
-                                                  *$1, "", $3
-                                              );
-                          delete $1;
+                          /*
+                          if ($1 == nullptr)
+                            $$ = nullptr;
+                          else {  
+                            $$ = DefineVariable<AST::Int16VariableDefExpr,
+                                                AST::Int16VariableRefExpr,
+                                                AST::Int16BinaryExpr>(
+                                                    AST::VariableDef::eInt16,
+                                                    *$1, "", $3
+                                                );
+                            delete $1;
+                          }*/
+                          $$ = nullptr;
                         }
                     ;
+
+
+/********************************************************* 
+
+ ON
+ 
+ *********************************************************/ 
+
+ON_statement:    ON_TOKEN expression GOTO_TOKEN line_number opt_on_list
+                  ;
+
+opt_on_list:     /* empty */
+                  | ',' line_number opt_on_list
+                  ;                 
 
 /********************************************************* 
 
@@ -453,13 +546,7 @@ print_expression_list: /* empty */
                           }
                        ;
 
-print_expression:      string_expression
-                          {
-                            g_needsNewLine = true;
-                            AST::ExprList * args = new AST::ExprList($1);
-                            $$ = new AST::BIFExpr("print_string", args);
-                          }
-                       | integer_expression
+print_expression:      expression
                           {
                             g_needsNewLine = true;
                             AST::ExprList * args = new AST::ExprList($1);
@@ -494,6 +581,32 @@ REM_statement: rem_keyword
                 { cout << "warning: single quote REM not supported in basic-8k" << endl; }
               ;              
 
+/********************************************************* 
+
+ RUN
+ 
+ *********************************************************/ 
+
+RUN_statement: RUN_TOKEN QUOTED_STRING
+              ;
+
+/********************************************************* 
+
+ STOP              
+ 
+ *********************************************************/ 
+
+STOP_statement: STOP_TOKEN
+                ;
+
+/********************************************************* 
+
+ SYSTEM              
+ 
+ *********************************************************/ 
+
+SYSTEM_statement: SYSTEM_TOKEN
+                ;
 
 /********************************************************* 
 
@@ -501,96 +614,195 @@ REM_statement: rem_keyword
  
  *********************************************************/ 
 
-WIDTH_statement: WIDTH_TOKEN POSITIVE_INT
+WIDTH_statement: WIDTH_TOKEN INTEGER
                   {
                   }
                ;
 
-
 /********************************************************* 
 
- integer expression              
+ expression              
 
  *********************************************************/ 
 
-integer_expression: number
-                        {
-                          $$ = $1;
-                        }
+expression: AND_expression OR_TOKEN expression
+              { 
+                $$ = nullptr;
+              }
+            | AND_expression
+              {
+                $$ = $1;
+              }  
+            ;
 
-                    | integer_expression '+' integer_expression 
-                      { 
-                        $$ = new AST::Int16BinaryExpr('+', $1, $3);
-                      }
+AND_expression: NOT_expression AND_TOKEN AND_expression
+                  { 
+                    $$ = nullptr;
+                  }
+                | NOT_expression
+                  {
+                    $$ = $1;
+                  }
+                ;
 
-                    | integer_expression '-' integer_expression 
-                      { 
-                        $$ = new AST::Int16BinaryExpr('-', $1, $3);
-                      }
+NOT_expression: '-' compare_expression
+                  {
+                    $$ = nullptr;
+                  }
+                | compare_expression
+                  {
+                    $$ = $1;
+                  }
+                ;
 
-                    | integer_expression '*' integer_expression 
-                      { 
-                        $$ = new AST::Int16BinaryExpr('*', $1, $3);
-                      }
+compare_expression: ADD_expression '=' compare_expression
+                    | ADD_expression NOT_EQUAL compare_expression
+                    | ADD_expression '>' compare_expression
+                    | ADD_expression GREATERTHANEQUAL compare_expression
+                    | ADD_expression '<' compare_expression
+                    | ADD_expression LESSTHANEQUAL compare_expression
+                    | ADD_expression 
+                    ;
 
-                    | integer_expression '/' integer_expression 
-                      { 
-                        $$ = new AST::Int16BinaryExpr('/', $1, $3);
-                      }
-                    | '-' integer_expression %prec NEG
+ADD_expression: MULT_expression '+' ADD_expression
+                  { 
+                    $$ = new AST::Int16BinaryExpr('+', $1, $3);
+                  }
+                | MULT_expression '-' ADD_expression
+                  { 
+                    $$ = new AST::Int16BinaryExpr('-', $1, $3);
+                  }
+                | MULT_expression
+                  {
+                    $$ = $1;
+                  }  
+                ;
+
+MULT_expression:  NEGATE_expression '*' MULT_expression
+                    { 
+                      $$ = new AST::Int16BinaryExpr('*', $1, $3);
+                    }
+                  | NEGATE_expression '/' MULT_expression
+                    { 
+                      $$ = new AST::Int16BinaryExpr('*', $1, $3);
+                    }  
+                  | NEGATE_expression
+                    {
+                      $$ = $1;  
+                    } 
+                  ;   
+                          
+NEGATE_expression:  '-' POWER_expression
                       {
-                        $$ = $2;
-                      }
-                    | '(' integer_expression ')'
-                        {
-                          $$ = $2;
-                        } 
-                    ;                      
-                      
-number:             const_integer_expr
+                        $$ = nullptr; //new AST::Int16UnaryExpr('-', $2);
+                      }  
+                    | POWER_expression
                       {
                         $$ = $1;
                       }
-
-                    | IDENTIFIER
-                      {
-                        $$ = new AST::Int16VariableRefExpr(*$1 + "%");
-                        delete $1;
-                      }
-
-                    | INTEGER_VARNAME
-                      { 
-                        $$ = new AST::Int16VariableRefExpr(*$1);
-                      } 
-
-                    | SINGLE
-                      { 
-                        $$ = nullptr;
-                      }
-
-                    | DOUBLE
-                      { 
-                        $$ = nullptr;
-                      }
                     ;  
+
+POWER_expression: POWER_expression '^' subexpression
+                    {
+                      $$ = new AST::Int16BinaryExpr('^', $1, $3);
+                    }
+                  | subexpression
+                      {
+                        $$ = $1;
+                      }
+                  ;
+
+subexpression: '(' expression ')'
+                  {
+                    $$ = $2;
+                  }
+                | value
+                  {
+                    $$ = $1;
+                  }
+                ;                           
+
+value:          var_ref
+                  {
+                    $$ = nullptr;
+                  }
+                | CHR_TOKEN '(' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | MID_TOKEN '(' expression ',' expression ',' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | RIGHT_TOKEN '(' expression ',' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | LEFT_TOKEN '(' expression ',' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | STR_TOKEN '(' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | const_expr
+                  {
+                    $$ = nullptr;
+                  }
+
+expression_list:  expression ',' expression
+                    {
+                      $$ = new AST::ExprList($1);
+                    }
+                  | expression
+                    {
+                      $$ = new AST::ExprList($1);
+                    }
+                  ;
+
 
 /********************************************************* 
 
- string expression              
+var or array ref              
  
  *********************************************************/ 
 
-string_expression:  string_constant
-                      {
-                        $$ = new AST::StringConstantExpr(*$1, false);
-                        delete $1;
-                      }
+var_ref : var_name
+            {
+              $$ = nullptr;
+            }
+          | IDENTIFIER  
+            {
+              $$ = nullptr;
+            }
+          | INTEGER_VARNAME array_or_func_spec
+            {
+              $$ = nullptr;
+            }
+          | IDENTIFIER array_or_func_spec  
+            {
+              //cout << "possible function " << *$1 << endl;
+              $$ = nullptr;
+            }
+            ;
 
-                    | STRING_VARNAME
-                      {
-                        $$ = new AST::StringVariableRefExpr(*$1);
-                        delete $1;
-                      }
+var_name: IDENTIFIER
+          | INTEGER_VARNAME
+          | STRING_VARNAME
+          | SINGLE_VARNAME
+          | DOUBLE_VARNAME
+          ;
+            
+
+array_or_func_spec: '(' array_or_func_args ')'
+                    ; 
+
+array_or_func_args: array_or_func_arg 
+                    | array_or_func_args ',' array_or_func_arg   
+                    ;
+
+array_or_func_arg:  expression
                     ;
 
 /********************************************************* 
@@ -599,33 +811,20 @@ string_expression:  string_constant
  
  *********************************************************/ 
 
-const_integer_expr: integer
-                      {
-                        $$ = new AST::Int16ConstantExpr($1);
-                      }
-                    ;
-
-integer:        POSITIVE_INT
-                  {
-                    $$ = $1;
-                  }
-                | NEGATIVE_INT
-                  {
-                    $$ = $1;
-                  }
-                ;
-
-string_constant:    QUOTED_STRING
-                    {
-                      $$ = $1;
-                      //auto r = m_globalStringConstants.find(*$1);
-                      //if (r != m_globalStringConstants.end())
-                      //  $$ = r->second;
-                      //else {
-                      //  auto * expr = new CodeGenerator::ConstantStringExpr(*$1, true);
-                      //  m_globalStringConstants[*$1] = expr;
-                      //  $$ = expr;
-                      //}  
-                      //delete $1;  
-                    }                    
-                    ;
+const_expr: INTEGER
+              {
+                $$ = new AST::Int16ConstantExpr($1);
+              }
+            | DOUBLE
+              {
+                $$ = nullptr;
+              }
+            | SINGLE
+              {
+                $$ = nullptr;
+              }
+            | QUOTED_STRING
+              {
+                $$ = nullptr;
+              }
+            ;

@@ -26,7 +26,8 @@ bool AST::Visitor::Visit(Expr & expr)
 bool AST::Visitor::Visit(ExprList & expr)
 {
   for (auto & r : expr) {
-    r->Accept(*this);
+    if (r != nullptr)
+      r->Accept(*this);
   }
   return true;
 }
