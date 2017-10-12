@@ -8,7 +8,6 @@ using namespace std;
 
 //#include "codegen.h"
 
-Filename g_inputFilename;
 int g_lineNumber   = 1;
 int g_errorCount   = 0;
 int g_warningCount = 0;
@@ -20,7 +19,7 @@ AST::VariableDefList     g_variables;
 Basalt g_application;
 
 int g_verbose = 0;
-std::string g_targetTripleStr;
+std::string g_codeGenerator;
 bool g_dumpAsm = false;
 bool g_compileOnly = false;
 
@@ -28,13 +27,76 @@ ArgDef g_argDefs[] = {
   { 'c',   "",          "b",  &g_compileOnly,     "compile only" },
   { 'd',   "dump",      "b",  &g_dumpAsm,         "dump assembly" },
   { 'v',   "verbose",   "",   &g_verbose,         "enable verbosity" },
+  { 't',   "target",    "s",  &g_codeGenerator,   "set code generator" },
   { ' ',   "yydebug",   "",   &MBASIC_debug,      "enable bison debugging"},
-  { ' ',   "target",    "s",  &g_targetTripleStr, "set compiler target triplet" },
   {  0,    NULL,        NULL, NULL,                NULL }
 };
 
-void Basalt::Usage(const ArgDef * defs)
+template <class Abstract, typename ... TArgs>
+class Factory
 {
+  public:
+    Factory()
+    { }
+
+    struct AbstractWorker
+    {
+      virtual Abstract * Create(TArgs ... args) = 0; 
+    };
+
+    template <class Concrete>
+    struct Worker : public AbstractWorker
+    {
+      Worker()
+      { }
+
+      virtual Abstract * Create(TArgs ... args) override
+      { return new Concrete(args...); }
+    };
+
+    template<class Concrete>
+    void Register(const std::string & key)
+    {
+      m_workers[key] = new Worker<Concrete>();
+    }
+
+    std::vector<std::string> GetList() const
+    {
+      std::vector<std::string> types;
+      for (auto & r : m_workers)
+        types.push_back(r.first);
+
+      return types;
+    }
+
+    Abstract * CreateInstance(const std::string & key, TArgs ... args)
+    {
+      typename WorkerListType::iterator r = m_workers.find(key);
+      if (r == m_workers.end())
+        return nullptr;
+      AbstractWorker * worker = r->second;  
+      return worker->Create(args ...);  
+    }
+
+    bool Contains(const std::string & key) const
+    {
+      return m_workers.count(key) != 0;
+    }
+
+    typedef std::map<std::string, AbstractWorker *> WorkerListType;    
+    WorkerListType m_workers;
+};
+
+static Factory<AST::Visitor, AST::ExprList &, std::ostream &> g_codegeneratorFactory;
+
+void Basalt::Usage(const ArgDef * defs, bool showKeys)
+{
+  if (showKeys) {
+    std::vector<std::string> keys = g_codegeneratorFactory.GetList();
+    for (auto & r : keys)
+      cout << "  " << r << "\n";
+  }
+  exit(1);
 }
 
 void OptionError(const ArgDef * def)
@@ -49,24 +111,31 @@ void OptionError(const ArgDef * def)
   }
 }
 
-
-void Basalt::DecodeOpt(ArgDef * def)
+void Basalt::DecodeOpt(ArgDef * def, int & index, int argc, const char **argv)
 {
   std::string type(def->m_type);
 
   // empty type means increment value, if any
   if (type.length() == 0) {
-    if (def->m_data != NULL)
-      (*(int *)(def->m_data))++;
-    else
+    if (def->m_data == NULL)
       OptionError(def);
+    else
+      (*(int *)(def->m_data))++;
   }
 
   else if (type == "b") {
-    if (def->m_data != NULL)
-      (*(bool *)(def->m_data)) = true;
-    else
+    if (def->m_data == NULL)
       OptionError(def);
+    else
+      (*(bool *)(def->m_data)) = true;
+  }
+
+  else if (type == "s") {
+    if ((def->m_data == NULL) || (index >= argc))
+      OptionError(def);
+    else {
+      (*(std::string *)(def->m_data)) = argv[++index];
+    }
   }
 
   else {
@@ -97,7 +166,7 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
       ArgDef * def = defs;
       while (def->m_type != 0) {
         if (opt == def->m_long) {
-          DecodeOpt(def);
+          DecodeOpt(def, index, argc, argv);
           break;
         }
         ++def;
@@ -113,7 +182,7 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
         ArgDef * def = defs;
         while (def->m_type != 0) {
           if (*ptr == def->m_short) {
-            DecodeOpt(def);
+            DecodeOpt(def, index, argc, argv);
             ++ptr;
             break;
           }
@@ -136,42 +205,32 @@ int Basalt::Main(int argc, char const *argv[])
 {
   m_interactive = false;
 
-  {
-    //auto targetTriple = llvm::sys::getDefaultTargetTriple();
-    //g_targetTripleStr = targetTriple; 
-  }
-
+  g_codegeneratorFactory.Register<CodegenDumper>("dump");
+  
   // parse options and arguments
   int index = ParseArguments(g_argDefs, argc, argv);
-  if (index >= argc) {
-    m_interactive = true;
-    g_inputFilename = "<stdin>";
-    cout << "> " << flush;
-    while (getline(cin, m_line)) {
-      m_lineOffs = 0;
-      g_errorCount = 0;
-      g_expressions.clear();
-      MBASIC_parse();
-      if (g_errorCount == 0) {
-        cout << "compile here" << endl;
-      }
-      cout << "> " << flush;
-    }
-    return 0;
+
+  // check code generator  
+  if (g_codeGenerator.empty()) {
+    cerr << "error: must specify target using --target with one of:\n";
+    Usage(g_argDefs, true);
+    exit(1);
   }
 
-  //  Usage(g_argDefs);
-  //  return -1;
-  //}
+  if (!g_codegeneratorFactory.Contains(g_codeGenerator)) {
+    cerr << "error: code generator " << g_codeGenerator << "not known. Use one of:\n";
+    Usage(g_argDefs, true);
+    exit(1);
+  }
 
-  ///////////////////////////////////////////////////////////////////////////////
-  //
-  // parse input file
-  //
+  // assume interactive mode if no filenames
+  if (index >= argc) {
+    cerr << "error: no input filename specified" << endl;
+    exit(1);
+  }
 
   // open input file
   g_inputFilename = Filename(argv[index]);
-
   std::string ext = g_inputFilename.GetExtension();
   for (auto & r : ext) {
     r = tolower(r);
@@ -199,8 +258,16 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  AST::Dumper dumper(g_expressions, cout);
-  g_expressions.Accept(dumper);
+  AST::Visitor * generator = g_codegeneratorFactory.CreateInstance(g_codeGenerator, g_expressions, cout);
+  if (generator == nullptr) {
+    cerr << "internal error: cannot instantiate generator with name '" << g_codeGenerator << "'" << endl;
+    return -1;
+  }
+
+  if (!generator->Open(g_inputFilename, argc, argv))
+    return -1;
+  
+  g_expressions.Generate(*generator);
 
 #if 0
   ///////////////////////////////////////////////////////////////////////////////

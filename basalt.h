@@ -105,8 +105,8 @@ class Basalt
     int Main(int argc, char const *argv[]);
 
     int ParseArguments(ArgDef * defs, int argc, char const *argv[], int index);
-    void DecodeOpt(ArgDef * def);
-    void Usage(const ArgDef * defs);
+    void DecodeOpt(ArgDef * def, int & index, int argc, const char **argv);
+    void Usage(const ArgDef * defs, bool keys = false);
     char ReadNextChar();
 
     void OnError(const std::string & msg);
@@ -119,6 +119,7 @@ class Basalt
     size_t m_lineOffs;
     std::string m_line;
     std::ifstream m_inputFile;
+    Filename g_inputFilename;    
 };
 
 

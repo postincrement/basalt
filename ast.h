@@ -9,32 +9,36 @@
 #include <deque>
 #include <sstream>
 
+class CodegenDumper;
+//class CodegenCPP;
+//class CodegenLLVM;
+
 #define DECLARE_EXPR_VISITOR() \
-virtual bool Accept(AST::Visitor & visitor)
+virtual bool Generate(AST::Visitor & visitor)
 
 #define IMPLEMENT_EXPR_VISITOR() \
 DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
 
 #define DECLARE_EXPR_VISIT_FUNCTIONS() \
-virtual bool Visit(Expr & expr); \
-virtual bool Visit(ExprList & expr); \
+virtual bool Visit(AST::Expr & expr); \
+virtual bool Visit(AST::ExprList & expr); \
 \
-virtual bool Visit(VariableDefExpr & expr); \
-virtual bool Visit(VariableRefExpr & expr); \
-virtual bool Visit(UnaryExpr & expr); \
-virtual bool Visit(BinaryExpr & expr); \
+virtual bool Visit(AST::VariableDefExpr & expr); \
+virtual bool Visit(AST::VariableRefExpr & expr); \
+virtual bool Visit(AST::UnaryExpr & expr); \
+virtual bool Visit(AST::BinaryExpr & expr); \
 \
-virtual bool Visit(StringVariableRefExpr & expr); \
-virtual bool Visit(StringConstantExpr & expr); \
-virtual bool Visit(StringBinaryExpr & expr); \
+virtual bool Visit(AST::StringVariableRefExpr & expr); \
+virtual bool Visit(AST::StringConstantExpr & expr); \
+virtual bool Visit(AST::StringBinaryExpr & expr); \
 \
-virtual bool Visit(Int16VariableRefExpr & expr); \
-virtual bool Visit(ConstantIntExpr<int16_t> & expr); \
-virtual bool Visit(Int16BinaryExpr & expr); \
+virtual bool Visit(AST::Int16VariableRefExpr & expr); \
+virtual bool Visit(AST::ConstantIntExpr<int16_t> & expr); \
+virtual bool Visit(AST::Int16BinaryExpr & expr); \
 \
-virtual bool Visit(BIFExpr & expr); \
-virtual bool Visit(CallExpr & expr); \
-virtual bool Visit(LineMarkerExpr & expr) \
+virtual bool Visit(AST::BIFExpr & expr); \
+virtual bool Visit(AST::CallExpr & expr); \
+virtual bool Visit(AST::LineMarkerExpr & expr) \
 
 namespace AST {
 
@@ -67,42 +71,36 @@ namespace AST {
     public:
       virtual ~Visitor() { }
 
-      // dispatcher functions
-      virtual bool Accept(AbstractDispatcher & dispatcher) = 0;
+      // open generator
+      virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) = 0;
+
+      // generate code
+      virtual bool Generate(AbstractDispatcher & dispatcher) = 0;
 
       // visit functions
       DECLARE_EXPR_VISIT_FUNCTIONS();
   };
-
-  class Dumper;
   
   class AbstractDispatcher
   {
     public:
-      virtual bool Dispatch(Dumper & dumper) = 0;  
+      virtual bool Generate(CodegenDumper & generator) = 0;  
+      //virtual bool Dispatch(CodeGenCPP & generator) = 0;  
+      //virtual bool Dispatch(CodeGenLLVM & generator) = 0;  
   };
+} // namespace AST
 
-  class Dumper : public Visitor
-  {
-    public:
-      Dumper(ExprList & tree, std::ostream & strm); 
-  
-      DECLARE_EXPR_VISIT_FUNCTIONS();      
+#include "cg_dump.h"
 
-      virtual bool Accept(AbstractDispatcher & dispatcher) override
-      { return dispatcher.Dispatch(*this); }
-
-      ExprList & m_tree;
-      std::ostream & m_strm;
-
-      std::deque<std::string> m_vars;
-  };
-  
+namespace AST 
+{
   class Dispatcher : public AbstractDispatcher
   {
     public:
-      virtual bool Dispatch(Dumper & dumper);
-  };
+      virtual bool Generate(CodegenDumper & dumper) override = 0;
+      //virtual bool Dispatch(CodeGenCPP & generator) override = 0;  
+      //virtual bool Dispatch(CodeGenLLVM & generator) override = 0;  
+    };
     
 //////////////////////////////////////////////////////////////////
 //
