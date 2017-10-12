@@ -1,13 +1,15 @@
   
-#ifndef CG_DUMP_H_
-#define CG_DUMP_H_
+#ifndef CG_CXX_H_
+#define CG_CXX_H_
+
+#include <fstream>
 
 #include "ast.h"
-  
-class CodegenDumper : public AST::Visitor
+ 
+class CodegenCXX : public AST::Visitor
 {
   public:
-    CodegenDumper(AST::SourceFileExprList & tree); 
+    CodegenCXX(AST::SourceFileExprList & tree); 
 
     DECLARE_EXPR_VISIT_FUNCTIONS();      
 
@@ -18,9 +20,9 @@ class CodegenDumper : public AST::Visitor
     // generate code
     virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
     { return dispatcher.Generate(*this); }
-    
-    std::ostream & m_strm;
-    std::deque<std::string> m_vars;
+
+    Filename m_srcFilename;
+    std::ofstream m_ostrm;
 };
   
-#endif // CG_DUMP_H_
+#endif // CG_CXX_H_

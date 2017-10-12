@@ -17,10 +17,25 @@ static bool VisitError(Expr & expr)
 // default visit functions
 //
 
+AST::Visitor::Visitor(AST::SourceFileExprList & tree)
+  : m_tree(tree)
+{
+}
+
 bool AST::Visitor::Visit(Expr & expr)
 {
   return VisitError(expr);
 }
+
+bool AST::Visitor::Visit(SourceFileExprList & expr)
+{
+  for (auto & r : expr) {
+    if (r != nullptr)
+      r->Generate(*this);
+  }
+  return true;
+}
+
 
 bool AST::Visitor::Visit(ExprList & expr)
 {

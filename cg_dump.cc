@@ -26,10 +26,9 @@ static std::string CreateTemp()
 
 //////////////////////////////////////////////////////////////////////////
 
-
-CodegenDumper::CodegenDumper(ExprList & tree, std::ostream & strm)
-  : m_tree(tree)
-  , m_strm(strm)
+CodegenDumper::CodegenDumper(SourceFileExprList & tree)
+  : Visitor(tree)
+  , m_strm(cout)
 {  
 }
 
@@ -38,9 +37,22 @@ bool CodegenDumper::Open(const std::string & inputFilename, int argc, const char
   return true;
 } 
 
+void CodegenDumper::Close()
+{
+} 
+
 bool CodegenDumper::Visit(Expr & expr)
 {
   return DumpError(expr);
+}
+
+bool CodegenDumper::Visit(SourceFileExprList & expr)
+{
+  for (auto & r : expr) {
+    if (r != nullptr)
+      r->Generate(*this);
+  }
+  return true;
 }
 
 bool CodegenDumper::Visit(ExprList & expr)

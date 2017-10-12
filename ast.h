@@ -9,9 +9,11 @@
 #include <deque>
 #include <sstream>
 
+#include "common.h"
+
 class CodegenDumper;
-//class CodegenCPP;
-//class CodegenLLVM;
+class CodegenCXX;
+class CodegenLLVM;
 
 #define DECLARE_EXPR_VISITOR() \
 virtual bool Generate(AST::Visitor & visitor)
@@ -22,6 +24,7 @@ DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
 #define DECLARE_EXPR_VISIT_FUNCTIONS() \
 virtual bool Visit(AST::Expr & expr); \
 virtual bool Visit(AST::ExprList & expr); \
+virtual bool Visit(AST::SourceFileExprList & expr); \
 \
 virtual bool Visit(AST::VariableDefExpr & expr); \
 virtual bool Visit(AST::VariableRefExpr & expr); \
@@ -46,6 +49,7 @@ namespace AST {
 
   class Expr;
   class ExprList;
+  class SourceFileExprList;
 
   class VariableDefExpr;
   class VariableRefExpr;
@@ -69,28 +73,37 @@ namespace AST {
   class Visitor
   {
     public:
+      Visitor(SourceFileExprList & tree);
+
       virtual ~Visitor() { }
 
       // open generator
       virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) = 0;
+
+      // close generator
+      virtual void Close() = 0;
 
       // generate code
       virtual bool Generate(AbstractDispatcher & dispatcher) = 0;
 
       // visit functions
       DECLARE_EXPR_VISIT_FUNCTIONS();
-  };
+
+      SourceFileExprList & m_tree;
+    };
   
   class AbstractDispatcher
   {
     public:
       virtual bool Generate(CodegenDumper & generator) = 0;  
-      //virtual bool Dispatch(CodeGenCPP & generator) = 0;  
-      //virtual bool Dispatch(CodeGenLLVM & generator) = 0;  
-  };
+      virtual bool Generate(CodegenCXX & generator) = 0;  
+      virtual bool Generate(CodegenLLVM & generator) = 0;  
+    };
 } // namespace AST
 
 #include "cg_dump.h"
+#include "cg_cxx.h"
+#include "cg_llvm.h"
 
 namespace AST 
 {
@@ -98,8 +111,8 @@ namespace AST
   {
     public:
       virtual bool Generate(CodegenDumper & dumper) override = 0;
-      //virtual bool Dispatch(CodeGenCPP & generator) override = 0;  
-      //virtual bool Dispatch(CodeGenLLVM & generator) override = 0;  
+      virtual bool Generate(CodegenCXX & generator) override = 0;  
+      virtual bool Generate(CodegenLLVM & generator) override = 0;  
     };
     
 //////////////////////////////////////////////////////////////////
@@ -164,6 +177,17 @@ struct ExprList : public std::vector<Expr *>
   
   IMPLEMENT_EXPR_VISITOR();
 };
+
+struct SourceFileExprList : public ExprList 
+{
+  SourceFileExprList()
+  { }
+
+  virtual ~SourceFileExprList() { }
+  
+  IMPLEMENT_EXPR_VISITOR();
+};
+
 
 //////////////////////////////////////////////////////////////////
 //
@@ -443,9 +467,7 @@ struct DoubleFloat
   double m_value;
 };
 
-
-extern AST::ExprList g_expressions;
-extern AST::VariableDefList g_variables;
+extern AST::SourceFileExprList g_expressions;
 
 
 #endif // CODEGEN_H

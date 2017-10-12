@@ -10,7 +10,7 @@ BASALT_LDLIBS   += `llvm-config --libs --system-libs all`
 
 all: basalt libbasaltrt.a
 
-basalt: basalt.o mbasic.lex.o mbasic.tab.o ast.o cg_dump.o
+basalt: basalt.o mbasic.lex.o mbasic.tab.o ast.o cg_dump.o cg_cxx.o cg_llvm.o
 	g++ $^ $(LOADLIBES) $(BASALT_LDFLAGS) $(BASALT_LDLIBS) -o $@
 
 basalt.o mbasic.lex.o mbasic.tab.o codegen.o: codegen.h

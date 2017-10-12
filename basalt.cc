@@ -13,13 +13,13 @@ int g_errorCount   = 0;
 int g_warningCount = 0;
 
 LanguageProfile          g_profile;
-AST::ExprList            g_expressions;
-AST::VariableDefList     g_variables;
+AST::SourceFileExprList  g_expressions;
 
 Basalt g_application;
 
 int g_verbose = 0;
 std::string g_codeGenerator;
+std::string g_outputFilename;
 bool g_dumpAsm = false;
 bool g_compileOnly = false;
 
@@ -28,6 +28,7 @@ ArgDef g_argDefs[] = {
   { 'd',   "dump",      "b",  &g_dumpAsm,         "dump assembly" },
   { 'v',   "verbose",   "",   &g_verbose,         "enable verbosity" },
   { 't',   "target",    "s",  &g_codeGenerator,   "set code generator" },
+  { 'o',   "output",    "s",  &g_outputFilename,  "set output filename" },
   { ' ',   "yydebug",   "",   &MBASIC_debug,      "enable bison debugging"},
   {  0,    NULL,        NULL, NULL,                NULL }
 };
@@ -87,7 +88,7 @@ class Factory
     WorkerListType m_workers;
 };
 
-static Factory<AST::Visitor, AST::ExprList &, std::ostream &> g_codegeneratorFactory;
+static Factory<AST::Visitor, AST::SourceFileExprList &> g_codegeneratorFactory;
 
 void Basalt::Usage(const ArgDef * defs, bool showKeys)
 {
@@ -205,27 +206,28 @@ int Basalt::Main(int argc, char const *argv[])
 {
   m_interactive = false;
 
+  // register code generators
   g_codegeneratorFactory.Register<CodegenDumper>("dump");
+  g_codegeneratorFactory.Register<CodegenCXX>   ("cxx");
+  g_codegeneratorFactory.Register<CodegenLLVM>  ("llvm");
   
   // parse options and arguments
   int index = ParseArguments(g_argDefs, argc, argv);
 
-  // check code generator  
-  if (g_codeGenerator.empty()) {
-    cerr << "error: must specify target using --target with one of:\n";
-    Usage(g_argDefs, true);
+  // set default code generator if no output file specified 
+  if (g_codeGenerator.empty() && g_outputFilename.empty())
+    g_codeGenerator = "dump";
+
+  // see if input filename exists  
+  if (index >= argc) {
+    cerr << "error: no input filename specified" << endl;
     exit(1);
   }
-
+  
+  // see if the code generator exists
   if (!g_codegeneratorFactory.Contains(g_codeGenerator)) {
     cerr << "error: code generator " << g_codeGenerator << "not known. Use one of:\n";
     Usage(g_argDefs, true);
-    exit(1);
-  }
-
-  // assume interactive mode if no filenames
-  if (index >= argc) {
-    cerr << "error: no input filename specified" << endl;
     exit(1);
   }
 
@@ -235,7 +237,6 @@ int Basalt::Main(int argc, char const *argv[])
   for (auto & r : ext) {
     r = tolower(r);
   }
-
   if (ext != ".bas") {
     cerr << "error: unknown input file extension '" << g_inputFilename.GetExtension() << "'" << endl;
     return -1;
@@ -258,7 +259,7 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  AST::Visitor * generator = g_codegeneratorFactory.CreateInstance(g_codeGenerator, g_expressions, cout);
+  AST::Visitor * generator = g_codegeneratorFactory.CreateInstance(g_codeGenerator, g_expressions);
   if (generator == nullptr) {
     cerr << "internal error: cannot instantiate generator with name '" << g_codeGenerator << "'" << endl;
     return -1;
@@ -267,150 +268,14 @@ int Basalt::Main(int argc, char const *argv[])
   if (!generator->Open(g_inputFilename, argc, argv))
     return -1;
   
-  g_expressions.Generate(*generator);
-
-#if 0
-  ///////////////////////////////////////////////////////////////////////////////
-  //
-  //  code generation
-  //
-
-  if (g_verbose)
-    cout << "info: generating code" << endl;
-
-  CodeGenerator cg(cerr);
-
-  llvm::BasicBlock * block = cg.StartMain();
-
-  {    
-    std::vector<llvm::Value *> ArgsV;
-
-    /*
-    for (unsigned i = 0, e = Args.size(); i != e; ++i) {
-      ArgsV.push_back(Args[i]->codegen());
-      if (!ArgsV.back())
-        return nullptr;
-    }
-    */
-    llvm::FunctionType * FT = llvm::FunctionType::get(llvm::Type::getVoidTy(cg.m_context), false);
-    llvm::Function * calleeF = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage, "basalt_init", cg.m_module.get());    
-
-    llvm::CallInst* int64_4 = llvm::CallInst::Create(calleeF, "", block);
-    int64_4->setCallingConv(llvm::CallingConv::C);
-    int64_4->setTailCall(false);    
+  if (!g_expressions.Generate(*generator)) {
+    return -1;
   }
 
-  cout << "generating code for " << g_expressions.size() << " expressions" << endl;
-
-/*
-    llvm::StoreInst* void_10 = new llvm::StoreInst(const_ptr_6, ptr_9, false, label_8);
-    void_10->setAlignment(8);
-    llvm::GetElementPtrInst* ptr_11 = llvm::GetElementPtrInst::Create(StructTy_struct_String, ptr_a, {
-     const_int32_5, 
-     const_int32_4
-    }, "", label_8);
-
-    llvm::StoreInst* void_12 = new llvm::StoreInst(const_int8_7, ptr_11, false, label_8);
-    void_12->setAlignment(8);
-  }
- */   
-
-  for (auto & r : g_expressions) {
-    if (r != nullptr) {
-      //cout << "generating code for non-null expression" << endl;
-      r->Generate(cg);
-    }
-  }
-
-  cg.EndMain(block);
-
-  //GenerateCall0(module, "basalt_init");    
-  //CodeGenerator::FunctionASTExpr * mainFunc = new CodeGenerator::FunctionASTExpr("main", NULL);
-
-  //llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc->Generate(module));
-  //module.GetBuilder().SetInsertPoint(entry);
-
-  if (g_dumpAsm)
-    cg.Dump();
-
-  /////////////////////////////////////////////////////////////
-  //
-  //  outputting object file
-  //
-
-  // create output filename
-  Filename objectFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename() + ".o");
-
-  if (g_verbose)
-    cout << "info: creating '" << objectFilename.GetFilename() << "'" << endl;
-
-  // Initialize the target registry etc.
-  llvm::InitializeAllTargetInfos();
-  llvm::InitializeAllTargets();
-  llvm::InitializeAllTargetMCs();
-  llvm::InitializeAllAsmParsers();
-  llvm::InitializeAllAsmPrinters();  
-
-  std::string Error;
-  auto Target = llvm::TargetRegistry::lookupTarget(g_targetTripleStr, Error);
-
-  // Print an error and exit if we couldn't find the requested target.
-  // This generally occurs if we've forgotten to initialise the
-  // TargetRegistry or we have a bogus target triple.
-  if (!Target) {
-    cerr << Error;
-    return 1;
-  }  
-
-  auto CPU = "generic";
-  auto Features = "";
-
-  llvm::TargetOptions opt;
-  auto RM = llvm::Reloc::Model();  
-
-  auto TargetMachine = Target->createTargetMachine(g_targetTripleStr, CPU, Features, opt, RM);  
-
-  cg.m_module->setDataLayout(TargetMachine->createDataLayout());
-  cg.m_module->setTargetTriple(g_targetTripleStr);  
-
-  std::error_code EC;
-  llvm::raw_fd_ostream dest(objectFilename.c_str(), EC, llvm::sys::fs::F_None);
-
-  if (EC) {
-    cerr << "Could not open file: " << EC.message();
-    return 1;
-  }  
-
-  llvm::legacy::PassManager pass;
-  auto FileType = llvm::TargetMachine::CGFT_ObjectFile;
-
-  if (TargetMachine->addPassesToEmitFile(pass, dest, FileType)) {
-    cerr << "TargetMachine can't emit a file of this type";
-    return 1;
-  }
-
-  pass.run(*cg.m_module);
-
-  dest.flush();  
-
-  if (g_compileOnly)
-    return 0;
-
-  // do the linker thing
-  Filename exeFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename());
-  std::stringstream cmd;
-  cmd << "clang " << objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
-
-  int result = system(cmd.str().c_str());
-  if (result != 0)
-    cerr << "error: linker failed" << endl;
-
-#endif    
+  generator->Close();
 
   return 0;
 }
-
-
 
 char Basalt::ReadNextChar()
 {

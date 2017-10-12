@@ -36,6 +36,8 @@ static AST::ExprList * ConcatExprLists(AST::ExprList * a, AST::ExprList * b)
   return a;
 }
 
+#if 0
+
 template<class DefExprType, class RefExprType, class BinExprType>
 static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
                                       const std::string & name_, 
@@ -73,6 +75,8 @@ static AST::ExprList * DefineVariable(AST::VariableDef::Type type,
 
   return exprList;             
 }
+
+#endif
 
 extern void MBASIC_SetRemMode();
 
@@ -289,7 +293,7 @@ statement:     CLEAR_statement
                   }
                | LET_statement
                   {
-                    $$ = nullptr; //$1;
+                    $$ = $1;
                   }
                | NEXT_statement
                   {
@@ -491,21 +495,21 @@ opt_LET_TOKEN:  /* empty */
                 ;
 
 assign_expression:  var_ref '=' expression
-                        {
-                          /*
-                          if ($1 == nullptr)
-                            $$ = nullptr;
-                          else {  
-                            $$ = DefineVariable<AST::Int16VariableDefExpr,
-                                                AST::Int16VariableRefExpr,
-                                                AST::Int16BinaryExpr>(
-                                                    AST::VariableDef::eInt16,
-                                                    *$1, "", $3
-                                                );
-                            delete $1;
-                          }*/
+                      {
+                        $$ = new AST::ExprList($1);
+                        /*
+                        if ($1 == nullptr)
                           $$ = nullptr;
-                        }
+                        else {  
+                          $$ = DefineVariable<AST::Int16VariableDefExpr,
+                                              AST::Int16VariableRefExpr,
+                                              AST::Int16BinaryExpr>(
+                                                  AST::VariableDef::eInt16,
+                                                  *$1, "", $3
+                                              );
+                          delete $1;
+                        }*/
+                      }
                     ;
 
 
