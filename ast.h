@@ -81,7 +81,7 @@ namespace AST {
       virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) = 0;
 
       // close generator
-      virtual void Close() = 0;
+      virtual bool Close() = 0;
 
       // generate code
       virtual bool Generate(AbstractDispatcher & dispatcher) = 0;
@@ -113,30 +113,8 @@ namespace AST
       virtual bool Generate(CodegenDumper & dumper) override = 0;
       virtual bool Generate(CodegenCXX & generator) override = 0;  
       virtual bool Generate(CodegenLLVM & generator) override = 0;  
-    };
-    
-//////////////////////////////////////////////////////////////////
-//
-// used to track variables
-//
-
-struct Variable
-{
-  enum Type {
-    eString,
-    eInt16,
-    eSingle,
-    eDouble
   };
-
-  Variable(Type type, const std::string & name)
-    : m_type(type)
-    , m_name(name)
-  { }
-
-  Type m_type;
-  std::string m_name;  
-};
+    
 
 
 struct VariableDef : public Variable
@@ -196,15 +174,19 @@ struct SourceFileExprList : public ExprList
 
 struct LineMarkerExpr : public Expr 
 {
-  LineMarkerExpr()
+  LineMarkerExpr(unsigned lineNumber)
+    : m_lineNumber(lineNumber)
   { }
 
-  LineMarkerExpr(const std::string & marker)
-    : m_marker(marker)
-  { }
+  LineMarkerExpr(unsigned lineNumber, const std::string & marker)
+    : m_lineNumber(lineNumber)
+    , m_marker(marker)
+    { 
+    }
 
   IMPLEMENT_EXPR_VISITOR();
 
+  unsigned m_lineNumber;
   std::string m_marker;
   std::string m_line;
 };
@@ -264,7 +246,7 @@ class VariableDefExpr : public Expr
       , m_global(global)
     { }
 
-    AST::Variable::Type GetType() const
+    Variable::Type GetType() const
     { return m_variableName.m_type; }
 
     const std::string & GetName() const

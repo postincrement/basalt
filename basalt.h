@@ -8,37 +8,6 @@
 #include "ast.h"
 #include "common.h"
 
-struct LanguageProfile
-{
-  enum Dialect {
-    Basic80_5_0_8k,
-    Basic80_5_0_Extended,
-    Basic80_5_0_Disk
-  };
-
-  LanguageProfile(Dialect dialect = Basic80_5_0_8k)
-  {
-    Set(dialect);
-  }
-
-  void Set(Dialect dialect = Basic80_5_0_8k)
-  {
-    switch (dialect) {
-      case Basic80_5_0_Extended:
-        m_identifierLen = 40;
-        break;
-      case Basic80_5_0_Disk:
-        m_identifierLen = 40;
-        break;
-      case Basic80_5_0_8k:
-      default:
-        m_identifierLen = 2;
-        break;
-    } 
-  }
-
-  size_t m_identifierLen;
-};
 
 struct ArgDef 
 {
@@ -69,7 +38,7 @@ class Basalt
     size_t m_lineOffs;
     std::string m_line;
     std::ifstream m_inputFile;
-    Filename g_inputFilename;    
+    Filename m_inputFilename;    
 };
 
 
@@ -82,8 +51,7 @@ extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
 
 extern Basalt g_application;
 extern int g_lineNumber;
-extern Filename g_inputFilename;
-
-extern LanguageProfile g_profile;
+extern bool g_compileOnly;
+extern bool g_dumpAsm;
 
 #endif // BASALT_H_

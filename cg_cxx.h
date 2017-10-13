@@ -15,7 +15,7 @@ class CodegenCXX : public AST::Visitor
 
     // open generator
     virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) override;
-    virtual void Close();
+    virtual bool Close();
     
     // generate code
     virtual bool Generate(AST::AbstractDispatcher & dispatcher) override

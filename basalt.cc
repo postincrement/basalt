@@ -12,93 +12,32 @@ int g_lineNumber   = 1;
 int g_errorCount   = 0;
 int g_warningCount = 0;
 
-LanguageProfile          g_profile;
+LanguageProfile * g_languageProfile = nullptr;
 AST::SourceFileExprList  g_expressions;
 
 Basalt g_application;
 
 int g_verbose = 0;
-std::string g_codeGenerator;
+std::string g_codeGeneratorName;
 std::string g_outputFilename;
+std::string g_languageProfileName;
 bool g_dumpAsm = false;
 bool g_compileOnly = false;
 
 ArgDef g_argDefs[] = {
-  { 'c',   "",          "b",  &g_compileOnly,     "compile only" },
-  { 'd',   "dump",      "b",  &g_dumpAsm,         "dump assembly" },
-  { 'v',   "verbose",   "",   &g_verbose,         "enable verbosity" },
-  { 't',   "target",    "s",  &g_codeGenerator,   "set code generator" },
-  { 'o',   "output",    "s",  &g_outputFilename,  "set output filename" },
-  { ' ',   "yydebug",   "",   &MBASIC_debug,      "enable bison debugging"},
-  {  0,    NULL,        NULL, NULL,                NULL }
+  { 'c',   "",          "b",  &g_compileOnly,         "compile only" },
+  { 'd',   "dump",      "b",  &g_dumpAsm,             "dump assembly" },
+  { 'v',   "verbose",   "",   &g_verbose,             "enable verbosity" },
+  { 't',   "target",    "s",  &g_codeGeneratorName,   "set code generator" },
+  { 'o',   "output",    "s",  &g_outputFilename,      "set output filename" },
+  { 'p',   "profile",   "s",  &g_languageProfileName, "set language profile" },
+  { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
+  {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
-template <class Abstract, typename ... TArgs>
-class Factory
-{
-  public:
-    Factory()
-    { }
+static Factory<AST::Visitor,    AST::SourceFileExprList &> g_codegeneratorFactory;
+static Factory<LanguageProfile> g_languageProfileFactory;
 
-    struct AbstractWorker
-    {
-      virtual Abstract * Create(TArgs ... args) = 0; 
-    };
-
-    template <class Concrete>
-    struct Worker : public AbstractWorker
-    {
-      Worker()
-      { }
-
-      virtual Abstract * Create(TArgs ... args) override
-      { return new Concrete(args...); }
-    };
-
-    template<class Concrete>
-    void Register(const std::string & key)
-    {
-      m_workers[key] = new Worker<Concrete>();
-    }
-
-    std::vector<std::string> GetList() const
-    {
-      std::vector<std::string> types;
-      for (auto & r : m_workers)
-        types.push_back(r.first);
-
-      return types;
-    }
-
-    Abstract * CreateInstance(const std::string & key, TArgs ... args)
-    {
-      typename WorkerListType::iterator r = m_workers.find(key);
-      if (r == m_workers.end())
-        return nullptr;
-      AbstractWorker * worker = r->second;  
-      return worker->Create(args ...);  
-    }
-
-    bool Contains(const std::string & key) const
-    {
-      return m_workers.count(key) != 0;
-    }
-
-    typedef std::map<std::string, AbstractWorker *> WorkerListType;    
-    WorkerListType m_workers;
-};
-
-static Factory<AST::Visitor, AST::SourceFileExprList &> g_codegeneratorFactory;
-
-void Basalt::Usage(const ArgDef * defs, bool showKeys)
-{
-  if (showKeys) {
-    std::vector<std::string> keys = g_codegeneratorFactory.GetList();
-    for (auto & r : keys)
-      cout << "  " << r << "\n";
-  }
-  exit(1);
-}
 
 void OptionError(const ArgDef * def)
 {
@@ -202,6 +141,21 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
 }
 
 
+void Basalt::Usage(const ArgDef * defs, bool showKeys)
+{
+  if (showKeys) {
+    cout << "where generator is one of:\n";
+    std::vector<std::string> keys = g_codegeneratorFactory.GetList();
+    for (auto & r : keys)
+      cout << "  " << r << "\n";
+    cout << "where profile is one of:";
+    keys = g_languageProfileFactory.GetList();
+    for (auto & r : keys)
+      cout << "  " << r << "\n";
+  }
+  exit(1);
+}
+
 int Basalt::Main(int argc, char const *argv[])
 {
   m_interactive = false;
@@ -210,13 +164,22 @@ int Basalt::Main(int argc, char const *argv[])
   g_codegeneratorFactory.Register<CodegenDumper>("dump");
   g_codegeneratorFactory.Register<CodegenCXX>   ("cxx");
   g_codegeneratorFactory.Register<CodegenLLVM>  ("llvm");
+
+  // register language profiles
+  g_languageProfileFactory.Register<Basic_8k_LanguageProfile>      ("basic-8k");
+  g_languageProfileFactory.Register<Basic_Extended_LanguageProfile>("basic-ext");
+  g_languageProfileFactory.Register<Basic_Disk_LanguageProfile>    ("basic-disk");
   
   // parse options and arguments
   int index = ParseArguments(g_argDefs, argc, argv);
 
   // set default code generator if no output file specified 
-  if (g_codeGenerator.empty() && g_outputFilename.empty())
-    g_codeGenerator = "dump";
+  if (g_codeGeneratorName.empty() && g_outputFilename.empty())
+    g_codeGeneratorName = "dump";
+
+  // set default code generator if no output file specified 
+  if (g_languageProfileName.empty())
+    g_languageProfileName = "basic-8k";
 
   // see if input filename exists  
   if (index >= argc) {
@@ -225,31 +188,44 @@ int Basalt::Main(int argc, char const *argv[])
   }
   
   // see if the code generator exists
-  if (!g_codegeneratorFactory.Contains(g_codeGenerator)) {
-    cerr << "error: code generator " << g_codeGenerator << "not known. Use one of:\n";
+  if (!g_codegeneratorFactory.Contains(g_codeGeneratorName)) {
+    cerr << "error: code generator " << g_codeGeneratorName << "not known.\n";
+    Usage(g_argDefs, true);
+    exit(1);
+  }
+
+  // see if the language profile exists
+  if (!g_languageProfileFactory.Contains(g_languageProfileName)) {
+    cerr << "error: code generator " << g_languageProfileName << "not known.\n";
     Usage(g_argDefs, true);
     exit(1);
   }
 
   // open input file
-  g_inputFilename = Filename(argv[index]);
-  std::string ext = g_inputFilename.GetExtension();
+  m_inputFilename = Filename(argv[index]);
+  std::string ext = m_inputFilename.GetExtension();
   for (auto & r : ext) {
     r = tolower(r);
   }
   if (ext != ".bas") {
-    cerr << "error: unknown input file extension '" << g_inputFilename.GetExtension() << "'" << endl;
+    cerr << "error: unknown input file extension '" << m_inputFilename.GetExtension() << "'" << endl;
     return -1;
   }
 
-  m_inputFile.open(g_inputFilename);
+  g_languageProfile = g_languageProfileFactory.CreateInstance(g_languageProfileName);
+  if (g_languageProfile == nullptr) {
+    cerr << "internal error: cannot instantiate language profile with name '" << g_languageProfileName << "'" << endl;
+    return -1;
+  }
+
+  m_inputFile.open(m_inputFilename);
   if (!m_inputFile) {
-    cerr << "error: cannot open input file '" << g_inputFilename << "'" << endl;
+    cerr << "error: cannot open input file '" << m_inputFilename << "'" << endl;
     return -1;
   }
 
   if (g_verbose)
-    cout << "info: parsing '" << g_inputFilename.GetFilename() << "'" << endl;
+    cout << "info: parsing '" << m_inputFilename.GetFilename() << "'" << endl;
 
   m_lineOffs = 2;
   MBASIC_parse();
@@ -259,23 +235,75 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  AST::Visitor * generator = g_codegeneratorFactory.CreateInstance(g_codeGenerator, g_expressions);
+  AST::Visitor * generator = g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_expressions);
   if (generator == nullptr) {
-    cerr << "internal error: cannot instantiate generator with name '" << g_codeGenerator << "'" << endl;
+    cerr << "internal error: cannot instantiate generator with name '" << g_codeGeneratorName << "'" << endl;
     return -1;
   }
 
-  if (!generator->Open(g_inputFilename, argc, argv))
+  if (!generator->Open(m_inputFilename, argc, argv))
     return -1;
   
   if (!g_expressions.Generate(*generator)) {
     return -1;
   }
 
-  generator->Close();
-
-  return 0;
+  return generator->Close() ? 0 : -1;
 }
+
+////////////////////////////////////////////////////////////////////////
+
+BasicLanguageProfile::BasicLanguageProfile(int normVarLen)
+{
+  m_normalizedVarLen = normVarLen;
+}
+
+bool BasicLanguageProfile::NormalizeVariableName(Variable & var)
+{
+  std::string rawName = var.m_name;
+
+  // take out printables
+  for (auto & r : rawName)
+    if (!isalnum(r) && (r != '_'))
+      r = '_';
+
+  switch (var.m_type) {
+    case Variable::eString:
+      rawName += "_string";
+      break;
+    case Variable::eInt16:
+      rawName += "_int";
+      break;
+    case Variable::eSingle:
+      rawName += "_single";
+      break;
+    case Variable::eDouble:
+      rawName += "_double";
+      break;
+    case Variable::eUntyped:
+      return false;
+  };
+
+  var.m_normalizedName = rawName;
+  return true;
+}
+
+Basic_8k_LanguageProfile::Basic_8k_LanguageProfile()
+ : BasicLanguageProfile(2)
+{
+}
+
+Basic_Extended_LanguageProfile::Basic_Extended_LanguageProfile()
+  : BasicLanguageProfile(40)
+{
+}
+
+Basic_Disk_LanguageProfile::Basic_Disk_LanguageProfile()
+  : BasicLanguageProfile(40)
+{  
+}
+
+////////////////////////////////////////////////////////////////////////
 
 char Basalt::ReadNextChar()
 {
@@ -310,7 +338,7 @@ void Basalt::OnWarning(const std::string & msg)
 
 void Basalt::DisplayError(const std::string & msg, const std::string & type)
 {
-  cout << g_inputFilename << ":" << g_lineNumber << ":" << m_lineOffs << ": " << type << " - " << msg << endl;
+  cout << m_inputFilename << ":" << g_lineNumber << ":" << m_lineOffs << ": " << type << " - " << msg << endl;
   cout << m_line << endl;
   size_t i;
   for (i = 0; i < m_lineOffs-2; i++)

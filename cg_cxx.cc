@@ -45,14 +45,15 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
   return true;
 } 
 
-void CodegenCXX::Close()
+bool CodegenCXX::Close()
 {
   m_ostrm.close();
+  return true;
 } 
 
 bool CodegenCXX::Visit(LineMarkerExpr & expr)
 {
-  m_ostrm << "  // " << expr.m_line << endl;
+  m_ostrm << "  // " << expr.m_lineNumber << ": " << expr.m_line << endl;
   return true;
 }
 
@@ -68,12 +69,7 @@ bool Traverse(ExprList & list, Fn & fn)
 {
   for (auto & r : list) {
     if (r != nullptr) {
-      ExprList * subList = dynamic_cast<ExprList *>(r);
-      if (subList != nullptr) { 
-        if (!Traverse<Fn>(*subList, fn))
-          return false;
-      }
-      else if (!fn(*r))
+      if (!fn(*r))
         return false;
     }
   }
@@ -97,7 +93,8 @@ struct FindVar
   }
 
   std::map<std::string, VariableDefExpr *> m_vars;
-
+  std::map<std::string, std::string> m_varNames;
+  
   CodegenCXX & m_gen;
 };
 
@@ -109,23 +106,32 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
   Traverse<FindVar>(expr, fn);
 
   for (auto & r : fn.m_vars) {
-    AST::Variable & var = r.second->m_variableName;
+    Variable & var = r.second->m_variableName;
+
     std::string type;
+    std::string initExpr;
+
     switch (var.m_type) {
-      case AST::Variable::eString:
-        type = "std::string";
+      case Variable::eString:
+        type = "char *";
+        initExpr = "nullptr";
         break;
-      case AST::Variable::eInt16:
+      case Variable::eInt16:
         type = "int16_t";
+        initExpr = "0";
         break;
-      case AST::Variable::eSingle:
+      case Variable::eSingle:
         type = "float";
+        initExpr = "0";
         break;
-      case AST::Variable::eDouble:
+      case Variable::eDouble:
         type = "double";
+        initExpr = "0";
         break;
-    }
-    m_ostrm << type << " " << r.first << ";" << endl;
+      case Variable::eUntyped:
+        return false;
+      }
+    m_ostrm << type << " " << var.m_normalizedName << " = " << initExpr << ";" << endl;
   }
 
   m_ostrm << "\n"

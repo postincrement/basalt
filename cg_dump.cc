@@ -37,8 +37,9 @@ bool CodegenDumper::Open(const std::string & inputFilename, int argc, const char
   return true;
 } 
 
-void CodegenDumper::Close()
+bool CodegenDumper::Close()
 {
+  return true;
 } 
 
 bool CodegenDumper::Visit(Expr & expr)
@@ -65,7 +66,7 @@ bool CodegenDumper::Visit(ExprList & expr)
 
 bool CodegenDumper::Visit(LineMarkerExpr & expr)
 {
-  m_strm << "; " << expr.m_line << endl;
+  m_strm << "; " << expr.m_lineNumber << ": " << expr.m_line << endl;
   return true;
 }
 

@@ -9,6 +9,7 @@
 #include <memory>
 using namespace std;
 
+#include "common.h"
 #include "basalt.h"
 
 #define YYDEBUG 1
@@ -88,7 +89,7 @@ extern void MBASIC_SetRemMode();
   int           ival;
   std::string * sval;
 
-  AST::Variable    * varval;
+  Variable    * varval;
 
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
@@ -196,9 +197,9 @@ line:     opt_line_number
             {
               AST::LineMarkerExpr * marker; 
               if ($1 == nullptr)
-                marker = new AST::LineMarkerExpr();
+                marker = new AST::LineMarkerExpr(g_lineNumber);
               else {
-                marker = new AST::LineMarkerExpr(*$1);
+                marker = new AST::LineMarkerExpr(g_lineNumber, *$1);
                 delete $1;
               }
               marker->m_line = g_application.m_line;
@@ -206,8 +207,7 @@ line:     opt_line_number
             }
           opt_statement_list eol
             {
-              $$ = new AST::ExprList();
-              $$->push_back($<expr>2);
+              $$ = new AST::ExprList($<expr>2);
               ConcatExprLists($$, $3);
             }
           ;
@@ -824,27 +824,32 @@ var_ref : var_name
 
 var_name: IDENTIFIER
             {
-              $$ = new AST::Variable(AST::Variable::eInt16, *$1);
+              $$ = new Variable(Variable::eInt16, *$1 + "%");
+              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | INTEGER_VARNAME
             {
-              $$ = new AST::Variable(AST::Variable::eInt16, *$1);
+              $$ = new Variable(Variable::eInt16, *$1);
+              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | STRING_VARNAME
             {
-              $$ = new AST::Variable(AST::Variable::eString, *$1);
+              $$ = new Variable(Variable::eString, *$1);
+              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | SINGLE_VARNAME
             {
-              $$ = new AST::Variable(AST::Variable::eSingle, *$1);
+              $$ = new Variable(Variable::eSingle, *$1);
+              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | DOUBLE_VARNAME
             {
-              $$ = new AST::Variable(AST::Variable::eDouble, *$1);
+              $$ = new Variable(Variable::eDouble, *$1);
+              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           ;
