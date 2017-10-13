@@ -4,7 +4,7 @@
 
 #include "ast.h"
   
-class CodegenDumper : public AST::Visitor
+class CodegenDumper : public CodeGenerator
 {
   public:
     CodegenDumper(AST::SourceFileExprList & tree); 

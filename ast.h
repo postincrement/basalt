@@ -28,10 +28,10 @@ virtual bool Visit(AST::SourceFileExprList & expr); \
 virtual bool Visit(AST::VariableDefExpr & expr); \
 virtual bool Visit(AST::VariableRefExpr & expr); \
 virtual bool Visit(AST::BinaryExpr & expr); \
+virtual bool Visit(AST::StringConstantExpr & expr); \
 \
 virtual bool Visit(AST::UnaryExpr & expr); \
 \
-virtual bool Visit(AST::StringConstantExpr & expr); \
 \
 virtual bool Visit(AST::ConstantIntExpr<int16_t> & expr); \
 \
@@ -46,20 +46,20 @@ namespace AST {
   class Expr;
   class ExprList;
   class SourceFileExprList;
-
+  class LineMarkerExpr;
+  
   class VariableDefExpr;
   class VariableRefExpr;
   class BinaryExpr;
-  class UnaryExpr;
-  
   class StringConstantExpr;
-  
+
+  class UnaryExpr;
+    
   template <typename> class IntVariableDefExpr;
   template <typename> class ConstantIntExpr;  
   
   class BIFExpr;
   class CallExpr;
-  class LineMarkerExpr;
 
   class Visitor
   {
@@ -68,18 +68,12 @@ namespace AST {
 
       virtual ~Visitor() { }
 
-      // open generator
-      virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) = 0;
-
-      // close generator
-      virtual bool Close() = 0;
-
       // generate code
       virtual bool Generate(AbstractDispatcher & dispatcher) = 0;
 
       // visit functions
       DECLARE_EXPR_VISIT_FUNCTIONS();
-
+      
       SourceFileExprList & m_tree;
     };
   
@@ -90,14 +84,7 @@ namespace AST {
       virtual bool Generate(CodegenCXX & generator) = 0;  
       virtual bool Generate(CodegenLLVM & generator) = 0;  
     };
-} // namespace AST
 
-#include "cg_dump.h"
-#include "cg_cxx.h"
-#include "cg_llvm.h"
-
-namespace AST 
-{
   class Dispatcher : public AbstractDispatcher
   {
     public:
@@ -223,6 +210,46 @@ class VariableRefExpr : public Expr
     Variable m_variable;
 };
 
+
+//////////////////////////////////////////////////////////////////
+//
+// BinaryExpr - Expression class for a binary operator.
+//
+class BinaryExpr : public Expr
+{
+  public:
+    BinaryExpr(char op, 
+               Expr * lhs,
+               Expr * rhs)
+    : m_op(op) 
+    , m_lhs(lhs)
+    , m_rhs(rhs) 
+    {
+    }  
+    
+    IMPLEMENT_EXPR_VISITOR();
+    
+    char m_op;
+    Expr * m_lhs;
+    Expr * m_rhs;
+};
+
+//////////////////////////////////////////////////////////////////
+//
+// StringExpr - Expression class for string literals
+//
+class StringConstantExpr : public Expr
+{
+  public:
+    StringConstantExpr(const std::string & value)
+      : m_value(value)
+    { }
+
+    IMPLEMENT_EXPR_VISITOR();
+  
+    std::string m_value;
+};
+
 //////////////////////////////////////////////////////////////////
 //
 // NumberExpr - base Expression class for numeric literals
@@ -248,24 +275,6 @@ typedef ConstantIntExpr<int16_t> Int16ConstantExpr;
 
 //////////////////////////////////////////////////////////////////
 //
-// StringExpr - Expression class for string literals
-//
-class StringConstantExpr : public Expr
-{
-  public:
-    StringConstantExpr(const std::string & value, bool global)
-      : m_global(global)
-      , m_value(value)
-    { }
-
-    IMPLEMENT_EXPR_VISITOR();
-  
-    bool m_global;
-    std::string m_value;
-};
-
-//////////////////////////////////////////////////////////////////
-//
 // UnaryExpr - Expression class for a unary operator.
 //
 class UnaryExpr : public Expr 
@@ -280,55 +289,6 @@ class UnaryExpr : public Expr
 
     char m_op;
     std::unique_ptr<Expr> m_operand;
-};
-
-//////////////////////////////////////////////////////////////////
-//
-// BinaryExpr - Expression class for a binary operator.
-//
-class BinaryExpr : public Expr
-{
-  public:
-    BinaryExpr(char op, 
-               Expr * lhs,
-               Expr * rhs)
-    : m_op(op) 
-    , m_lhs(lhs)
-    , m_rhs(rhs) 
-    {
-    }  
-    
-    IMPLEMENT_EXPR_VISITOR();
-    
-    char m_op;
-    Expr * m_lhs;
-    Expr * m_rhs;
-};
-
-class Int16BinaryExpr : public BinaryExpr
-{
-  public:
-    Int16BinaryExpr(char op, 
-               Expr * lhs,
-               Expr * rhs)
-    : BinaryExpr(op, lhs, rhs) 
-    {
-    }   
-
-    IMPLEMENT_EXPR_VISITOR();
-};
-
-class StringBinaryExpr : public BinaryExpr
-{
-  public:
-    StringBinaryExpr(char op, 
-               Expr * lhs,
-               Expr * rhs)
-    : BinaryExpr(op, lhs, rhs) 
-    {
-    }   
-
-    IMPLEMENT_EXPR_VISITOR();
 };
 
 
@@ -413,7 +373,47 @@ struct DoubleFloat
   double m_value;
 };
 
-extern AST::SourceFileExprList g_expressions;
+class CodeGenerator : public AST::Visitor
+{
+  public:
+    CodeGenerator(AST::SourceFileExprList & tree);
 
+    // open generator
+    virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) = 0;
+
+    // close generator
+    virtual bool Close() = 0;
+
+    struct FindConstStrings
+    {
+      FindConstStrings(CodeGenerator & gen);
+      bool operator()(AST::Expr & expr);
+      CodeGenerator & m_gen;
+    };
+    
+    template <class Fn>
+    bool Traverse(AST::ExprList & list, Fn & fn)
+    {
+      for (auto & r : list) {
+        if (r != nullptr) {
+          if (!fn(*r))
+            return false;
+        }
+      }
+
+      return true;
+    }
+
+    std::string GetTempName(const std::string & prefix);
+
+    unsigned m_tempCounter = 1;
+    std::map<std::string, std::string> m_constStrings;    
+};
+
+#include "cg_dump.h"
+#include "cg_cxx.h"
+#include "cg_llvm.h"
+
+extern AST::SourceFileExprList g_expressions;
 
 #endif // CODEGEN_H

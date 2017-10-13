@@ -32,7 +32,7 @@ static std::string CreateTemp()
 //////////////////////////////////////////////////////////////////////////
 
 CodegenDumper::CodegenDumper(SourceFileExprList & tree)
-  : Visitor(tree)
+  : CodeGenerator(tree)
   , m_strm(cout)
 {  
 }

@@ -6,7 +6,7 @@
 
 #include "ast.h"
  
-class CodegenCXX : public AST::Visitor
+class CodegenCXX : public CodeGenerator
 {
   public:
     CodegenCXX(AST::SourceFileExprList & tree); 
@@ -23,6 +23,7 @@ class CodegenCXX : public AST::Visitor
 
     Filename m_srcFilename;
     std::ofstream m_ostrm;
+
 };
   
 #endif // CG_CXX_H_

@@ -26,7 +26,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Passes/PassBuilder.h"
 
-class CodegenLLVM : public AST::Visitor
+class CodegenLLVM : public CodeGenerator
 {
   public:
     CodegenLLVM(AST::SourceFileExprList & tree); 

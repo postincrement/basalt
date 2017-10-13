@@ -25,7 +25,7 @@ static bool CXXError(Expr & expr)
 //////////////////////////////////////////////////////////////////////////
 
 CodegenCXX::CodegenCXX(SourceFileExprList & tree)
-  : Visitor(tree)
+  : CodeGenerator(tree)
 {  
 }
 
@@ -56,30 +56,17 @@ bool CodegenCXX::Close()
   return true;
 } 
 
+///////////////////////////////////////////////////////////
+
 bool CodegenCXX::Visit(LineMarkerExpr & expr)
 {
   m_ostrm << "  // " << expr.m_lineNumber << ": " << expr.m_line << endl;
   return true;
 }
 
-///////////////////////////////////////////////////////////
-
 bool CodegenCXX::Visit(Expr & expr)
 {
   return CXXError(expr);
-}
-
-template <class Fn>
-bool Traverse(ExprList & list, Fn & fn)
-{
-  for (auto & r : list) {
-    if (r != nullptr) {
-      if (!fn(*r))
-        return false;
-    }
-  }
-
-  return true;
 }
 
 struct FindGlobalVars
@@ -97,54 +84,71 @@ struct FindGlobalVars
   }
 
   std::map<std::string, VariableDefExpr *> m_vars;
-  std::map<std::string, std::string> m_varNames;
   
   CodegenCXX & m_gen;
 };
 
-
 bool CodegenCXX::Visit(SourceFileExprList & expr)
 {
-  // look for variable definitions
-  FindGlobalVars fn(*this);
-  Traverse<FindGlobalVars>(expr, fn);
+  // look for global variable definitions
+  {
+    FindGlobalVars fn(*this);
+    Traverse<FindGlobalVars>(expr, fn);
 
-  bool first = true;
-  for (auto & r : fn.m_vars) {
-    Variable & var = r.second->m_variable;
+    bool first = true;
+    for (auto & r : fn.m_vars) {
+      Variable & var = r.second->m_variable;
 
-    std::string type;
-    std::string initExpr;
+      std::string type;
+      std::string initExpr;
 
-    switch (var.m_type) {
-      case Variable::eString:
-        type = "char *";
-        initExpr = "nullptr";
-        break;
-      case Variable::eInt16:
-        type = "int16_t";
-        initExpr = "0";
-        break;
-      case Variable::eSingle:
-        type = "float";
-        initExpr = "0";
-        break;
-      case Variable::eDouble:
-        type = "double";
-        initExpr = "0";
-        break;
-      case Variable::eUntyped:
-        return false;
-      }
-    if (first) {
-      m_ostrm << "// global variables" << endl;
-      first = false;
-    }  
-    m_ostrm << type << " " << var.m_normalizedName << " = " << initExpr << ";" << endl;
+      switch (var.m_type) {
+        case Variable::eString:
+          type = "char *";
+          initExpr = "nullptr";
+          break;
+        case Variable::eInt16:
+          type = "int16_t";
+          initExpr = "0";
+          break;
+        case Variable::eSingle:
+          type = "float";
+          initExpr = "0";
+          break;
+        case Variable::eDouble:
+          type = "double";
+          initExpr = "0";
+          break;
+        case Variable::eUntyped:
+          return false;
+        }
+      if (first) {
+        m_ostrm << "// global variables" << endl;
+        first = false;
+      }  
+      m_ostrm << type << " " << var.m_normalizedName << " = " << initExpr << ";" << endl;
+    }
+    if (!first)
+      m_ostrm << "\n";
   }
 
-  m_ostrm << "\n"
-             "int main(int argc, char *argv[])\n"
+  // look for global string definitions
+  {
+    FindConstStrings fn(*this);
+    Traverse<FindConstStrings>(expr, fn);
+    bool first = true;
+    for (auto & r : m_constStrings) {
+      if (first) {
+        m_ostrm << "// constant strings" << endl;
+        first = false;
+      }  
+      m_ostrm << "const char * " << r.second << " = \"" << r.first << "\";" << endl;
+    }
+    if (!first)
+      m_ostrm << "\n";
+  }
+  
+  m_ostrm << "int main(int argc, char *argv[])\n"
              "{\n"
              ;
 
@@ -168,21 +172,32 @@ bool CodegenCXX::Visit(ExprList & expr)
 bool CodegenCXX::Visit(VariableDefExpr & expr)
 {
   // global variables handled elsewhere
-  return true;
+  if (expr.m_global)
+    return true;
+
+  return CXXError(expr);
 }
 
 bool CodegenCXX::Visit(VariableRefExpr & expr)
 {
   m_ostrm << "  // reference to " << expr.m_variable.m_name << endl;
+  return true;
+}
+
+bool CodegenCXX::Visit(BinaryExpr & expr)
+{
+  if (expr.m_op == '=') {
+    if (expr.m_lhs != nullptr) {
+      expr.m_lhs->Generate(*this);
+    }
+
+    return true;
+  }
+
   return CXXError(expr);
 }
 
 bool CodegenCXX::Visit(UnaryExpr & expr)
-{
-  return CXXError(expr);
-}
-
-bool CodegenCXX::Visit(BinaryExpr & expr)
 {
   return CXXError(expr);
 }

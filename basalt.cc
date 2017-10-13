@@ -35,9 +35,8 @@ ArgDef g_argDefs[] = {
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
-static Factory<AST::Visitor,    AST::SourceFileExprList &> g_codegeneratorFactory;
+static Factory<CodeGenerator,   AST::SourceFileExprList &> g_codegeneratorFactory;
 static Factory<LanguageProfile> g_languageProfileFactory;
-
 
 void OptionError(const ArgDef * def)
 {
@@ -235,7 +234,7 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  AST::Visitor * generator = g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_expressions);
+  CodeGenerator * generator = g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_expressions);
   if (generator == nullptr) {
     cerr << "internal error: cannot instantiate generator with name '" << g_codeGeneratorName << "'" << endl;
     return -1;

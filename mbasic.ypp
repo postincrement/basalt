@@ -692,11 +692,11 @@ compare_expression: ADD_expression '=' compare_expression
 
 ADD_expression: MULT_expression '+' ADD_expression
                   { 
-                    $$ = new AST::Int16BinaryExpr('+', $1, $3);
+                    $$ = new AST::BinaryExpr('+', $1, $3);
                   }
                 | MULT_expression '-' ADD_expression
                   { 
-                    $$ = new AST::Int16BinaryExpr('-', $1, $3);
+                    $$ = new AST::BinaryExpr('-', $1, $3);
                   }
                 | MULT_expression
                   {
@@ -706,11 +706,11 @@ ADD_expression: MULT_expression '+' ADD_expression
 
 MULT_expression:  NEGATE_expression '*' MULT_expression
                     { 
-                      $$ = new AST::Int16BinaryExpr('*', $1, $3);
+                      $$ = new AST::BinaryExpr('*', $1, $3);
                     }
                   | NEGATE_expression '/' MULT_expression
                     { 
-                      $$ = new AST::Int16BinaryExpr('*', $1, $3);
+                      $$ = new AST::BinaryExpr('*', $1, $3);
                     }  
                   | NEGATE_expression
                     {
@@ -730,7 +730,7 @@ NEGATE_expression:  '-' POWER_expression
 
 POWER_expression: POWER_expression '^' subexpression
                     {
-                      $$ = new AST::Int16BinaryExpr('^', $1, $3);
+                      $$ = new AST::BinaryExpr('^', $1, $3);
                     }
                   | subexpression
                       {
@@ -786,7 +786,7 @@ value:          var_ref
                   }
                 | const_expr
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
 
 expression_list:  expression ',' expression_list
@@ -881,6 +881,8 @@ const_expr: INTEGER
               }
             | QUOTED_STRING
               {
-                $$ = nullptr;
+                $$ = new AST::StringConstantExpr(*$1);
+                g_expressions.push_back($$);   // also add to statement list
+                delete $1;
               }
             ;

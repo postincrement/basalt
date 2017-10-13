@@ -22,7 +22,7 @@ static bool LLVMError(Expr & expr)
 //////////////////////////////////////////////////////////////////////////
 
 CodegenLLVM::CodegenLLVM(SourceFileExprList & tree)
-  : Visitor(tree)
+  : CodeGenerator(tree)
   , m_builder(m_context)
 { 
   m_module.reset(new llvm::Module("basalt", m_context));
@@ -36,15 +36,15 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   Filename ifn(inputFilename);  
   m_objectFilename = Filename(ifn.GetDir() + ifn.GetBasename() + ".o");
 
-  std::vector<llvm::Type*>FuncTy_1_args;
-
   // create function prototype for main
+  std::vector<llvm::Type*>FuncTy_1_args;
   llvm::FunctionType * FuncTy_1 = llvm::FunctionType::get(
        /*Result=*/   llvm::IntegerType::get(m_module->getContext(), 32),
        /*Params=*/   FuncTy_1_args,
        /*isVarArg=*/ false
-      );  
-  
+      );  				
+      
+      
   // create code for main  
   llvm::Function * func_main = llvm::Function::Create(
         /*Type=*/    FuncTy_1,
@@ -72,8 +72,18 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   func_main->setAttributes(func_main_PAL);
 
   // create top level block
-  m_mainBlock = llvm::BasicBlock::Create(m_context, "", func_main,0);  
+  m_mainBlock = llvm::BasicBlock::Create(m_context, "", func_main, 0);  
   m_builder.SetInsertPoint(m_mainBlock);   
+
+  // look for global string definitions
+  {
+    FindConstStrings fn(*this);
+    Traverse<FindConstStrings>(m_tree, fn);
+    for (auto & r : m_constStrings) {
+      m_builder.CreateGlobalStringPtr(r.first, r.second);
+    }
+  }
+
   
   // make call to runtime init function
   {    

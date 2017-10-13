@@ -91,3 +91,34 @@ bool AST::Visitor::Visit(ConstantIntExpr<short int> & expr)
   return VisitError(expr);
 }
 
+
+///////////////////////////////////////////////////////////
+
+CodeGenerator::CodeGenerator(SourceFileExprList & tree)
+  : Visitor(tree)
+{ }
+
+std::string CodeGenerator::GetTempName(const std::string & prefix)
+{
+  std::stringstream strm;
+  strm << prefix << "_" << m_tempCounter++;
+  return strm.str();
+}
+
+CodeGenerator::FindConstStrings::FindConstStrings(CodeGenerator & gen)
+  : m_gen(gen)
+{ }
+
+bool CodeGenerator::FindConstStrings::operator()(AST::Expr & expr)
+{
+  StringConstantExpr * constDef = dynamic_cast<StringConstantExpr *>(&expr);
+  if (constDef != nullptr) {
+    if (m_gen.m_constStrings.count(constDef->m_value) == 0) {
+      std::string tempName(m_gen.GetTempName("const_string"));
+      m_gen.m_constStrings[constDef->m_value] = tempName;
+    }
+  }
+  return true;
+}
+
+
