@@ -51,11 +51,6 @@ bool AST::Visitor::Visit(LineMarkerExpr & expr)
   return true;
 }
 
-bool AST::Visitor::Visit(StringVariableRefExpr & expr)
-{ 
-  return VisitError(expr);
-}
-
 bool AST::Visitor::Visit(StringConstantExpr & expr)
 {
   return VisitError(expr);
@@ -71,27 +66,12 @@ bool AST::Visitor::Visit(VariableRefExpr & expr)
   return VisitError(expr);
 }
 
-bool AST::Visitor::Visit(Int16VariableRefExpr & expr)
-{ 
-  return VisitError(expr);
-}
-
 bool AST::Visitor::Visit(UnaryExpr & expr)
 {
   return VisitError(expr);
 }
 
 bool AST::Visitor::Visit(BinaryExpr & expr)
-{
-  return VisitError(expr);
-}
-
-bool AST::Visitor::Visit(StringBinaryExpr & expr)
-{
-  return VisitError(expr);
-}
-
-bool AST::Visitor::Visit(Int16BinaryExpr & expr)
 {
   return VisitError(expr);
 }

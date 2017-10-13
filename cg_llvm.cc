@@ -5,13 +5,18 @@ using namespace AST;
 
 ////////////////////////////////////////////////////////
 //
-// CPP visit functions
+// LLVM visit functions
 //
 
-static bool CXXError(Expr & expr)
+static bool LLVMError(const std::string & str)
 {
-  cout << "error: unimplemented C++ function for type " << typeid(expr).name() << endl;
+  cout << "error: unimplemented LLVM function for type " << str << endl;
   return true;
+}
+
+static bool LLVMError(Expr & expr)
+{
+  return LLVMError(typeid(expr).name());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -173,7 +178,12 @@ bool CodegenLLVM::Close()
 
 bool CodegenLLVM::Visit(Expr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
+}
+
+bool CodegenLLVM::Visit(ExprList & expr)
+{
+  return LLVMError(typeid(expr).name());
 }
 
 bool CodegenLLVM::Visit(SourceFileExprList & expr)
@@ -185,83 +195,55 @@ bool CodegenLLVM::Visit(SourceFileExprList & expr)
   return true;
 }
 
-bool CodegenLLVM::Visit(ExprList & expr)
-{
-  for (auto & r : expr) {
-    r->Generate(*this);
-  }
-  return true;
-}
-
 bool CodegenLLVM::Visit(LineMarkerExpr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 bool CodegenLLVM::Visit(VariableDefExpr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 bool CodegenLLVM::Visit(VariableRefExpr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 bool CodegenLLVM::Visit(UnaryExpr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 bool CodegenLLVM::Visit(BinaryExpr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 ///////////////////////////////////////////////////////////////////////
 
 bool CodegenLLVM::Visit(StringConstantExpr & expr)
 {
-  return CXXError(expr);
-}
-
-bool CodegenLLVM::Visit(StringVariableRefExpr & expr)
-{
-  return CXXError(expr);
-}
-
-bool CodegenLLVM::Visit(StringBinaryExpr & expr)
-{
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 ///////////////////////////////////////////////////////////////////////
 
 bool CodegenLLVM::Visit(ConstantIntExpr<short int> & expr)
 {
-  return CXXError(expr);
-}
-
-bool CodegenLLVM::Visit(Int16VariableRefExpr & expr)
-{ 
-  return CXXError(expr);
-}
-
-bool CodegenLLVM::Visit(Int16BinaryExpr & expr)
-{
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 ///////////////////////////////////////////////////////////////////////
 
 bool CodegenLLVM::Visit(BIFExpr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 bool CodegenLLVM::Visit(CallExpr & expr)
 {
-  return CXXError(expr);
+  return LLVMError(expr);
 }
 
 ///////////////////////////////////////////////////////////////////////

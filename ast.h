@@ -25,19 +25,15 @@ DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
 virtual bool Visit(AST::Expr & expr); \
 virtual bool Visit(AST::ExprList & expr); \
 virtual bool Visit(AST::SourceFileExprList & expr); \
-\
 virtual bool Visit(AST::VariableDefExpr & expr); \
 virtual bool Visit(AST::VariableRefExpr & expr); \
-virtual bool Visit(AST::UnaryExpr & expr); \
 virtual bool Visit(AST::BinaryExpr & expr); \
 \
-virtual bool Visit(AST::StringVariableRefExpr & expr); \
-virtual bool Visit(AST::StringConstantExpr & expr); \
-virtual bool Visit(AST::StringBinaryExpr & expr); \
+virtual bool Visit(AST::UnaryExpr & expr); \
 \
-virtual bool Visit(AST::Int16VariableRefExpr & expr); \
+virtual bool Visit(AST::StringConstantExpr & expr); \
+\
 virtual bool Visit(AST::ConstantIntExpr<int16_t> & expr); \
-virtual bool Visit(AST::Int16BinaryExpr & expr); \
 \
 virtual bool Visit(AST::BIFExpr & expr); \
 virtual bool Visit(AST::CallExpr & expr); \
@@ -56,15 +52,10 @@ namespace AST {
   class BinaryExpr;
   class UnaryExpr;
   
-  class StringVariableDefExpr;
-  class StringVariableRefExpr;
   class StringConstantExpr;
-  class StringBinaryExpr;
   
   template <typename> class IntVariableDefExpr;
-  class Int16VariableRefExpr;
   template <typename> class ConstantIntExpr;  
-  class Int16BinaryExpr;
   
   class BIFExpr;
   class CallExpr;
@@ -193,6 +184,47 @@ struct LineMarkerExpr : public Expr
 
 //////////////////////////////////////////////////////////////////
 //
+//  VariableDefExpr - Expression class for creating a variable on the LHS of an expression
+//
+
+class VariableDefExpr : public Expr
+{
+  public:
+    VariableDefExpr(const Variable & variable, bool global)
+      : m_variable(variable)
+      , m_global(global)
+    { }
+
+    Variable::Type GetType() const
+    { return m_variable.m_type; }
+
+    const std::string & GetName() const
+    { return m_variable.m_name; }
+
+    IMPLEMENT_EXPR_VISITOR();
+
+    Variable m_variable;
+    bool m_global;
+};
+
+//////////////////////////////////////////////////////////////////
+//
+//  VariableRefExpr - Expression class for referencing a variable, like "a".
+//
+class VariableRefExpr : public Expr
+{
+  public:
+    VariableRefExpr(const Variable & variable)
+      : m_variable(variable)
+    { }
+
+    IMPLEMENT_EXPR_VISITOR();
+
+    Variable m_variable;
+};
+
+//////////////////////////////////////////////////////////////////
+//
 // NumberExpr - base Expression class for numeric literals
 //
 class NumberExpr : public Expr 
@@ -230,74 +262,6 @@ class StringConstantExpr : public Expr
   
     bool m_global;
     std::string m_value;
-};
-
-
-//////////////////////////////////////////////////////////////////
-//
-//  VariableDefExpr - Expression class for creating a variable on the LHS of an expression
-//
-
-class VariableDefExpr : public Expr
-{
-  public:
-    VariableDefExpr(Variable & variable, bool global)
-      : m_variableName(variable)
-      , m_global(global)
-    { }
-
-    Variable::Type GetType() const
-    { return m_variableName.m_type; }
-
-    const std::string & GetName() const
-    { return m_variableName.m_name; }
-
-    IMPLEMENT_EXPR_VISITOR();
-
-    Variable m_variableName;
-    bool m_global;
-};
-
-
-//////////////////////////////////////////////////////////////////
-//
-//  VariableRefExpr - Expression class for referencing a variable, like "a".
-//
-class VariableRefExpr : public Expr
-{
-  public:
-    VariableRefExpr(const std::string & name)
-      : m_name(name)
-    { }
-
-    IMPLEMENT_EXPR_VISITOR();
-
-    const std::string & GetName() const
-    { return m_name; }
-
-    std::string m_name;
-};
-
-class Int16VariableRefExpr : public VariableRefExpr
-{
-  public:
-    Int16VariableRefExpr(const std::string & name)
-      : VariableRefExpr(name)
-    {
-    }
-
-    IMPLEMENT_EXPR_VISITOR();
-};
-
-class StringVariableRefExpr : public VariableRefExpr
-{
-  public:
-    StringVariableRefExpr(const std::string & name)
-      : VariableRefExpr(name)
-    {
-    }
-
-    IMPLEMENT_EXPR_VISITOR();
 };
 
 //////////////////////////////////////////////////////////////////

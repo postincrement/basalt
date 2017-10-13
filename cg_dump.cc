@@ -9,10 +9,15 @@ using namespace AST;
 // dumper visit functions
 //
 
+static bool DumpError(const std::string & str)
+{
+  cout << "error: unimplemented dump function for type " << str << endl;
+  return true;
+}
+
 static bool DumpError(Expr & expr)
 {
-  cout << "error: unimplemented dump function for type " << typeid(expr).name() << endl;
-  return true;
+  return DumpError(typeid(expr).name());
 }
 
 static unsigned tempNumber = 1;
@@ -58,10 +63,7 @@ bool CodegenDumper::Visit(SourceFileExprList & expr)
 
 bool CodegenDumper::Visit(ExprList & expr)
 {
-  for (auto & r : expr) {
-    r->Generate(*this);
-  }
-  return true;
+  return DumpError(typeid(expr).name());
 }
 
 bool CodegenDumper::Visit(LineMarkerExpr & expr)
@@ -101,53 +103,6 @@ bool CodegenDumper::Visit(StringConstantExpr & expr)
   return true;
 }
 
-bool CodegenDumper::Visit(StringVariableRefExpr & expr)
-{
-  std::string temp = CreateTemp();
-  m_strm << temp << " = '" << expr.m_name << "'" << endl; 
-  m_vars.push_back(temp);
-  return true;
-}
-
-bool CodegenDumper::Visit(StringBinaryExpr & expr)
-{
-  if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
-    return true;
-
-  if (expr.m_op == '=') {
-    StringVariableRefExpr * var = dynamic_cast<StringVariableRefExpr *>(expr.m_lhs);
-    if (var != nullptr) {
-        expr.m_rhs->Generate(*this);
-        if (m_vars.size() > 0) { 
-        std::string rhs = m_vars.back();
-        m_vars.pop_back();
-        m_strm << var->m_name << " = " << rhs << endl;
-        m_vars.push_back(var->m_name);
-        }
-    }
-  }
-  else {  
-    std::string result = CreateTemp();
-
-    expr.m_lhs->Generate(*this);
-    if (m_vars.size() > 0) { 
-      std::string lhs = m_vars.back();
-      m_vars.pop_back();
-
-      expr.m_rhs->Generate(*this);
-      if (m_vars.size() > 0) { 
-        std::string rhs = m_vars.back();
-        m_vars.pop_back();
-
-        m_strm << result << " = " << lhs << " " << expr.m_op << " " << rhs << endl;
-        m_vars.push_back(result);
-      }
-    }
-  }
-
-  return true;
-}
-
 ///////////////////////////////////////////////////////////////////////
 
 bool CodegenDumper::Visit(ConstantIntExpr<short int> & expr)
@@ -155,55 +110,6 @@ bool CodegenDumper::Visit(ConstantIntExpr<short int> & expr)
   std::string temp = CreateTemp();  
   m_strm << temp << " = '" << expr.m_intValue << "'" << endl;
   m_vars.push_back(temp);
-  return true;
-}
-
-bool CodegenDumper::Visit(Int16VariableRefExpr & expr)
-{ 
-  std::string temp = CreateTemp();
-  m_strm << temp << " = '" << expr.m_name << "'" << endl; 
-  m_vars.push_back(temp);
-  return true;  
-}
-
-bool CodegenDumper::Visit(Int16BinaryExpr & expr)
-{
-  if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
-    return true;
-
-  if (expr.m_op == '=') {
-    Int16VariableRefExpr * var = dynamic_cast<Int16VariableRefExpr *>(expr.m_lhs);
-    if (var == nullptr)
-      return true;
-
-    expr.m_rhs->Generate(*this);
-    if (m_vars.size() > 0) {
-      std::string rhs = m_vars.back();
-      m_vars.pop_back();
-
-      m_strm << var->m_name << " = " << rhs << endl;
-      m_vars.push_back(var->m_name);
-    }
-  }
-  else {  
-    std::string result = CreateTemp();
-
-    expr.m_lhs->Generate(*this);
-    if (m_vars.size() > 0) {
-      std::string lhs = m_vars.back();
-      m_vars.pop_back();
-
-      expr.m_rhs->Generate(*this);
-      if (m_vars.size() > 0) {
-        std::string rhs = m_vars.back();
-        m_vars.pop_back();
-
-        m_strm << result << " = " << lhs << " " << expr.m_op << " " << rhs << endl;
-        m_vars.push_back(result);
-      }
-    }
-  }
-
   return true;
 }
 

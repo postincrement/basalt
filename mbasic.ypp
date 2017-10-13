@@ -89,7 +89,8 @@ extern void MBASIC_SetRemMode();
   int           ival;
   std::string * sval;
 
-  Variable    * varval;
+  Variable             * varval;
+  AST::VariableDefExpr * vardef;
 
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
@@ -167,9 +168,10 @@ extern void MBASIC_SetRemMode();
 %type <expr> AND_expression NOT_expression compare_expression ADD_expression
 %type <expr> MULT_expression NEGATE_expression POWER_expression subexpression
 
-%type <sval>     opt_line_number line_number
+%type <sval>        opt_line_number line_number
 %type <expr>        expression   
-%type <expr>        const_expr var_ref
+%type <expr>        const_expr 
+%type <vardef>      var_ref
 %type <varval>      var_name
 
 %type <expr> value
@@ -496,19 +498,13 @@ opt_LET_TOKEN:  /* empty */
 
 assign_expression:  var_ref '=' expression
                       {
-                        $$ = new AST::ExprList($1);
-                        /*
                         if ($1 == nullptr)
                           $$ = nullptr;
                         else {  
-                          $$ = DefineVariable<AST::Int16VariableDefExpr,
-                                              AST::Int16VariableRefExpr,
-                                              AST::Int16BinaryExpr>(
-                                                  AST::VariableDef::eInt16,
-                                                  *$1, "", $3
-                                              );
-                          delete $1;
-                        }*/
+                          $$ = new AST::ExprList($1);
+                          AST::Expr * lhs = new AST::VariableRefExpr($1->m_variable);
+                          $$->push_back(new AST::BinaryExpr('=', lhs, $3));
+                        }
                       }
                     ;
 

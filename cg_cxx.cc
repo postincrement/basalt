@@ -8,13 +8,18 @@ using namespace AST;
 
 ////////////////////////////////////////////////////////
 //
-// CPP visit functions
+// CXX visit functions
 //
+
+static bool CXXError(const std::string & str)
+{
+  cout << "error: unimplemented C++ function for type " << str << endl;
+  return true;
+}
 
 static bool CXXError(Expr & expr)
 {
-  cout << "error: unimplemented C++ function for type " << typeid(expr).name() << endl;
-  return true;
+  return CXXError(typeid(expr).name());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -77,18 +82,17 @@ bool Traverse(ExprList & list, Fn & fn)
   return true;
 }
 
-struct FindVar
+struct FindGlobalVars
 {
-  FindVar(CodegenCXX & gen)
+  FindGlobalVars(CodegenCXX & gen)
     : m_gen(gen)
   { }
 
   bool operator()(Expr & expr)
   {
     VariableDefExpr * varDef = dynamic_cast<VariableDefExpr *>(&expr);
-    if (varDef != nullptr) {
-      m_vars[varDef->m_variableName.m_name] = varDef;
-    }
+    if ((varDef != nullptr) && varDef->m_global)
+      m_vars[varDef->m_variable.m_name] = varDef;
     return true;
   }
 
@@ -102,11 +106,12 @@ struct FindVar
 bool CodegenCXX::Visit(SourceFileExprList & expr)
 {
   // look for variable definitions
-  FindVar fn(*this);
-  Traverse<FindVar>(expr, fn);
+  FindGlobalVars fn(*this);
+  Traverse<FindGlobalVars>(expr, fn);
 
+  bool first = true;
   for (auto & r : fn.m_vars) {
-    Variable & var = r.second->m_variableName;
+    Variable & var = r.second->m_variable;
 
     std::string type;
     std::string initExpr;
@@ -131,6 +136,10 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
       case Variable::eUntyped:
         return false;
       }
+    if (first) {
+      m_ostrm << "// global variables" << endl;
+      first = false;
+    }  
     m_ostrm << type << " " << var.m_normalizedName << " = " << initExpr << ";" << endl;
   }
 
@@ -153,19 +162,18 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
 
 bool CodegenCXX::Visit(ExprList & expr)
 {
-  for (auto & r : expr) {
-    r->Generate(*this);
-  }
-  return true;
+  return CXXError(typeid(expr).name());
 }
 
 bool CodegenCXX::Visit(VariableDefExpr & expr)
 {
-  return CXXError(expr);
+  // global variables handled elsewhere
+  return true;
 }
 
 bool CodegenCXX::Visit(VariableRefExpr & expr)
 {
+  m_ostrm << "  // reference to " << expr.m_variable.m_name << endl;
   return CXXError(expr);
 }
 
@@ -186,29 +194,9 @@ bool CodegenCXX::Visit(StringConstantExpr & expr)
   return CXXError(expr);
 }
 
-bool CodegenCXX::Visit(StringVariableRefExpr & expr)
-{
-  return CXXError(expr);
-}
-
-bool CodegenCXX::Visit(StringBinaryExpr & expr)
-{
-  return CXXError(expr);
-}
-
 ///////////////////////////////////////////////////////////////////////
 
 bool CodegenCXX::Visit(ConstantIntExpr<short int> & expr)
-{
-  return CXXError(expr);
-}
-
-bool CodegenCXX::Visit(Int16VariableRefExpr & expr)
-{ 
-  return CXXError(expr);
-}
-
-bool CodegenCXX::Visit(Int16BinaryExpr & expr)
 {
   return CXXError(expr);
 }
