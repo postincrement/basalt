@@ -78,7 +78,7 @@ struct FindGlobalVars
   bool operator()(Expr & expr)
   {
     VariableDefExpr * varDef = dynamic_cast<VariableDefExpr *>(&expr);
-    if ((varDef != nullptr) && varDef->m_global)
+    if ((varDef != nullptr) && varDef->m_global && (m_vars.count(varDef->m_variable.m_name) == 0))
       m_vars[varDef->m_variable.m_name] = varDef;
     return true;
   }
@@ -100,33 +100,43 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
       Variable & var = r.second->m_variable;
 
       std::string type;
-      std::string initExpr;
+      std::string initExpr = " = ";
 
       switch (var.m_type) {
         case Variable::eString:
           type = "char *";
-          initExpr = "nullptr";
+          initExpr += "nullptr";
           break;
         case Variable::eInt16:
           type = "int16_t";
-          initExpr = "0";
+          initExpr += "0";
           break;
         case Variable::eSingle:
           type = "float";
-          initExpr = "0";
+          initExpr += "0";
           break;
         case Variable::eDouble:
           type = "double";
-          initExpr = "0";
+          initExpr += "0";
           break;
         case Variable::eUntyped:
           return false;
+      }
+
+      std::cout << "defined " << r.second->m_variable.m_name << " with " << r.second->m_arrayDims.size() << " dimensions" << std::endl;
+      std::stringstream arrayDef;
+      if (r.second->m_arrayDims.size() != 0) {
+        cout << "var with " << r.second->m_arrayDims.size() << " dims" << endl;
+        for (auto i : r.second->m_arrayDims) {
+          arrayDef << "[" << i << "]";
         }
+        initExpr = "";
+      }
       if (first) {
         m_ostrm << "// global variables" << endl;
         first = false;
       }  
-      m_ostrm << type << " " << var.m_normalizedName << " = " << initExpr << ";" << endl;
+      m_ostrm << type << " " << var.m_normalizedName << arrayDef.str() << initExpr << ";" << endl;
     }
     if (!first)
       m_ostrm << "\n";
@@ -204,14 +214,20 @@ bool CodegenCXX::Visit(UnaryExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodegenCXX::Visit(StringConstantExpr & expr)
+bool CodegenCXX::Visit(ConstantStringExpr & expr)
 {
-  return CXXError(expr);
+  // string constants handled elsewhere
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodegenCXX::Visit(ConstantIntExpr<short int> & expr)
+bool CodegenCXX::Visit(ConstantExpr<short int> & expr)
+{
+  return CXXError(expr);
+}
+
+bool CodegenCXX::Visit(ConstantExpr<float> & expr)
 {
   return CXXError(expr);
 }
@@ -220,7 +236,8 @@ bool CodegenCXX::Visit(ConstantIntExpr<short int> & expr)
 
 bool CodegenCXX::Visit(BIFExpr & expr)
 {
-  return CXXError(expr);
+  return true;
+  //return CXXError(expr);
 }
 
 bool CodegenCXX::Visit(CallExpr & expr)

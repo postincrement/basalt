@@ -28,12 +28,12 @@ virtual bool Visit(AST::SourceFileExprList & expr); \
 virtual bool Visit(AST::VariableDefExpr & expr); \
 virtual bool Visit(AST::VariableRefExpr & expr); \
 virtual bool Visit(AST::BinaryExpr & expr); \
-virtual bool Visit(AST::StringConstantExpr & expr); \
 \
 virtual bool Visit(AST::UnaryExpr & expr); \
 \
-\
-virtual bool Visit(AST::ConstantIntExpr<int16_t> & expr); \
+virtual bool Visit(AST::ConstantStringExpr & expr); \
+virtual bool Visit(AST::ConstantInt16Expr & expr); \
+virtual bool Visit(AST::ConstantSingleExpr & expr); \
 \
 virtual bool Visit(AST::BIFExpr & expr); \
 virtual bool Visit(AST::CallExpr & expr); \
@@ -49,17 +49,25 @@ namespace AST {
   class LineMarkerExpr;
   
   class VariableDefExpr;
+  class ArrayVariableDefExpr;
   class VariableRefExpr;
   class BinaryExpr;
-  class StringConstantExpr;
-
   class UnaryExpr;
     
   template <typename> class IntVariableDefExpr;
-  template <typename> class ConstantIntExpr;  
+
+  class ConstantStringExpr;  
+  template <typename> class ConstantExpr;  
+  typedef ConstantExpr<int16_t> ConstantInt16Expr;
+  typedef ConstantExpr<float> ConstantSingleExpr;
+
+  //template <typename> class ConstantInt16Expr;  
+  //template <typename> class ConstantSingleExpr;  
   
   class BIFExpr;
   class CallExpr;
+  
+  typedef std::vector<unsigned> UnsignedList;
 
   class Visitor
   {
@@ -182,17 +190,19 @@ class VariableDefExpr : public Expr
       , m_global(global)
     { }
 
-    Variable::Type GetType() const
-    { return m_variable.m_type; }
-
-    const std::string & GetName() const
-    { return m_variable.m_name; }
-
+    VariableDefExpr(const Variable & variable, const UnsignedList & arrayDims, bool global)
+      : m_variable(variable)
+      , m_arrayDims(arrayDims)
+      , m_global(global)
+    { 
+      std::cout << "defined " << m_variable.m_name << " with " << m_arrayDims.size() << " dimensions" << std::endl;
+    }
     IMPLEMENT_EXPR_VISITOR();
 
     Variable m_variable;
+    UnsignedList m_arrayDims;
     bool m_global;
-};
+  };
 
 //////////////////////////////////////////////////////////////////
 //
@@ -236,12 +246,12 @@ class BinaryExpr : public Expr
 
 //////////////////////////////////////////////////////////////////
 //
-// StringExpr - Expression class for string literals
+// ConstantStringExpr - Expression class for string literals
 //
-class StringConstantExpr : public Expr
+class ConstantStringExpr : public Expr
 {
   public:
-    StringConstantExpr(const std::string & value)
+    ConstantStringExpr(const std::string & value)
       : m_value(value)
     { }
 
@@ -258,20 +268,21 @@ class NumberExpr : public Expr
 {
 };
 
-template <class IntType>
-class ConstantIntExpr : public NumberExpr
+template <class Type>
+class ConstantExpr : public NumberExpr
 {
   public:
-    ConstantIntExpr(IntType val)
-      : m_intValue(val)
+    ConstantExpr(Type val)
+      : m_value(val)
     { }
 
-    IntType m_intValue;
+    Type m_value;
 
     IMPLEMENT_EXPR_VISITOR();
 };
 
-typedef ConstantIntExpr<int16_t> Int16ConstantExpr;
+typedef ConstantExpr<int16_t> ConstantInt16Expr;
+typedef ConstantExpr<float> ConstantSingleExpr;
 
 //////////////////////////////////////////////////////////////////
 //

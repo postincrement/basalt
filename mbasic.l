@@ -170,7 +170,37 @@
       return QUOTED_STRING;
     }
 
+[a-zA-Z][a-zA-Z0-9\.]*\$ {
+      MBASIC_lval.sval = new std::string(yytext);
+      return STRING_VARNAME;
+    }
+
+[a-zA-Z][a-zA-Z0-9\.]*\% {
+      MBASIC_lval.sval = new std::string(yytext);
+      return INTEGER_VARNAME;
+    }
+
+[a-zA-Z][a-zA-Z0-9\.]*\! {
+      MBASIC_lval.sval = new std::string(yytext);
+      return SINGLE_VARNAME;
+    }
+
+[a-zA-Z][a-zA-Z0-9\.]*\# {
+      MBASIC_lval.sval = new std::string(yytext);
+      return DOUBLE_VARNAME;
+    }
+
 [0-9][0-9]*\.*[0-9]*[eE][+-][0-9][0-9]*  {
+		  MBASIC_lval.sfloat = new SingleFloat(yytext);
+      return SINGLE;
+		}
+
+[0-9]*\.[0-9]*\! {
+		  MBASIC_lval.sfloat = new SingleFloat(yytext);
+      return SINGLE;
+		}
+
+[0-9][0-9]*\!	{
 		  MBASIC_lval.sfloat = new SingleFloat(yytext);
       return SINGLE;
 		}
@@ -180,42 +210,36 @@
       return DOUBLE;
     }
 
-[0-9]*\.[0-9]* {
-      MBASIC_lval.sfloat = new SingleFloat(yytext);
-      return SINGLE;
+[0-9]*\.[0-9]*\# {
+      MBASIC_lval.dfloat = new DoubleFloat(yytext);
+      return DOUBLE;
 		}
 
-[0-9][0-9]*	{
+[0-9][0-9]*\#	{
+      MBASIC_lval.dfloat = new DoubleFloat(yytext);
+      return DOUBLE;
+		}
+
+[0-9][0-9]*\%	{
       MBASIC_lval.ival = atoi(yytext);
       return INTEGER;
 		}
 
-[a-zA-Z0-9]+\$ {
+[0-9]*\.[0-9]* {
+		  MBASIC_lval.sfloat = new SingleFloat(yytext);
+      return SINGLE;
+		}
+    
+[0-9][0-9]* {
       MBASIC_lval.sval = new std::string(yytext);
-      return STRING_VARNAME;
-    }
+      return DEF_INTEGER;
+		}
 
-[a-zA-Z0-9]+\% {
-      MBASIC_lval.sval = new std::string(yytext);
-      return INTEGER_VARNAME;
-    }
-
-[a-zA-Z0-9]+\! {
-      MBASIC_lval.sval = new std::string(yytext);
-      return SINGLE_VARNAME;
-    }
-
-[a-zA-Z0-9]+\# {
-      MBASIC_lval.sval = new std::string(yytext);
-      return DOUBLE_VARNAME;
-    }
-
-[a-zA-Z0-9]+ {
+[a-zA-Z][a-zA-Z0-9\.]* {
       MBASIC_lval.sval = new std::string(yytext);
       return IDENTIFIER;
     }
 
-		
 [ \t]*  	{}
 
 [\n]	 	{

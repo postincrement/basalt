@@ -287,19 +287,40 @@ bool BasicLanguageProfile::NormalizeVariableName(Variable & var)
   return true;
 }
 
+////////////////////////////////////////////////////////////////////////
+
 Basic_8k_LanguageProfile::Basic_8k_LanguageProfile()
  : BasicLanguageProfile(2)
 {
 }
+
+Variable::Type Basic_8k_LanguageProfile::GetDefaultNumericType()
+{
+  return Variable::Type::eSingle;
+}
+
+////////////////////////////////////////////////////////////////////////
 
 Basic_Extended_LanguageProfile::Basic_Extended_LanguageProfile()
   : BasicLanguageProfile(40)
 {
 }
 
+Variable::Type Basic_Extended_LanguageProfile::GetDefaultNumericType()
+{
+  return Variable::Type::eInt16;
+}
+
+////////////////////////////////////////////////////////////////////////
+
 Basic_Disk_LanguageProfile::Basic_Disk_LanguageProfile()
   : BasicLanguageProfile(40)
 {  
+}
+
+Variable::Type Basic_Disk_LanguageProfile::GetDefaultNumericType()
+{
+  return Variable::Type::eInt16;
 }
 
 ////////////////////////////////////////////////////////////////////////

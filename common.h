@@ -143,6 +143,7 @@ struct Variable
 struct LanguageProfile
 {
   virtual bool NormalizeVariableName(Variable & var) = 0;
+  virtual Variable::Type GetDefaultNumericType() = 0;
   int m_normalizedVarLen;
 };
 
@@ -155,16 +156,19 @@ struct BasicLanguageProfile : public LanguageProfile
 struct Basic_8k_LanguageProfile : public BasicLanguageProfile
 {
   Basic_8k_LanguageProfile();
+  virtual Variable::Type GetDefaultNumericType();
 };
 
 struct Basic_Extended_LanguageProfile : public BasicLanguageProfile
 {
   Basic_Extended_LanguageProfile();
+  virtual Variable::Type GetDefaultNumericType();
 };
 
 struct Basic_Disk_LanguageProfile : public BasicLanguageProfile
 {
   Basic_Disk_LanguageProfile();
+  virtual Variable::Type GetDefaultNumericType();
 };
 
 //////////////////////////////////////////////////////////////////

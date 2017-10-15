@@ -51,7 +51,7 @@ bool AST::Visitor::Visit(LineMarkerExpr & expr)
   return true;
 }
 
-bool AST::Visitor::Visit(StringConstantExpr & expr)
+bool AST::Visitor::Visit(ConstantStringExpr & expr)
 {
   return VisitError(expr);
 }
@@ -86,11 +86,15 @@ bool AST::Visitor::Visit(CallExpr & expr)
   return VisitError(expr);
 }
 
-bool AST::Visitor::Visit(ConstantIntExpr<short int> & expr)
+bool AST::Visitor::Visit(ConstantExpr<short int> & expr)
 {
   return VisitError(expr);
 }
 
+bool AST::Visitor::Visit(ConstantExpr<float> & expr)
+{
+  return VisitError(expr);
+}
 
 ///////////////////////////////////////////////////////////
 
@@ -111,7 +115,7 @@ CodeGenerator::FindConstStrings::FindConstStrings(CodeGenerator & gen)
 
 bool CodeGenerator::FindConstStrings::operator()(AST::Expr & expr)
 {
-  StringConstantExpr * constDef = dynamic_cast<StringConstantExpr *>(&expr);
+  ConstantStringExpr * constDef = dynamic_cast<ConstantStringExpr *>(&expr);
   if (constDef != nullptr) {
     if (m_gen.m_constStrings.count(constDef->m_value) == 0) {
       std::string tempName(m_gen.GetTempName("const_string"));

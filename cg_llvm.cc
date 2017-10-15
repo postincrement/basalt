@@ -84,7 +84,6 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
     }
   }
 
-  
   // make call to runtime init function
   {    
     std::vector<llvm::Value *> ArgsV;
@@ -232,14 +231,19 @@ bool CodegenLLVM::Visit(BinaryExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodegenLLVM::Visit(StringConstantExpr & expr)
+bool CodegenLLVM::Visit(ConstantStringExpr & expr)
+{
+  return LLVMError(expr);
+}
+
+bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
 {
   return LLVMError(expr);
 }
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodegenLLVM::Visit(ConstantIntExpr<short int> & expr)
+bool CodegenLLVM::Visit(ConstantExpr<short int> & expr)
 {
   return LLVMError(expr);
 }

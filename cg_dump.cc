@@ -74,7 +74,7 @@ bool CodegenDumper::Visit(LineMarkerExpr & expr)
 
 bool CodegenDumper::Visit(VariableDefExpr & expr)
 {
-  m_strm << "var '" << expr.GetName() << "'" << endl; 
+  m_strm << "var '" << expr.m_variable.m_name << "'" << endl; 
   return true;
 }
 
@@ -95,7 +95,7 @@ bool CodegenDumper::Visit(BinaryExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodegenDumper::Visit(StringConstantExpr & expr)
+bool CodegenDumper::Visit(ConstantStringExpr & expr)
 {
   std::string temp = CreateTemp();  
   m_strm << temp << " = '" << expr.m_value << "'" << endl;
@@ -105,12 +105,17 @@ bool CodegenDumper::Visit(StringConstantExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodegenDumper::Visit(ConstantIntExpr<short int> & expr)
+bool CodegenDumper::Visit(ConstantExpr<short int> & expr)
 {
   std::string temp = CreateTemp();  
-  m_strm << temp << " = '" << expr.m_intValue << "'" << endl;
+  m_strm << temp << " = '" << expr.m_value << "'" << endl;
   m_vars.push_back(temp);
   return true;
+}
+
+bool CodegenDumper::Visit(ConstantExpr<float> & expr)
+{
+  return DumpError(expr);
 }
 
 ///////////////////////////////////////////////////////////////////////
