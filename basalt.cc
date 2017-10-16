@@ -257,33 +257,40 @@ BasicLanguageProfile::BasicLanguageProfile(int normVarLen)
   m_normalizedVarLen = normVarLen;
 }
 
-bool BasicLanguageProfile::NormalizeVariableName(Variable & var)
+bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
 {
   std::string rawName = var.m_name;
-
-  // take out printables
+  
+  // take out unprintables
   for (auto & r : rawName)
     if (!isalnum(r) && (r != '_'))
       r = '_';
 
+  std::stringstream strm;
+  strm << rawName;
+    
   switch (var.m_type) {
     case Variable::eString:
-      rawName += "_string";
+      strm << "_string";
       break;
     case Variable::eInt16:
-      rawName += "_int";
+      strm << "_int";
       break;
     case Variable::eSingle:
-      rawName += "_single";
+      strm << "_single";
       break;
     case Variable::eDouble:
-      rawName += "_double";
+      strm << "_double";
       break;
     case Variable::eUntyped:
       return false;
   };
 
-  var.m_normalizedName = rawName;
+  if (dim > 0)
+    strm << "_array_" << dim;
+
+  var.m_normalizedName = strm.str();
+
   return true;
 }
 

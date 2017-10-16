@@ -67,8 +67,6 @@ namespace AST {
   class BIFExpr;
   class CallExpr;
   
-  typedef std::vector<unsigned> UnsignedList;
-
   class Visitor
   {
     public:
@@ -101,11 +99,11 @@ namespace AST {
       virtual bool Generate(CodegenLLVM & generator) override = 0;  
   };
     
-
+#if 0
 
 struct VariableDef : public Variable
 {
-  VariableDef(Type type, const std::string & name, const std::string & defName)
+  VariableDef(Type type, const std::string & name, const std::string & defName, bool global)
     : Variable(type, name)
     , m_defName(defName)
   { }
@@ -114,6 +112,8 @@ struct VariableDef : public Variable
 };
 
 typedef std::map<std::string, VariableDef> VariableDefList;  
+
+#endif
 
 //////////////////////////////////////////////////////////////////
 //
@@ -182,44 +182,74 @@ struct LineMarkerExpr : public Expr
 //  VariableDefExpr - Expression class for creating a variable on the LHS of an expression
 //
 
-class VariableDefExpr : public Expr
+class BaseVariableDefExpr : public Expr
 {
   public:
-    VariableDefExpr(const Variable & variable, bool global)
+    BaseVariableDefExpr(const Variable & variable, bool global)
       : m_variable(variable)
       , m_global(global)
-    { }
-
-    VariableDefExpr(const Variable & variable, const UnsignedList & arrayDims, bool global)
-      : m_variable(variable)
-      , m_arrayDims(arrayDims)
-      , m_global(global)
-    { 
-      std::cout << "defined " << m_variable.m_name << " with " << m_arrayDims.size() << " dimensions" << std::endl;
+    {       
     }
+
     IMPLEMENT_EXPR_VISITOR();
 
     Variable m_variable;
-    UnsignedList m_arrayDims;
     bool m_global;
-  };
+};
+
+//////////////////////////////////////////////////////////////////
+//
+//  VariableDefExpr - Expression class for creating a variable on the LHS of an expression
+//
+
+class VariableDefExpr : public BaseVariableDefExpr
+{
+  public:
+    VariableDefExpr(const Variable & variable, int dim, bool global)
+      : BaseVariableDefExpr(variable, global)
+      , m_dim(dim)
+    {       
+    }
+
+    IMPLEMENT_EXPR_VISITOR();
+
+    int m_dim;
+};
+
 
 //////////////////////////////////////////////////////////////////
 //
 //  VariableRefExpr - Expression class for referencing a variable, like "a".
 //
-class VariableRefExpr : public Expr
+class VariableRefExpr : public BaseVariableDefExpr
 {
   public:
-    VariableRefExpr(const Variable & variable)
-      : m_variable(variable)
-    { }
+    VariableRefExpr(const Variable & variable, AST::ExprList * args, bool global)
+      : BaseVariableDefExpr(variable, global)
+      , m_args(args)
+      { }
 
     IMPLEMENT_EXPR_VISITOR();
 
-    Variable m_variable;
+    int GetDim() const
+    { return (m_args == nullptr) ? 0 : m_args->size(); }
+
+    AST::ExprList * m_args;
 };
 
+//////////////////////////////////////////////////////////////////
+//
+// ArrayDim - Expression class for an array dimension request
+//
+class ArrayDimExpr : public VariableRefExpr
+{
+  public:
+    ArrayDimExpr(const Variable & variable, AST::ExprList * args, bool global)
+      : VariableRefExpr(variable, args, global)
+      { }
+
+    IMPLEMENT_EXPR_VISITOR();
+};
 
 //////////////////////////////////////////////////////////////////
 //

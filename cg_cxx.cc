@@ -123,20 +123,18 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
           return false;
       }
 
-      std::cout << "defined " << r.second->m_variable.m_name << " with " << r.second->m_arrayDims.size() << " dimensions" << std::endl;
-      std::stringstream arrayDef;
-      if (r.second->m_arrayDims.size() != 0) {
-        cout << "var with " << r.second->m_arrayDims.size() << " dims" << endl;
-        for (auto i : r.second->m_arrayDims) {
-          arrayDef << "[" << i << "]";
-        }
+      if (r.second->m_dim != 0) {
         initExpr = "";
+        type += " *"; 
       }
       if (first) {
         m_ostrm << "// global variables" << endl;
         first = false;
       }  
-      m_ostrm << type << " " << var.m_normalizedName << arrayDef.str() << initExpr << ";" << endl;
+      m_ostrm << type << " " << var.m_normalizedName << initExpr << ";" << endl;
+      if (r.second->m_dim != 0) {
+        m_ostrm << "int " << var.m_normalizedName << "_dim[" << r.second->m_dim << "];\n";
+      }
     }
     if (!first)
       m_ostrm << "\n";

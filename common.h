@@ -118,6 +118,8 @@ class Factory
 
 //////////////////////////////////////////////////////////////////
 
+typedef std::vector<unsigned> UnsignedList;
+
 struct Variable
 {
   enum Type {
@@ -131,7 +133,8 @@ struct Variable
   Variable(Type type, const std::string & name)
     : m_type(type)
     , m_name(name)
-  { }
+    {
+    }
 
   Type m_type;
   std::string m_name;  
@@ -142,7 +145,7 @@ struct Variable
 
 struct LanguageProfile
 {
-  virtual bool NormalizeVariableName(Variable & var) = 0;
+  virtual bool NormalizeVariableName(Variable & var, int dim) = 0;
   virtual Variable::Type GetDefaultNumericType() = 0;
   int m_normalizedVarLen;
 };
@@ -150,7 +153,7 @@ struct LanguageProfile
 struct BasicLanguageProfile : public LanguageProfile
 {
   BasicLanguageProfile(int normVarLen);
-  virtual bool NormalizeVariableName(Variable & var) override;
+  virtual bool NormalizeVariableName(Variable & var, int dim) override;
 };
 
 struct Basic_8k_LanguageProfile : public BasicLanguageProfile

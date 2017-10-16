@@ -47,10 +47,11 @@ extern void MBASIC_SetRemMode();
   unsigned int  uval;
   int           ival;
   std::string * sval;
-  AST::UnsignedList * ulist;
+  UnsignedList * ulist;
 
   Variable             * varval;
   AST::VariableDefExpr * vardef;
+  AST::VariableRefExpr * varref;
 
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
@@ -115,7 +116,6 @@ extern void MBASIC_SetRemMode();
 // rules
 %type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
 
-%type <expr>        dim_var_def
 %type <exprlist>    DIM_statement dim_var_list
 
 %type <exprlist>    LET_statement assign_expression 
@@ -127,18 +127,15 @@ extern void MBASIC_SetRemMode();
 
 %type <expr>        WIDTH_statement
 
-%type <expr> AND_expression NOT_expression compare_expression ADD_expression
-%type <expr> MULT_expression NEGATE_expression POWER_expression subexpression
+%type <expr>        AND_expression NOT_expression compare_expression ADD_expression
+%type <expr>        MULT_expression NEGATE_expression POWER_expression subexpression
 
 %type <sval>        opt_line_number line_number
-%type <expr>        expression   
-%type <expr>        const_expr 
-%type <vardef>      var_ref
+%type <expr>        expression const_expr value array_or_func_arg 
+%type <varref>      var_ref
 %type <varval>      var_name
-%type <ulist>       dim_defs
-
-%type <expr> value
-%type <ival> integer
+%type <ival>        integer
+%type <exprlist>    array_or_func_spec array_or_func_args 
 
 %%
 
@@ -242,7 +239,6 @@ statement:     CLEAR_statement
                | DIM_statement
                   {
                     $$ = $1;
-                    cout << "DIM of " << $1->size() << endl;
                   }   
                | END_statement
                   {
@@ -357,34 +353,14 @@ DIM_statement:  DIM_TOKEN dim_var_list
                   }
                 ;
 
-dim_var_list: dim_var_def
+dim_var_list: var_ref
                 {
                   $$ = new AST::ExprList($1);
                 }
-              | dim_var_list ',' dim_var_def 
+              | dim_var_list ',' var_ref 
                 {
-                  $1->push_back($3);
                   $$ = $1;
-                }
-              ;
-
-dim_var_def:  var_name '(' dim_defs ')'
-                {
-                  $$ = new AST::VariableDefExpr(*$1, *$3, true);
-                  delete $1;
-                  delete $3;
-                }
-              ;
-
-dim_defs:     integer
-                {
-                  $$ = new AST::UnsignedList();
-                  $$->push_back($1);
-                }
-              | dim_defs ',' integer
-                {
-                  $1->push_back($3);
-                  $$ = $1;
+                  $$->push_back($3);
                 }
               ;
 
@@ -499,13 +475,12 @@ assign_expression:  var_ref '=' expression
                         if ($1 == nullptr)
                           $$ = nullptr;
                         else {  
-                          $$ = new AST::ExprList($1);
-                          AST::Expr * lhs = new AST::VariableRefExpr($1->m_variable);
-                          $$->push_back(new AST::BinaryExpr('=', lhs, $3));
+                          $$ = new AST::ExprList();
+                          $$->push_back(new AST::VariableDefExpr($1->m_variable, $1->GetDim(), true));
+                          $$->push_back(new AST::BinaryExpr('=', $1, $3));
                         }
                       }
                     ;
-
 
 /********************************************************* 
 
@@ -796,12 +771,14 @@ var or array ref
 
 var_ref : var_name
             {
-              $$ = new AST::VariableDefExpr(*$1, true);
+              g_languageProfile->NormalizeVariableName(*$1, 0);
+              $$ = new AST::VariableRefExpr(*$1, nullptr, true);
               delete $1;
             }
           | var_name array_or_func_spec
             {
-              $$ = new AST::VariableDefExpr(*$1, true);
+              g_languageProfile->NormalizeVariableName(*$1, $2->size());
+              $$ = new AST::VariableRefExpr(*$1, $2, true);
               delete $1;
             }
           ;
@@ -819,43 +796,51 @@ var_name: IDENTIFIER
                   cerr << "internal error: unknown default numeric type" << endl;
                   exit(1);
               }   
-              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | INTEGER_VARNAME
             {
               $$ = new Variable(Variable::eInt16, *$1);
-              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | STRING_VARNAME
             {
               $$ = new Variable(Variable::eString, *$1);
-              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | SINGLE_VARNAME
             {
               $$ = new Variable(Variable::eSingle, *$1);
-              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           | DOUBLE_VARNAME
             {
               $$ = new Variable(Variable::eDouble, *$1);
-              g_languageProfile->NormalizeVariableName(*$$);
               delete $1;
             }
           ;
-            
+
 array_or_func_spec: '(' array_or_func_args ')'
+                      {
+                        $$ = $2;
+                      }
                     ; 
 
 array_or_func_args: array_or_func_arg 
+                      {
+                        $$ = new AST::ExprList($1);
+                      }
                     | array_or_func_args ',' array_or_func_arg   
+                      {
+                        $$ = $1;
+                        $$->push_back($3);
+                      }
                     ;
 
 array_or_func_arg:  expression
+                      {
+                        $$ = $1;
+                      }
                     ;
 
 /********************************************************* 
