@@ -76,12 +76,9 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   m_builder.SetInsertPoint(m_mainBlock);   
 
   // look for global string definitions
-  {
-    FindConstStrings fn(*this);
-    Traverse<FindConstStrings>(m_tree, fn);
-    for (auto & r : m_constStrings) {
-      m_builder.CreateGlobalStringPtr(r.first, r.second);
-    }
+  FindConstStrings();
+  for (auto & r : m_constStrings) {
+    m_builder.CreateGlobalStringPtr(r.first, r.second);
   }
 
   // make call to runtime init function

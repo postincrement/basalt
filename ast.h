@@ -56,14 +56,11 @@ namespace AST {
     
   template <typename> class IntVariableDefExpr;
 
-  class ConstantStringExpr;  
   template <typename> class ConstantExpr;  
+  typedef ConstantExpr<std::string> ConstantStringExpr;  
   typedef ConstantExpr<int16_t> ConstantInt16Expr;
   typedef ConstantExpr<float> ConstantSingleExpr;
 
-  //template <typename> class ConstantInt16Expr;  
-  //template <typename> class ConstantSingleExpr;  
-  
   class BIFExpr;
   class CallExpr;
   
@@ -98,22 +95,6 @@ namespace AST {
       virtual bool Generate(CodegenCXX & generator) override = 0;  
       virtual bool Generate(CodegenLLVM & generator) override = 0;  
   };
-    
-#if 0
-
-struct VariableDef : public Variable
-{
-  VariableDef(Type type, const std::string & name, const std::string & defName, bool global)
-    : Variable(type, name)
-    , m_defName(defName)
-  { }
-
-  std::string m_defName;
-};
-
-typedef std::map<std::string, VariableDef> VariableDefList;  
-
-#endif
 
 //////////////////////////////////////////////////////////////////
 //
@@ -216,7 +197,6 @@ class VariableDefExpr : public BaseVariableDefExpr
     int m_dim;
 };
 
-
 //////////////////////////////////////////////////////////////////
 //
 //  VariableRefExpr - Expression class for referencing a variable, like "a".
@@ -276,22 +256,6 @@ class BinaryExpr : public Expr
 
 //////////////////////////////////////////////////////////////////
 //
-// ConstantStringExpr - Expression class for string literals
-//
-class ConstantStringExpr : public Expr
-{
-  public:
-    ConstantStringExpr(const std::string & value)
-      : m_value(value)
-    { }
-
-    IMPLEMENT_EXPR_VISITOR();
-  
-    std::string m_value;
-};
-
-//////////////////////////////////////////////////////////////////
-//
 // NumberExpr - base Expression class for numeric literals
 //
 class NumberExpr : public Expr 
@@ -302,7 +266,7 @@ template <class Type>
 class ConstantExpr : public NumberExpr
 {
   public:
-    ConstantExpr(Type val)
+    ConstantExpr(const Type & val)
       : m_value(val)
     { }
 
@@ -311,6 +275,7 @@ class ConstantExpr : public NumberExpr
     IMPLEMENT_EXPR_VISITOR();
 };
 
+typedef ConstantExpr<std::string> ConstantStringExpr;
 typedef ConstantExpr<int16_t> ConstantInt16Expr;
 typedef ConstantExpr<float> ConstantSingleExpr;
 
@@ -348,7 +313,7 @@ class BIFExpr : public Expr
     IMPLEMENT_EXPR_VISITOR();
     
     std::string m_name;
-    ExprList * m_args;
+    ExprList * m_args = nullptr;
 };
 
 
@@ -425,12 +390,7 @@ class CodeGenerator : public AST::Visitor
     // close generator
     virtual bool Close() = 0;
 
-    struct FindConstStrings
-    {
-      FindConstStrings(CodeGenerator & gen);
-      bool operator()(AST::Expr & expr);
-      CodeGenerator & m_gen;
-    };
+    bool FindConstStrings();
     
     template <class Fn>
     bool Traverse(AST::ExprList & list, Fn & fn)
@@ -456,5 +416,6 @@ class CodeGenerator : public AST::Visitor
 #include "cg_llvm.h"
 
 extern AST::SourceFileExprList g_expressions;
+extern std::set<std::string> g_stringConstants;
 
 #endif // CODEGEN_H

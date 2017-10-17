@@ -109,18 +109,11 @@ std::string CodeGenerator::GetTempName(const std::string & prefix)
   return strm.str();
 }
 
-CodeGenerator::FindConstStrings::FindConstStrings(CodeGenerator & gen)
-  : m_gen(gen)
-{ }
-
-bool CodeGenerator::FindConstStrings::operator()(AST::Expr & expr)
-{
-  ConstantStringExpr * constDef = dynamic_cast<ConstantStringExpr *>(&expr);
-  if (constDef != nullptr) {
-    if (m_gen.m_constStrings.count(constDef->m_value) == 0) {
-      std::string tempName(m_gen.GetTempName("const_string"));
-      m_gen.m_constStrings[constDef->m_value] = tempName;
-    }
+bool CodeGenerator::FindConstStrings()
+{ 
+  for (auto & r : g_stringConstants) {
+    std::string tempName(GetTempName("const_string"));
+    m_constStrings[r] = tempName;
   }
   return true;
 }

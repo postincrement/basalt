@@ -14,6 +14,7 @@ int g_warningCount = 0;
 
 LanguageProfile * g_languageProfile = nullptr;
 AST::SourceFileExprList  g_expressions;
+std::set<std::string> g_stringConstants;
 
 Basalt g_application;
 

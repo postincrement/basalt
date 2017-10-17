@@ -510,14 +510,15 @@ PRINT_statement:  print_keyword
                     }  
                   print_expression_list
                     {
-                      if (g_needsNewLine) {
+                      if (!g_needsNewLine)
+                        $$ = $5;
+                      else {
                         if ($5 == nullptr)
                           $$ = new AST::ExprList();
                         else
                           $$ = $5;
                         $$->push_back(new AST::BIFExpr("print_newline", nullptr));
                       }
-                      $$ = $5;
                     }
                   ;
 
@@ -549,7 +550,7 @@ print_expression:      expression
                           {
                             g_needsNewLine = true;
                             AST::ExprList * args = new AST::ExprList($1);
-                            $$ = new AST::BIFExpr("print_integer", args);
+                            $$ = new AST::BIFExpr("print_expr", args);
                           }
                        | ',' 
                           {
@@ -878,8 +879,8 @@ const_expr: INTEGER
               }
             | QUOTED_STRING
               {
+                g_stringConstants.insert(*$1);
                 $$ = new AST::ConstantStringExpr(*$1);
-                g_expressions.push_back($$);   // also add to statement list
                 delete $1;
               }
             ;

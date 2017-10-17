@@ -45,7 +45,7 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
   
   cout << "info: outputting to '" << m_srcFilename << "'" << endl;
 
-  m_ostrm << "#include <iostream>\n\n";
+  m_ostrm << "#include <stdio.h>\n\n";
 
   return true;
 } 
@@ -142,8 +142,7 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
 
   // look for global string definitions
   {
-    FindConstStrings fn(*this);
-    Traverse<FindConstStrings>(expr, fn);
+    FindConstStrings();
     bool first = true;
     for (auto & r : m_constStrings) {
       if (first) {
@@ -234,8 +233,69 @@ bool CodegenCXX::Visit(ConstantExpr<float> & expr)
 
 bool CodegenCXX::Visit(BIFExpr & expr)
 {
+  if (expr.m_name == "print_newline")
+    m_ostrm << "  printf(\"\\n\");\n";
+
+  else if (expr.m_name == "print_comma")  
+    m_ostrm << "  printf(\",\");\n";
+
+  else if (expr.m_name == "print_expr") {
+    if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
+      cerr << "internal error: BIF print has invalid args" << endl;
+    else {      
+      AST::Expr * printExpr = (*expr.m_args)[0];
+
+      // string constant
+      AST::ConstantStringExpr * constantString = dynamic_cast<AST::ConstantStringExpr *>(printExpr);
+      if (constantString != nullptr) {
+        auto r = m_constStrings.find(constantString->m_value);
+        if (r == m_constStrings.end()) {
+          cerr << "internal error: cannot find constant string def for '" << constantString->m_value << "'" << endl;
+        }
+        else { 
+          m_ostrm << "  printf(\"%s\", " << r->second << ");\n";
+        }
+        return true;
+      }
+
+      // variable reference
+      AST::VariableRefExpr * varRef = dynamic_cast<AST::VariableRefExpr *>(printExpr);
+      if (varRef != nullptr) {
+        std::string type;
+        switch (varRef->m_variable.m_type) {
+          case Variable::eString:
+            type = "s";
+            break;          
+          case Variable::eInt16:
+            type = "i";
+            break;          
+          case Variable::eSingle:
+            type = "f";
+            break;          
+          case Variable::eDouble:
+            type = "lf";
+            break;          
+          case Variable::eUntyped:
+            cerr << "internal error: unknown print variable type " << varRef->m_variable.m_type << endl;
+            exit(1);
+        }
+        m_ostrm << "  printf(\"%" << type << "\", " << varRef->m_variable.m_normalizedName << ");\n";
+        return true;
+      }
+
+      // unknown
+      else {
+        cerr << "internal error: unknown print expression type " << typeid(printExpr).name() << endl;
+        return false;
+      }
+    }  
+  } 
+
+  else {
+
+  }
+
   return true;
-  //return CXXError(expr);
 }
 
 bool CodegenCXX::Visit(CallExpr & expr)
