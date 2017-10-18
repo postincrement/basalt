@@ -417,5 +417,6 @@ class CodeGenerator : public AST::Visitor
 
 extern AST::SourceFileExprList g_expressions;
 extern std::set<std::string> g_stringConstants;
+extern AST::LineMarkerExpr * g_currentSourceFileMarker; 
 
 #endif // CODEGEN_H

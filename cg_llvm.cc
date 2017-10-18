@@ -81,6 +81,10 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
     m_builder.CreateGlobalStringPtr(r.first, r.second);
   }
 
+  // declare runtime init function
+  CreateCallExternalFunc(g_runtimeDefs[0]);
+  
+/*
   // make call to runtime init function
   {    
     std::vector<llvm::Value *> ArgsV;
@@ -92,9 +96,112 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
     int64_4->setCallingConv(llvm::CallingConv::C);
     int64_4->setTailCall(false);    
   }
+*/  
 
   return true;
 } 
+
+llvm::FunctionType * CodegenLLVM::CreateFunctionType(const char * typeStr)
+{
+  llvm::FunctionType * type = nullptr;
+  std::string str((typeStr == nullptr) ? "" : typeStr);
+
+  if ((str == "void") || (str == "")) {
+    type = llvm::FunctionType::get(
+                    llvm::Type::getVoidTy(m_context),
+                    false);
+  }
+  else {
+    InternalError("unknown BIF return type '" << typeStr << "'");
+  }
+
+  return type; 
+}
+
+void CodegenLLVM::CreateCallExternalFunc(RuntimeFunctionDef & funcDef)
+{
+  llvm::FunctionType * returnType = CreateFunctionType(funcDef.m_returnType);
+  
+  std::string funcName("basalt_");
+  funcName += funcDef.m_name;
+
+  llvm::Function * func = llvm::Function::Create(returnType, 
+                                                 llvm::GlobalValue::ExternalLinkage, 
+                                                 funcName.c_str(), 
+                                                 m_module.get()
+                                                );
+  llvm::CallInst * call = llvm::CallInst::Create(func, "", m_mainBlock);
+  call->setCallingConv(llvm::CallingConv::C);
+  call->setTailCall(false);    
+}
+
+void CodegenLLVM::CreateFunctionCall(RuntimeFunctionDef & funcDef ...)
+{
+  va_list argValues;
+  va_start(argValues, funcDef);
+
+  VCreateFunctionCall(funcDef.m_returnType, funcDef.m_name, funcDef.m_args, argValues);
+}
+
+void CodegenLLVM::CreateFunctionCall(
+                                      const char * returnTypeStr,
+                                      const char * name,
+                                      const char * argsStr
+                                      ...)
+{
+  va_list argValues;
+  va_start(argValues, argsStr);
+
+  VCreateFunctionCall(returnTypeStr, name, argsStr, argValues);
+}
+
+void CodegenLLVM::VCreateFunctionCall(                                      
+                                      const char * returnTypeStr,
+                                      const char * name,
+                                      const char * argsStr_,
+                                      va_list varg)
+{
+  // create return type
+  llvm::FunctionType * returnType = CreateFunctionType(returnTypeStr);
+
+  std::vector<llvm::Value *> args;
+
+  // create argument type list
+  std::vector<llvm::Type *> argTypes;
+  if (argsStr_ != nullptr) {
+
+    std::string argStr(argsStr_);
+    std::vector<std::string> tokens;
+    Tokenize(tokens, argStr, ',');
+    for (auto & r : tokens) {
+      cout << " token = " << r << endl;
+      llvm::Type * type;
+      llvm::Value * val;
+      if (r == "int16_t") { 
+        type = llvm::Type::getInt16Ty(m_context);
+        int intVal = va_arg(varg, int);
+        val = llvm::ConstantInt::get(m_context, llvm::APInt(16, intVal));
+      }
+      /*
+      else if (r == "const char *") {
+        type = llvm::Type::getInt8PtrTy(m_context);
+        const char * strVal = va_arg(varg, const char *);
+        val = llvm::ConstantInt::get(m_context, llvm::APInt(16, intVal);
+      }
+      */
+      else
+        InternalError("unknown argument type '" << r << "'");
+      argTypes.push_back(type);  
+      args.push_back(val);
+    }
+  }
+
+  // create function call
+  llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
+  //llvm::FunctionType * funcType = llvm::FunctionType::get(returnType, argsRef, false);
+  llvm::Constant     * func     = m_module->getOrInsertFunction(name, returnType);  
+  m_builder.CreateCall(func, args);
+}
 
 bool CodegenLLVM::Close()
 {
@@ -249,7 +356,70 @@ bool CodegenLLVM::Visit(ConstantExpr<short int> & expr)
 
 bool CodegenLLVM::Visit(BIFExpr & expr)
 {
-  return LLVMError(expr);
+  if (expr.m_name == "print_eol")
+    CreateFunctionCall(nullptr, "basalt_print_eol", nullptr);
+
+  else if (expr.m_name == "print_tab")  
+    CreateFunctionCall(nullptr, "basalt_print_tab", nullptr);
+
+  /*else if (expr.m_name == "print_expr") {
+    if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
+      InternalError("BIF print has invalid args");
+    else {      
+      AST::Expr * printExpr = (*expr.m_args)[0];
+
+      // string constant
+      AST::ConstantStringExpr * constantString = dynamic_cast<AST::ConstantStringExpr *>(printExpr);
+      if (constantString != nullptr) {
+        auto r = m_constStrings.find(constantString->m_value);
+        if (r == m_constStrings.end()) {
+          InternalError("cannot find constant string def for '" << constantString->m_value << "'");
+        }
+        else { 
+          m_ostrm << "  basalt_print_string(" << r->second << ");\n";
+        }
+        return true;
+      }
+
+      // variable reference
+      AST::VariableRefExpr * varRef = dynamic_cast<AST::VariableRefExpr *>(printExpr);
+      if (varRef != nullptr) {
+        std::string func;
+        switch (varRef->m_variable.m_type) {
+          case Variable::eString:
+            func = "print_string";
+            break;          
+          case Variable::eInt16:
+            func = "print_int16";
+            break;          
+          case Variable::eSingle:
+            func = "print_single";
+            break;          
+          case Variable::eDouble:
+            func = "print_double";
+            break;          
+          case Variable::eUntyped:
+            InternalError("unknown print variable type " << varRef->m_variable.m_type);
+            exit(1);
+        }
+        m_ostrm << "  basalt_" << func << "(" << varRef->m_variable.m_normalizedName << ");\n";
+        return true;
+      }
+
+      // unknown
+      else {
+        InternalError("unknown print expression type " << typeid(printExpr).name());
+        return false;
+      }
+    }  
+  } 
+  */
+
+  else {
+    Warning(eWarning_UnknownLLVMBIF, "unknown BIF '" << expr.m_name << "'");
+  }
+
+  return true;
 }
 
 bool CodegenLLVM::Visit(CallExpr & expr)
@@ -258,146 +428,4 @@ bool CodegenLLVM::Visit(CallExpr & expr)
 }
 
 ///////////////////////////////////////////////////////////////////////
-
-
-#if 0
-///////////////////////////////////////////////////////////////////////////////
-//
-//  code generation
-//
-
-if (g_verbose)
-  cout << "info: generating code" << endl;
-
-CodeGenerator cg(cerr);
-
-llvm::BasicBlock * block = cg.StartMain();
-
-{    
-  std::vector<llvm::Value *> ArgsV;
-
-  /*
-  for (unsigned i = 0, e = Args.size(); i != e; ++i) {
-    ArgsV.push_back(Args[i]->codegen());
-    if (!ArgsV.back())
-      return nullptr;
-  }
-  */
-  llvm::FunctionType * FT = llvm::FunctionType::get(llvm::Type::getVoidTy(cg.m_context), false);
-  llvm::Function * calleeF = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage, "basalt_init", cg.m_module.get());    
-
-  llvm::CallInst* int64_4 = llvm::CallInst::Create(calleeF, "", block);
-  int64_4->setCallingConv(llvm::CallingConv::C);
-  int64_4->setTailCall(false);    
-}
-
-cout << "generating code for " << g_expressions.size() << " expressions" << endl;
-
-/*
-  llvm::StoreInst* void_10 = new llvm::StoreInst(const_ptr_6, ptr_9, false, label_8);
-  void_10->setAlignment(8);
-  llvm::GetElementPtrInst* ptr_11 = llvm::GetElementPtrInst::Create(StructTy_struct_String, ptr_a, {
-   const_int32_5, 
-   const_int32_4
-  }, "", label_8);
-
-  llvm::StoreInst* void_12 = new llvm::StoreInst(const_int8_7, ptr_11, false, label_8);
-  void_12->setAlignment(8);
-}
-*/   
-
-for (auto & r : g_expressions) {
-  if (r != nullptr) {
-    //cout << "generating code for non-null expression" << endl;
-    r->Generate(cg);
-  }
-}
-
-cg.EndMain(block);
-
-//GenerateCall0(module, "basalt_init");    
-//CodeGenerator::FunctionASTExpr * mainFunc = new CodeGenerator::FunctionASTExpr("main", NULL);
-
-//llvm::BasicBlock * entry = llvm::BasicBlock::Create(module.GetContext(), "entrypoint", mainFunc->Generate(module));
-//module.GetBuilder().SetInsertPoint(entry);
-
-if (g_dumpAsm)
-  cg.Dump();
-
-/////////////////////////////////////////////////////////////
-//
-//  outputting object file
-//
-
-// create output filename
-Filename objectFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename() + ".o");
-
-if (g_verbose)
-  cout << "info: creating '" << objectFilename.GetFilename() << "'" << endl;
-
-// Initialize the target registry etc.
-llvm::InitializeAllTargetInfos();
-llvm::InitializeAllTargets();
-llvm::InitializeAllTargetMCs();
-llvm::InitializeAllAsmParsers();
-llvm::InitializeAllAsmPrinters();  
-
-std::string Error;
-auto Target = llvm::TargetRegistry::lookupTarget(g_targetTripleStr, Error);
-
-// Print an error and exit if we couldn't find the requested target.
-// This generally occurs if we've forgotten to initialise the
-// TargetRegistry or we have a bogus target triple.
-if (!Target) {
-  cerr << Error;
-  return 1;
-}  
-
-auto CPU = "generic";
-auto Features = "";
-
-llvm::TargetOptions opt;
-auto RM = llvm::Reloc::Model();  
-
-auto TargetMachine = Target->createTargetMachine(g_targetTripleStr, CPU, Features, opt, RM);  
-
-cg.m_module->setDataLayout(TargetMachine->createDataLayout());
-cg.m_module->setTargetTriple(g_targetTripleStr);  
-
-std::error_code EC;
-llvm::raw_fd_ostream dest(objectFilename.c_str(), EC, llvm::sys::fs::F_None);
-
-if (EC) {
-  cerr << "Could not open file: " << EC.message();
-  return 1;
-}  
-
-llvm::legacy::PassManager pass;
-auto FileType = llvm::TargetMachine::CGFT_ObjectFile;
-
-if (TargetMachine->addPassesToEmitFile(pass, dest, FileType)) {
-  cerr << "TargetMachine can't emit a file of this type";
-  return 1;
-}
-
-pass.run(*cg.m_module);
-
-dest.flush();  
-
-if (g_compileOnly)
-  return 0;
-
-// do the linker thing
-Filename exeFilename(g_inputFilename.GetDir() + g_inputFilename.GetBasename());
-std::stringstream cmd;
-cmd << "clang " << objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
-
-int result = system(cmd.str().c_str());
-if (result != 0)
-  cerr << "error: linker failed" << endl;
-
-return 0;
-}
-
-#endif    
 

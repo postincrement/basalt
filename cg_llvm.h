@@ -40,7 +40,17 @@ class CodegenLLVM : public CodeGenerator
     // generate code
     virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
     { return dispatcher.Generate(*this); }
-    
+
+    // internal functions
+    llvm::FunctionType * CreateFunctionType(const char * typeStr);
+    void CreateCallExternalFunc(RuntimeFunctionDef & funcDef);
+
+    void CreateFunctionCall(RuntimeFunctionDef & funcDef ...);
+    void VCreateFunctionCall(RuntimeFunctionDef & funcDef, va_list varg);
+
+    void CreateFunctionCall(const char * returnType, const char * name, const char * argsStr...);
+    void VCreateFunctionCall(const char * returnType, const char * name, const char * argsStr, va_list varg);
+
     Filename m_srcFilename;
     Filename m_objectFilename;
 

@@ -6,6 +6,8 @@ using namespace std;
 
 using namespace AST;
 
+AST::LineMarkerExpr * g_currentSourceFileMarker = nullptr; 
+
 static bool VisitError(Expr & expr)
 {
   cout << "error: unimplemented visit function for type " << typeid(expr).name() << endl;

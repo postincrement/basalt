@@ -47,6 +47,23 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
 
   m_ostrm << "#include <stdio.h>\n\n";
 
+  RuntimeFunctionDef * rtDef = g_runtimeDefs;
+  std::stringstream strm;
+  while (rtDef->m_name != nullptr) {
+    strm << "extern ";
+    if (rtDef->m_returnType == nullptr)
+      strm << "void";
+    else
+      strm << rtDef->m_returnType;
+    strm << " basalt_" << rtDef->m_name << "(";
+    if (rtDef->m_args != nullptr)
+      strm << rtDef->m_args;
+    strm << ");\n";
+    rtDef++;
+  }
+
+  m_ostrm << strm.str() << endl;
+
   return true;
 } 
 
@@ -157,7 +174,10 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
   
   m_ostrm << "int main(int argc, char *argv[])\n"
              "{\n"
+             "  basalt_init();\n"
              ;
+
+
 
   // output code
   for (auto & r : expr) {
@@ -233,15 +253,15 @@ bool CodegenCXX::Visit(ConstantExpr<float> & expr)
 
 bool CodegenCXX::Visit(BIFExpr & expr)
 {
-  if (expr.m_name == "print_newline")
-    m_ostrm << "  printf(\"\\n\");\n";
+  if (expr.m_name == "print_eol")
+    m_ostrm << "  basalt_print_eol();\n";
 
   else if (expr.m_name == "print_comma")  
-    m_ostrm << "  printf(\",\");\n";
+    m_ostrm << "  basalt_print_tab();\n";
 
   else if (expr.m_name == "print_expr") {
     if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
-      cerr << "internal error: BIF print has invalid args" << endl;
+      InternalError("BIF print has invalid args");
     else {      
       AST::Expr * printExpr = (*expr.m_args)[0];
 
@@ -250,10 +270,10 @@ bool CodegenCXX::Visit(BIFExpr & expr)
       if (constantString != nullptr) {
         auto r = m_constStrings.find(constantString->m_value);
         if (r == m_constStrings.end()) {
-          cerr << "internal error: cannot find constant string def for '" << constantString->m_value << "'" << endl;
+          InternalError("cannot find constant string def for '" << constantString->m_value << "'");
         }
         else { 
-          m_ostrm << "  printf(\"%s\", " << r->second << ");\n";
+          m_ostrm << "  basalt_print_string(" << r->second << ");\n";
         }
         return true;
       }
@@ -261,38 +281,38 @@ bool CodegenCXX::Visit(BIFExpr & expr)
       // variable reference
       AST::VariableRefExpr * varRef = dynamic_cast<AST::VariableRefExpr *>(printExpr);
       if (varRef != nullptr) {
-        std::string type;
+        std::string func;
         switch (varRef->m_variable.m_type) {
           case Variable::eString:
-            type = "s";
+            func = "print_string";
             break;          
           case Variable::eInt16:
-            type = "i";
+            func = "print_int16";
             break;          
           case Variable::eSingle:
-            type = "f";
+            func = "print_single";
             break;          
           case Variable::eDouble:
-            type = "lf";
+            func = "print_double";
             break;          
           case Variable::eUntyped:
-            cerr << "internal error: unknown print variable type " << varRef->m_variable.m_type << endl;
+            InternalError("unknown print variable type " << varRef->m_variable.m_type);
             exit(1);
         }
-        m_ostrm << "  printf(\"%" << type << "\", " << varRef->m_variable.m_normalizedName << ");\n";
+        m_ostrm << "  basalt_" << func << "(" << varRef->m_variable.m_normalizedName << ");\n";
         return true;
       }
 
       // unknown
       else {
-        cerr << "internal error: unknown print expression type " << typeid(printExpr).name() << endl;
+        InternalError("unknown print expression type " << typeid(printExpr).name());
         return false;
       }
     }  
   } 
 
   else {
-
+    Warning(eWarning_UnknownCXXBIF, "unknown BIF '" << expr.m_name << "'");
   }
 
   return true;

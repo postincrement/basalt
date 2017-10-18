@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 using namespace std;
 
 #include <unistd.h>
@@ -39,6 +40,17 @@ ArgDef g_argDefs[] = {
 static Factory<CodeGenerator,   AST::SourceFileExprList &> g_codegeneratorFactory;
 static Factory<LanguageProfile> g_languageProfileFactory;
 
+struct RuntimeFunctionDef g_runtimeDefs[] = {
+  { nullptr, "init",          nullptr        },
+  { nullptr, "print_string",  "const char *" },
+  { nullptr, "print_int16",   "uint16_t"     },
+  { nullptr, "print_single",  "single"       },
+  { nullptr, "print_double",  "double"       },
+  { nullptr, "print_tab",     nullptr        },
+  { nullptr, "print_eol",     nullptr        },
+  { nullptr, nullptr, nullptr }
+};
+
 void OptionError(const ArgDef * def)
 {
   cerr << "warning: no data for option ";
@@ -49,6 +61,26 @@ void OptionError(const ArgDef * def)
       cerr << "/";
     cerr << "--" << def->m_long << endl;
   }
+}
+
+void InternalErrorFunc(const char * fn, unsigned ln, const std::string & str)
+{
+  cerr << "error: internal error " << fn << "(" << ln << ") - " << str << endl;
+  exit(1);
+}
+
+void SourceWarningFunc(WarningCode code, unsigned line, const std::string & marker, const std::string & str)
+{
+  std::stringstream strm;
+  strm << "warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
+  cerr << strm.str();
+}
+
+void WarningFunc(WarningCode code, const std::string & str)
+{
+  std::stringstream strm;
+  strm << "warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
+  cerr << strm.str();
 }
 
 void Basalt::DecodeOpt(ArgDef * def, int & index, int argc, const char **argv)
