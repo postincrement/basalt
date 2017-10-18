@@ -76,11 +76,12 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   m_builder.SetInsertPoint(m_mainBlock);   
 
   // look for global string definitions
+  /*
   FindConstStrings();
   for (auto & r : m_constStrings) {
     m_builder.CreateGlobalStringPtr(r.first, r.second);
   }
-
+  */
   // declare runtime init function
   CreateCallExternalFunc(g_runtimeDefs[0]);
   
@@ -182,13 +183,11 @@ void CodegenLLVM::VCreateFunctionCall(
         int intVal = va_arg(varg, int);
         val = llvm::ConstantInt::get(m_context, llvm::APInt(16, intVal));
       }
-      /*
       else if (r == "const char *") {
-        type = llvm::Type::getInt8PtrTy(m_context);
+        type = llvm::Type::getInt8PtrTy(m_context)->getPointerTo();
         const char * strVal = va_arg(varg, const char *);
-        val = llvm::ConstantInt::get(m_context, llvm::APInt(16, intVal);
+        val = m_builder.CreateGlobalStringPtr(strVal);
       }
-      */
       else
         InternalError("unknown argument type '" << r << "'");
       argTypes.push_back(type);  
@@ -310,7 +309,8 @@ bool CodegenLLVM::Visit(SourceFileExprList & expr)
 
 bool CodegenLLVM::Visit(LineMarkerExpr & expr)
 {
-  return LLVMError(expr);
+  //m_builder.SetCurrentDebugLocation(llvm::DebugLoc::get(AST->getLine(), AST->getCol(), Scope));  
+  return true;
 }
 
 bool CodegenLLVM::Visit(VariableDefExpr & expr)
@@ -362,7 +362,7 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
   else if (expr.m_name == "print_tab")  
     CreateFunctionCall(nullptr, "basalt_print_tab", nullptr);
 
-  /*else if (expr.m_name == "print_expr") {
+  else if (expr.m_name == "print_expr") {
     if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
       InternalError("BIF print has invalid args");
     else {      
@@ -371,25 +371,21 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
       // string constant
       AST::ConstantStringExpr * constantString = dynamic_cast<AST::ConstantStringExpr *>(printExpr);
       if (constantString != nullptr) {
-        auto r = m_constStrings.find(constantString->m_value);
-        if (r == m_constStrings.end()) {
-          InternalError("cannot find constant string def for '" << constantString->m_value << "'");
-        }
-        else { 
-          m_ostrm << "  basalt_print_string(" << r->second << ");\n";
-        }
+        CreateFunctionCall(nullptr, "basalt_print_string", "const char *", constantString->m_value.c_str());
         return true;
       }
+    }
 
+#if 0
       // variable reference
       AST::VariableRefExpr * varRef = dynamic_cast<AST::VariableRefExpr *>(printExpr);
       if (varRef != nullptr) {
         std::string func;
         switch (varRef->m_variable.m_type) {
           case Variable::eString:
-            func = "print_string";
+            CreateFunctionCall(nullptr, "basalt_print_string", "const char *", r->second);
             break;          
-          case Variable::eInt16:
+            case Variable::eInt16:
             func = "print_int16";
             break;          
           case Variable::eSingle:
@@ -398,22 +394,20 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
           case Variable::eDouble:
             func = "print_double";
             break;          
-          case Variable::eUntyped:
+         case Variable::eUntyped:
             InternalError("unknown print variable type " << varRef->m_variable.m_type);
-            exit(1);
         }
-        m_ostrm << "  basalt_" << func << "(" << varRef->m_variable.m_normalizedName << ");\n";
+        //m_ostrm << "  basalt_" << func << "(" << varRef->m_variable.m_normalizedName << ");\n";
         return true;
       }
-
+      
       // unknown
       else {
         InternalError("unknown print expression type " << typeid(printExpr).name());
-        return false;
       }
     }  
+#endif
   } 
-  */
 
   else {
     Warning(eWarning_UnknownLLVMBIF, "unknown BIF '" << expr.m_name << "'");
