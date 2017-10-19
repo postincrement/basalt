@@ -45,6 +45,8 @@ class CodegenLLVM : public CodeGenerator
     llvm::FunctionType * CreateFunctionType(const char * typeStr);
     void CreateCallExternalFunc(RuntimeFunctionDef & funcDef);
 
+    void CreateBIFCall(const std::string & name ...);
+    
     void CreateFunctionCall(RuntimeFunctionDef & funcDef ...);
     void VCreateFunctionCall(RuntimeFunctionDef & funcDef, va_list varg);
 

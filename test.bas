@@ -1,5 +1,6 @@
 10 print "hello, world"
-a$="hello, world"
+11 print "hello, world"
+12 a$="hello, world"
 15 a$=a$+"fred"
 16 let a=a+1
 20 a=42

@@ -31,21 +31,26 @@ CodegenCXX::CodegenCXX(SourceFileExprList & tree)
 
 bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char ** argv)
 {
-  Filename ifn(inputFilename);
+  if (g_dump)
+    m_ostrm = &cout;
+  else {  
+    m_ostrm = &m_outputFile;
+    Filename ifn(inputFilename);
 
-  // create output filename
-  m_srcFilename = Filename(ifn.GetDir() + ifn.GetBasename() + ".cc");
+    // create output filename
+    m_srcFilename = Filename(ifn.GetDir() + ifn.GetBasename() + ".cc");
 
-  // create output file
-  m_ostrm.open(m_srcFilename.c_str());
-  if (!m_ostrm.good()) {
-    cerr << "error: cannot create output file '" << m_srcFilename << "'" << endl;
-    return false;
+    // create output file
+    m_outputFile.open(m_srcFilename.c_str());
+    if (!m_outputFile.good()) {
+      cerr << "error: cannot create output file '" << m_srcFilename << "'" << endl;
+      return false;
+    }
+    
+    cout << "info: outputting to '" << m_srcFilename << "'" << endl;
   }
-  
-  cout << "info: outputting to '" << m_srcFilename << "'" << endl;
 
-  m_ostrm << "#include <stdio.h>\n\n";
+  *m_ostrm << "#include <stdio.h>\n\n";
 
   RuntimeFunctionDef * rtDef = g_runtimeDefs;
   std::stringstream strm;
@@ -62,14 +67,14 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
     rtDef++;
   }
 
-  m_ostrm << strm.str() << endl;
+  *m_ostrm << strm.str() << endl;
 
   return true;
 } 
 
 bool CodegenCXX::Close()
 {
-  m_ostrm.close();
+  m_outputFile.close();
   return true;
 } 
 
@@ -77,7 +82,7 @@ bool CodegenCXX::Close()
 
 bool CodegenCXX::Visit(LineMarkerExpr & expr)
 {
-  m_ostrm << "  // " << expr.m_lineNumber << ": " << expr.m_line << endl;
+  *m_ostrm << "  // " << expr.m_lineNumber << ": " << expr.m_line << endl;
   return true;
 }
 
@@ -145,16 +150,16 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
         type += " *"; 
       }
       if (first) {
-        m_ostrm << "// global variables" << endl;
+        *m_ostrm << "// global variables" << endl;
         first = false;
       }  
-      m_ostrm << type << " " << var.m_normalizedName << initExpr << ";" << endl;
+      *m_ostrm << type << " " << var.m_normalizedName << initExpr << ";" << endl;
       if (r.second->m_dim != 0) {
-        m_ostrm << "int " << var.m_normalizedName << "_dim[" << r.second->m_dim << "];\n";
+        *m_ostrm << "int " << var.m_normalizedName << "_dim[" << r.second->m_dim << "];\n";
       }
     }
     if (!first)
-      m_ostrm << "\n";
+      *m_ostrm << "\n";
   }
 
   // look for global string definitions
@@ -163,21 +168,19 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
     bool first = true;
     for (auto & r : m_constStrings) {
       if (first) {
-        m_ostrm << "// constant strings" << endl;
+        *m_ostrm << "// constant strings" << endl;
         first = false;
       }  
-      m_ostrm << "const char * " << r.second << " = \"" << r.first << "\";" << endl;
+      *m_ostrm << "const char * " << r.second << " = \"" << r.first << "\";" << endl;
     }
     if (!first)
-      m_ostrm << "\n";
+      *m_ostrm << "\n";
   }
   
-  m_ostrm << "int main(int argc, char *argv[])\n"
+  *m_ostrm << "int main(int argc, char *argv[])\n"
              "{\n"
              "  basalt_init();\n"
              ;
-
-
 
   // output code
   for (auto & r : expr) {
@@ -185,7 +188,7 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
       r->Generate(*this);
   }
 
-  m_ostrm << "}\n"
+  *m_ostrm << "}\n"
           ; 
 
   return true;
@@ -207,7 +210,7 @@ bool CodegenCXX::Visit(VariableDefExpr & expr)
 
 bool CodegenCXX::Visit(VariableRefExpr & expr)
 {
-  m_ostrm << "  // reference to " << expr.m_variable.m_name << endl;
+  *m_ostrm << "  // reference to " << expr.m_variable.m_name << endl;
   return true;
 }
 
@@ -251,13 +254,57 @@ bool CodegenCXX::Visit(ConstantExpr<float> & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
+void CodegenCXX::VCreateFunctionCall(                                      
+  const char * returnTypeStr,
+  const char * name,
+  const char * argsStr_,
+  va_list varg)
+{
+  *m_ostrm << "  " << name << "(";
+  if (argsStr_ != nullptr) {    
+    std::string argStr(argsStr_);
+    std::vector<std::string> tokens;
+    Tokenize(tokens, argStr, ',');
+    bool first = true;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      const char * strVal = va_arg(varg, const char *);
+      if (!first) {
+        *m_ostrm << ", ";
+      }     
+      first = false;
+      *m_ostrm << strVal;
+    }
+  }
+      
+  *m_ostrm << ");\n";
+}
+  
+void CodegenCXX::CreateBIFCall(const std::string & name ...)
+{
+  va_list argValues;
+  va_start(argValues, name);
+
+  std::string bifName(g_runtimeDefPrefix);
+  bifName += name;
+  
+  int i = 0;
+  while (g_runtimeDefs[i].m_name != nullptr) {
+    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
+    if (name == funcDef.m_name) {
+      VCreateFunctionCall(funcDef.m_returnType, bifName.c_str(), funcDef.m_args, argValues);
+      return;
+    }
+    ++i;
+  }
+}
+
 bool CodegenCXX::Visit(BIFExpr & expr)
 {
-  if (expr.m_name == "print_eol")
-    m_ostrm << "  basalt_print_eol();\n";
-
-  else if (expr.m_name == "print_comma")  
-    m_ostrm << "  basalt_print_tab();\n";
+  if (
+      (expr.m_name == "print_eol") || 
+      (expr.m_name == "print_tab")
+    )
+    CreateBIFCall(expr.m_name);
 
   else if (expr.m_name == "print_expr") {
     if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
@@ -273,11 +320,10 @@ bool CodegenCXX::Visit(BIFExpr & expr)
           InternalError("cannot find constant string def for '" << constantString->m_value << "'");
         }
         else { 
-          m_ostrm << "  basalt_print_string(" << r->second << ");\n";
+          CreateBIFCall(expr.m_name, r->second);
         }
         return true;
       }
-
       // variable reference
       AST::VariableRefExpr * varRef = dynamic_cast<AST::VariableRefExpr *>(printExpr);
       if (varRef != nullptr) {
@@ -299,7 +345,7 @@ bool CodegenCXX::Visit(BIFExpr & expr)
             InternalError("unknown print variable type " << varRef->m_variable.m_type);
             exit(1);
         }
-        m_ostrm << "  basalt_" << func << "(" << varRef->m_variable.m_normalizedName << ");\n";
+        CreateBIFCall(func, varRef->m_variable.m_normalizedName.c_str());
         return true;
       }
 
@@ -310,7 +356,7 @@ bool CodegenCXX::Visit(BIFExpr & expr)
       }
     }  
   } 
-
+  
   else {
     Warning(eWarning_UnknownCXXBIF, "unknown BIF '" << expr.m_name << "'");
   }

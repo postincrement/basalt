@@ -170,7 +170,6 @@ void CodegenLLVM::VCreateFunctionCall(
   // create argument type list
   std::vector<llvm::Type *> argTypes;
   if (argsStr_ != nullptr) {
-
     std::string argStr(argsStr_);
     std::vector<std::string> tokens;
     Tokenize(tokens, argStr, ',');
@@ -202,12 +201,31 @@ void CodegenLLVM::VCreateFunctionCall(
   m_builder.CreateCall(func, args);
 }
 
+void CodegenLLVM::CreateBIFCall(const std::string & name ...)
+{
+  va_list argValues;
+  va_start(argValues, name);
+
+  std::string bifName(g_runtimeDefPrefix);
+  bifName += name;
+  
+  int i = 0;
+  while (g_runtimeDefs[i].m_name != nullptr) {
+    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
+    if (name == funcDef.m_name) {
+      VCreateFunctionCall(funcDef.m_returnType, bifName.c_str(), funcDef.m_args, argValues);
+      return;
+    }
+    ++i;
+  }
+}
+
 bool CodegenLLVM::Close()
 {
   llvm::ConstantInt * const_int32_9 = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
   llvm::ReturnInst::Create(m_context, const_int32_9, m_mainBlock);  
 
-  if (g_dumpAsm) {
+  if (g_dump) {
     m_module->dump();
     return true;
   }
@@ -357,10 +375,10 @@ bool CodegenLLVM::Visit(ConstantExpr<short int> & expr)
 bool CodegenLLVM::Visit(BIFExpr & expr)
 {
   if (expr.m_name == "print_eol")
-    CreateFunctionCall(nullptr, "basalt_print_eol", nullptr);
+    CreateBIFCall("print_eol", nullptr);
 
   else if (expr.m_name == "print_tab")  
-    CreateFunctionCall(nullptr, "basalt_print_tab", nullptr);
+    CreateBIFCall("print_tab", nullptr);
 
   else if (expr.m_name == "print_expr") {
     if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
@@ -371,7 +389,7 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
       // string constant
       AST::ConstantStringExpr * constantString = dynamic_cast<AST::ConstantStringExpr *>(printExpr);
       if (constantString != nullptr) {
-        CreateFunctionCall(nullptr, "basalt_print_string", "const char *", constantString->m_value.c_str());
+        CreateBIFCall("print_string", constantString->m_value.c_str());
         return true;
       }
     }

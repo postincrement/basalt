@@ -31,6 +31,24 @@ int basalt_print_integer(uint16_t value)
   return 0;
 }
 
+int basalt_print_single(float value)
+{
+  char buffer[20];
+  int len = sprintf(buffer, "%f", value);
+  write(STDOUT_FD, buffer, len);
+  g_outputColumn += len;
+  return 0;
+}
+
+int basalt_print_double(double value)
+{
+  char buffer[20];
+  int len = sprintf(buffer, "%lf", value);
+  write(STDOUT_FD, buffer, len);
+  g_outputColumn += len;
+  return 0;
+}
+
 int basalt_print_tab()
 {  
   int spaces = g_tabLen - (g_outputColumn % g_tabLen);

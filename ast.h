@@ -411,7 +411,6 @@ class CodeGenerator : public AST::Visitor
     std::map<std::string, std::string> m_constStrings;    
 };
 
-#include "cg_dump.h"
 #include "cg_cxx.h"
 #include "cg_llvm.h"
 

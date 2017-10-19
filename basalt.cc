@@ -23,12 +23,12 @@ int g_verbose = 0;
 std::string g_codeGeneratorName;
 std::string g_outputFilename;
 std::string g_languageProfileName;
-bool g_dumpAsm = false;
+bool g_dump = false;
 bool g_compileOnly = false;
 
 ArgDef g_argDefs[] = {
   { 'c',   "",          "b",  &g_compileOnly,         "compile only" },
-  { 'd',   "dump",      "b",  &g_dumpAsm,             "dump assembly" },
+  { 'd',   "dump",      "b",  &g_dump,                "dump output" },
   { 'v',   "verbose",   "",   &g_verbose,             "enable verbosity" },
   { 't',   "target",    "s",  &g_codeGeneratorName,   "set code generator" },
   { 'o',   "output",    "s",  &g_outputFilename,      "set output filename" },
@@ -39,6 +39,8 @@ ArgDef g_argDefs[] = {
 
 static Factory<CodeGenerator,   AST::SourceFileExprList &> g_codegeneratorFactory;
 static Factory<LanguageProfile> g_languageProfileFactory;
+
+const char * g_runtimeDefPrefix = "basalt_";
 
 struct RuntimeFunctionDef g_runtimeDefs[] = {
   { nullptr, "init",          nullptr        },
@@ -193,7 +195,6 @@ int Basalt::Main(int argc, char const *argv[])
   m_interactive = false;
 
   // register code generators
-  g_codegeneratorFactory.Register<CodegenDumper>("dump");
   g_codegeneratorFactory.Register<CodegenCXX>   ("cxx");
   g_codegeneratorFactory.Register<CodegenLLVM>  ("llvm");
 
@@ -207,7 +208,7 @@ int Basalt::Main(int argc, char const *argv[])
 
   // set default code generator if no output file specified 
   if (g_codeGeneratorName.empty() && g_outputFilename.empty())
-    g_codeGeneratorName = "dump";
+    g_codeGeneratorName = "cxx";
 
   // set default code generator if no output file specified 
   if (g_languageProfileName.empty())

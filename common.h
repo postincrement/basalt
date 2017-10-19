@@ -148,6 +148,8 @@ struct RuntimeFunctionDef
   const char * m_args;
 };
 
+extern const char * g_runtimeDefPrefix;
+
 //////////////////////////////////////////////////////////////////
 
 extern struct RuntimeFunctionDef g_runtimeDefs[];

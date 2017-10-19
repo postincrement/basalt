@@ -80,6 +80,6 @@ do { std::stringstream strm; strm << expr; WarningFunc(code, strm.str()); } whil
 extern Basalt g_application;
 extern int g_lineNumber;
 extern bool g_compileOnly;
-extern bool g_dumpAsm;
+extern bool g_dump;
 
 #endif // BASALT_H_

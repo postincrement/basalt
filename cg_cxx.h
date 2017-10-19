@@ -21,8 +21,17 @@ class CodegenCXX : public CodeGenerator
     virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
     { return dispatcher.Generate(*this); }
 
+    void CreateBIFCall(const std::string & name ...);
+
+    void VCreateFunctionCall(                                      
+      const char * returnTypeStr,
+      const char * name,
+      const char * argsStr_,
+      va_list varg);
+          
     Filename m_srcFilename;
-    std::ofstream m_ostrm;
+    std::ostream * m_ostrm;
+    std::ofstream m_outputFile;
 
 };
   
