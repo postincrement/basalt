@@ -9,7 +9,7 @@
 class CodegenCXX : public CodeGenerator
 {
   public:
-    CodegenCXX(AST::SourceFileExprList & tree); 
+    CodegenCXX(const std::string & genType, AST::SourceFileExprList & tree); 
 
     DECLARE_EXPR_VISIT_FUNCTIONS();      
 

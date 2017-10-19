@@ -24,8 +24,8 @@ static bool CXXError(Expr & expr)
 
 //////////////////////////////////////////////////////////////////////////
 
-CodegenCXX::CodegenCXX(SourceFileExprList & tree)
-  : CodeGenerator(tree)
+CodegenCXX::CodegenCXX(const std::string & genType, SourceFileExprList & tree)
+  : CodeGenerator(genType, tree)
 {  
 }
 
@@ -38,7 +38,7 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
     Filename ifn(inputFilename);
 
     // create output filename
-    m_srcFilename = Filename(ifn.GetDir() + ifn.GetBasename() + ".cc");
+    m_srcFilename = Filename(ifn.GetDir() + ifn.GetBasename() + "." + m_genType);
 
     // create output file
     m_outputFile.open(m_srcFilename.c_str());
@@ -50,10 +50,12 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
     cout << "info: outputting to '" << m_srcFilename << "'" << endl;
   }
 
-  *m_ostrm << "#include <stdio.h>\n\n";
+  *m_ostrm << "#include <inttypes.h>\n\n";
 
   RuntimeFunctionDef * rtDef = g_runtimeDefs;
   std::stringstream strm;
+  if (m_genType != "c") 
+    strm << "extern \"C\" {\n";
   while (rtDef->m_name != nullptr) {
     strm << "extern ";
     if (rtDef->m_returnType == nullptr)
@@ -63,9 +65,13 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
     strm << " basalt_" << rtDef->m_name << "(";
     if (rtDef->m_args != nullptr)
       strm << rtDef->m_args;
+    else if (m_genType == "c")
+      strm << "void";  
     strm << ");\n";
     rtDef++;
   }
+  if (m_genType != "c") 
+    strm << "} // extern \"C\"\n\n";
 
   *m_ostrm << strm.str() << endl;
 
@@ -127,7 +133,7 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
       switch (var.m_type) {
         case Variable::eString:
           type = "char *";
-          initExpr += "nullptr";
+          initExpr += "0L";
           break;
         case Variable::eInt16:
           type = "int16_t";
@@ -296,6 +302,7 @@ void CodegenCXX::CreateBIFCall(const std::string & name ...)
     }
     ++i;
   }
+  InternalError("unknown BIF '" << name << "'");
 }
 
 bool CodegenCXX::Visit(BIFExpr & expr)
@@ -320,7 +327,7 @@ bool CodegenCXX::Visit(BIFExpr & expr)
           InternalError("cannot find constant string def for '" << constantString->m_value << "'");
         }
         else { 
-          CreateBIFCall(expr.m_name, r->second);
+          CreateBIFCall("print_string", r->second.c_str());
         }
         return true;
       }

@@ -21,8 +21,8 @@ static bool LLVMError(Expr & expr)
 
 //////////////////////////////////////////////////////////////////////////
 
-CodegenLLVM::CodegenLLVM(SourceFileExprList & tree)
-  : CodeGenerator(tree)
+CodegenLLVM::CodegenLLVM(const std::string & genType, SourceFileExprList & tree)
+  : CodeGenerator(genType, tree)
   , m_builder(m_context)
 { 
   m_module.reset(new llvm::Module("basalt", m_context));
@@ -76,29 +76,13 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   m_builder.SetInsertPoint(m_mainBlock);   
 
   // look for global string definitions
-  /*
   FindConstStrings();
-  for (auto & r : m_constStrings) {
-    m_builder.CreateGlobalStringPtr(r.first, r.second);
-  }
-  */
+  for (auto & r : m_constStrings)
+    m_constStringValues[r.first] = m_builder.CreateGlobalStringPtr(r.first, r.second);
+
   // declare runtime init function
-  CreateCallExternalFunc(g_runtimeDefs[0]);
+  CreateBIFCall("init");
   
-/*
-  // make call to runtime init function
-  {    
-    std::vector<llvm::Value *> ArgsV;
-
-    llvm::FunctionType * FT = llvm::FunctionType::get(llvm::Type::getVoidTy(m_context), false);
-    llvm::Function * calleeF = llvm::Function::Create(FT, llvm::GlobalValue::ExternalLinkage, "basalt_init", m_module.get());    
-
-    llvm::CallInst* int64_4 = llvm::CallInst::Create(calleeF, "", m_mainBlock);
-    int64_4->setCallingConv(llvm::CallingConv::C);
-    int64_4->setTailCall(false);    
-  }
-*/  
-
   return true;
 } 
 
@@ -123,7 +107,7 @@ void CodegenLLVM::CreateCallExternalFunc(RuntimeFunctionDef & funcDef)
 {
   llvm::FunctionType * returnType = CreateFunctionType(funcDef.m_returnType);
   
-  std::string funcName("basalt_");
+  std::string funcName(g_runtimeDefPrefix);
   funcName += funcDef.m_name;
 
   llvm::Function * func = llvm::Function::Create(returnType, 
@@ -179,13 +163,11 @@ void CodegenLLVM::VCreateFunctionCall(
       llvm::Value * val;
       if (r == "int16_t") { 
         type = llvm::Type::getInt16Ty(m_context);
-        int intVal = va_arg(varg, int);
-        val = llvm::ConstantInt::get(m_context, llvm::APInt(16, intVal));
+        val = llvm::ConstantInt::get(m_context, llvm::APInt(16, va_arg(varg, int)));
       }
       else if (r == "const char *") {
         type = llvm::Type::getInt8PtrTy(m_context)->getPointerTo();
-        const char * strVal = va_arg(varg, const char *);
-        val = m_builder.CreateGlobalStringPtr(strVal);
+        val = va_arg(varg, llvm::Value *);
       }
       else
         InternalError("unknown argument type '" << r << "'");
@@ -218,6 +200,8 @@ void CodegenLLVM::CreateBIFCall(const std::string & name ...)
     }
     ++i;
   }
+
+  InternalError("unknown BIF '" << name << "'");
 }
 
 bool CodegenLLVM::Close()
@@ -374,11 +358,11 @@ bool CodegenLLVM::Visit(ConstantExpr<short int> & expr)
 
 bool CodegenLLVM::Visit(BIFExpr & expr)
 {
-  if (expr.m_name == "print_eol")
-    CreateBIFCall("print_eol", nullptr);
-
-  else if (expr.m_name == "print_tab")  
-    CreateBIFCall("print_tab", nullptr);
+  if (
+      (expr.m_name == "print_eol") ||
+      (expr.m_name == "print_tab")
+     )  
+    CreateBIFCall(expr.m_name);
 
   else if (expr.m_name == "print_expr") {
     if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
@@ -389,7 +373,8 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
       // string constant
       AST::ConstantStringExpr * constantString = dynamic_cast<AST::ConstantStringExpr *>(printExpr);
       if (constantString != nullptr) {
-        CreateBIFCall("print_string", constantString->m_value.c_str());
+        llvm::Value * value = m_constStringValues[constantString->m_value];
+        CreateBIFCall("print_string", value);
         return true;
       }
     }

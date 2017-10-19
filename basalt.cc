@@ -37,7 +37,7 @@ ArgDef g_argDefs[] = {
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
-static Factory<CodeGenerator,   AST::SourceFileExprList &> g_codegeneratorFactory;
+static Factory<CodeGenerator,   const std::string &, AST::SourceFileExprList &> g_codegeneratorFactory;
 static Factory<LanguageProfile> g_languageProfileFactory;
 
 const char * g_runtimeDefPrefix = "basalt_";
@@ -46,7 +46,7 @@ struct RuntimeFunctionDef g_runtimeDefs[] = {
   { nullptr, "init",          nullptr        },
   { nullptr, "print_string",  "const char *" },
   { nullptr, "print_int16",   "uint16_t"     },
-  { nullptr, "print_single",  "single"       },
+  { nullptr, "print_single",  "float"        },
   { nullptr, "print_double",  "double"       },
   { nullptr, "print_tab",     nullptr        },
   { nullptr, "print_eol",     nullptr        },
@@ -195,6 +195,9 @@ int Basalt::Main(int argc, char const *argv[])
   m_interactive = false;
 
   // register code generators
+  g_codegeneratorFactory.Register<CodegenCXX>   ("c");
+  g_codegeneratorFactory.Register<CodegenCXX>   ("cc");
+  g_codegeneratorFactory.Register<CodegenCXX>   ("cpp");
   g_codegeneratorFactory.Register<CodegenCXX>   ("cxx");
   g_codegeneratorFactory.Register<CodegenLLVM>  ("llvm");
 
@@ -208,7 +211,7 @@ int Basalt::Main(int argc, char const *argv[])
 
   // set default code generator if no output file specified 
   if (g_codeGeneratorName.empty() && g_outputFilename.empty())
-    g_codeGeneratorName = "cxx";
+    g_codeGeneratorName = "c";
 
   // set default code generator if no output file specified 
   if (g_languageProfileName.empty())
@@ -268,7 +271,9 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  CodeGenerator * generator = g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_expressions);
+  CodeGenerator * generator = 
+      g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_codeGeneratorName, g_expressions);
+
   if (generator == nullptr) {
     cerr << "internal error: cannot instantiate generator with name '" << g_codeGeneratorName << "'" << endl;
     return -1;

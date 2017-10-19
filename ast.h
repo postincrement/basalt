@@ -11,7 +11,6 @@
 
 #include "common.h"
 
-class CodegenDumper;
 class CodegenCXX;
 class CodegenLLVM;
 
@@ -83,7 +82,6 @@ namespace AST {
   class AbstractDispatcher
   {
     public:
-      virtual bool Generate(CodegenDumper & generator) = 0;  
       virtual bool Generate(CodegenCXX & generator) = 0;  
       virtual bool Generate(CodegenLLVM & generator) = 0;  
     };
@@ -91,7 +89,6 @@ namespace AST {
   class Dispatcher : public AbstractDispatcher
   {
     public:
-      virtual bool Generate(CodegenDumper & dumper) override = 0;
       virtual bool Generate(CodegenCXX & generator) override = 0;  
       virtual bool Generate(CodegenLLVM & generator) override = 0;  
   };
@@ -382,7 +379,7 @@ struct DoubleFloat
 class CodeGenerator : public AST::Visitor
 {
   public:
-    CodeGenerator(AST::SourceFileExprList & tree);
+    CodeGenerator(const std::string & genType, AST::SourceFileExprList & tree);
 
     // open generator
     virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) = 0;
@@ -407,6 +404,7 @@ class CodeGenerator : public AST::Visitor
 
     std::string GetTempName(const std::string & prefix);
 
+    std::string m_genType;
     unsigned m_tempCounter = 1;
     std::map<std::string, std::string> m_constStrings;    
 };

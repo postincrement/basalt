@@ -100,8 +100,9 @@ bool AST::Visitor::Visit(ConstantExpr<float> & expr)
 
 ///////////////////////////////////////////////////////////
 
-CodeGenerator::CodeGenerator(SourceFileExprList & tree)
+CodeGenerator::CodeGenerator(const std::string & genType, SourceFileExprList & tree)
   : Visitor(tree)
+  , m_genType(genType)
 { }
 
 std::string CodeGenerator::GetTempName(const std::string & prefix)

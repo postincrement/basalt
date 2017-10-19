@@ -29,7 +29,7 @@
 class CodegenLLVM : public CodeGenerator
 {
   public:
-    CodegenLLVM(AST::SourceFileExprList & tree); 
+    CodegenLLVM(const std::string & genType, AST::SourceFileExprList & tree); 
 
     DECLARE_EXPR_VISIT_FUNCTIONS();      
 
@@ -59,7 +59,9 @@ class CodegenLLVM : public CodeGenerator
 		std::unique_ptr<llvm::Module> m_module;	
     llvm::IRBuilder<> m_builder;
     llvm::LLVMContext m_context;    
-    llvm::BasicBlock * m_mainBlock;    
+    llvm::BasicBlock * m_mainBlock;
+
+    std::map<std::string, llvm::Value *> m_constStringValues;
 };
   
 #endif // CG_LLVM_H_
