@@ -97,34 +97,12 @@ bool CodegenCXX::Visit(Expr & expr)
   return CXXError(expr);
 }
 
-struct FindGlobalVars
-{
-  FindGlobalVars(CodegenCXX & gen)
-    : m_gen(gen)
-  { }
-
-  bool operator()(Expr & expr)
-  {
-    VariableDefExpr * varDef = dynamic_cast<VariableDefExpr *>(&expr);
-    if ((varDef != nullptr) && varDef->m_global && (m_vars.count(varDef->m_variable.m_name) == 0))
-      m_vars[varDef->m_variable.m_name] = varDef;
-    return true;
-  }
-
-  std::map<std::string, VariableDefExpr *> m_vars;
-  
-  CodegenCXX & m_gen;
-};
-
 bool CodegenCXX::Visit(SourceFileExprList & expr)
 {
-  // look for global variable definitions
+  // define global variables
   {
-    FindGlobalVars fn(*this);
-    Traverse<FindGlobalVars>(expr, fn);
-
     bool first = true;
-    for (auto & r : fn.m_vars) {
+    for (auto & r : m_globalVars) {
       Variable & var = r.second->m_variable;
 
       std::string type;
@@ -147,8 +125,8 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
           type = "double";
           initExpr += "0";
           break;
-        case Variable::eUntyped:
-          return false;
+        default:  
+          InternalError("unsupported global variable type " << var.m_type); 
       }
 
       if (r.second->m_dim != 0) {
@@ -168,9 +146,8 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
       *m_ostrm << "\n";
   }
 
-  // look for global string definitions
+  // define global strings
   {
-    FindConstStrings();
     bool first = true;
     for (auto & r : m_constStrings) {
       if (first) {

@@ -75,10 +75,64 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   m_mainBlock = llvm::BasicBlock::Create(m_context, "", func_main, 0);  
   m_builder.SetInsertPoint(m_mainBlock);   
 
-  // look for global string definitions
-  FindConstStrings();
+  // output global string definitions
   for (auto & r : m_constStrings)
     m_constStringValues[r.first] = m_builder.CreateGlobalStringPtr(r.first, r.second);
+
+  // look for global variable definitions
+  {
+    for (auto & r : m_globalVars) {
+      Variable & var = r.second->m_variable;
+      llvm::GlobalVariable * gvar = nullptr;
+        
+      switch (var.m_type) {
+        case Variable::eString:
+          break;
+        case Variable::eInt16:
+          gvar = new llvm::GlobalVariable(
+            /*Module=*/      *m_module.get(),
+            /*Type=*/        llvm::IntegerType::get(m_module->getContext(), 16),
+            /*isConstant=*/  false,
+            /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
+            /*Initializer=*/ 0, // has initializer, specified below
+            /*Name=*/        var.m_normalizedName);
+          gvar->setAlignment(2);
+          break;
+        case Variable::eSingle:
+          gvar = new llvm::GlobalVariable(
+            /*Module=*/      *m_module.get(),
+            /*Type=*/        llvm::Type::getFloatTy(m_module->getContext()),
+            /*isConstant=*/  false,
+            /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
+            /*Initializer=*/ 0, // has initializer, specified below
+            /*Name=*/        var.m_normalizedName);
+          //gvar->setAlignment(2);
+          break;
+        case Variable::eDouble:
+          gvar = new llvm::GlobalVariable(
+            /*Module=*/      *m_module.get(),
+            /*Type=*/        llvm::Type::getDoubleTy(m_module->getContext()),
+            /*isConstant=*/  false,
+            /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
+            /*Initializer=*/ 0, // has initializer, specified below
+            /*Name=*/        var.m_normalizedName);
+          //gvar->setAlignment(2);
+          break;
+      default:
+          InternalError("unsupported global variable type " << var.m_type); 
+      }
+    }
+  }
+
+#if 0 
+    GlobalVariable* gvar_int16_v = new GlobalVariable(/*Module=*/*mod,
+      /*Type=*/IntegerType::get(mod->getContext(), 16),
+      /*isConstant=*/false,
+      /*Linkage=*/GlobalValue::CommonLinkage,
+      /*Initializer=*/0, // has initializer, specified below
+      /*Name=*/"v");
+      gvar_int16_v->setAlignment(2);
+#endif
 
   // declare runtime init function
   CreateBIFCall("init");

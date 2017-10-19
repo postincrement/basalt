@@ -100,10 +100,37 @@ bool AST::Visitor::Visit(ConstantExpr<float> & expr)
 
 ///////////////////////////////////////////////////////////
 
+struct FindGlobalVars
+{
+  FindGlobalVars(CodeGenerator::VarDefExprMap & vars)
+    : m_vars(vars)
+  { }
+
+  bool operator()(Expr & expr)
+  {
+    VariableDefExpr * varDef = dynamic_cast<VariableDefExpr *>(&expr);
+    if ((varDef != nullptr) && varDef->m_global && (m_vars.count(varDef->m_variable.m_name) == 0))
+      m_vars[varDef->m_variable.m_name] = varDef;
+    return true;
+  }
+
+  CodeGenerator::VarDefExprMap & m_vars;    
+};
+
 CodeGenerator::CodeGenerator(const std::string & genType, SourceFileExprList & tree)
   : Visitor(tree)
   , m_genType(genType)
-{ }
+{ 
+  // find const strings
+  for (auto & r : g_stringConstants) {
+    std::string tempName(GetTempName("const_string"));
+    m_constStrings[r] = tempName;
+  }
+
+  // find global vars
+  FindGlobalVars fn(m_globalVars);
+  Traverse<FindGlobalVars>(tree, fn);
+}
 
 std::string CodeGenerator::GetTempName(const std::string & prefix)
 {
@@ -111,14 +138,3 @@ std::string CodeGenerator::GetTempName(const std::string & prefix)
   strm << prefix << "_" << m_tempCounter++;
   return strm.str();
 }
-
-bool CodeGenerator::FindConstStrings()
-{ 
-  for (auto & r : g_stringConstants) {
-    std::string tempName(GetTempName("const_string"));
-    m_constStrings[r] = tempName;
-  }
-  return true;
-}
-
-

@@ -387,8 +387,6 @@ class CodeGenerator : public AST::Visitor
     // close generator
     virtual bool Close() = 0;
 
-    bool FindConstStrings();
-    
     template <class Fn>
     bool Traverse(AST::ExprList & list, Fn & fn)
     {
@@ -404,9 +402,12 @@ class CodeGenerator : public AST::Visitor
 
     std::string GetTempName(const std::string & prefix);
 
+    typedef std::map<std::string, AST::VariableDefExpr *> VarDefExprMap;
+
     std::string m_genType;
     unsigned m_tempCounter = 1;
-    std::map<std::string, std::string> m_constStrings;    
+    std::map<std::string, std::string> m_constStrings;
+    VarDefExprMap m_globalVars;    
 };
 
 #include "cg_cxx.h"
