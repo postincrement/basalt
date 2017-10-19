@@ -62,6 +62,7 @@ class CodegenLLVM : public CodeGenerator
     llvm::BasicBlock * m_mainBlock;
 
     std::map<std::string, llvm::Value *> m_constStringValues;
+    std::map<std::string, llvm::Value *> m_globalVarValues;
 };
   
 #endif // CG_LLVM_H_

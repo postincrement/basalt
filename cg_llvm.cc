@@ -106,7 +106,7 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
             /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
             /*Initializer=*/ 0, // has initializer, specified below
             /*Name=*/        var.m_normalizedName);
-          //gvar->setAlignment(2);
+          gvar->setAlignment(4);
           break;
         case Variable::eDouble:
           gvar = new llvm::GlobalVariable(
@@ -118,21 +118,12 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
             /*Name=*/        var.m_normalizedName);
           //gvar->setAlignment(2);
           break;
-      default:
+        default:
           InternalError("unsupported global variable type " << var.m_type); 
       }
+      m_globalVarValues[var.m_normalizedName] = gvar;
     }
   }
-
-#if 0 
-    GlobalVariable* gvar_int16_v = new GlobalVariable(/*Module=*/*mod,
-      /*Type=*/IntegerType::get(mod->getContext(), 16),
-      /*isConstant=*/false,
-      /*Linkage=*/GlobalValue::CommonLinkage,
-      /*Initializer=*/0, // has initializer, specified below
-      /*Name=*/"v");
-      gvar_int16_v->setAlignment(2);
-#endif
 
   // declare runtime init function
   CreateBIFCall("init");
@@ -212,7 +203,7 @@ void CodegenLLVM::VCreateFunctionCall(
     std::vector<std::string> tokens;
     Tokenize(tokens, argStr, ',');
     for (auto & r : tokens) {
-      cout << " token = " << r << endl;
+      cout << " token = '" << r << "'" << endl;
       llvm::Type * type;
       llvm::Value * val;
       if (r == "int16_t") { 
@@ -221,6 +212,14 @@ void CodegenLLVM::VCreateFunctionCall(
       }
       else if (r == "const char *") {
         type = llvm::Type::getInt8PtrTy(m_context)->getPointerTo();
+        val = va_arg(varg, llvm::Value *);
+      }
+      else if (r == "float") {
+        type = llvm::Type::getFloatTy(m_module->getContext()),
+        val = va_arg(varg, llvm::Value *);
+      }
+      else if (r == "double") {
+        type = llvm::Type::getDoubleTy(m_module->getContext()),
         val = va_arg(varg, llvm::Value *);
       }
       else
@@ -431,30 +430,29 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
         CreateBIFCall("print_string", value);
         return true;
       }
-    }
 
-#if 0
       // variable reference
       AST::VariableRefExpr * varRef = dynamic_cast<AST::VariableRefExpr *>(printExpr);
       if (varRef != nullptr) {
-        std::string func;
+        auto r = m_globalVarValues.find(varRef->m_variable.m_normalizedName);
+        if (r == m_globalVarValues.end())
+          InternalError("cannot find global variable def for '" << varRef->m_variable.m_name);
         switch (varRef->m_variable.m_type) {
           case Variable::eString:
-            CreateFunctionCall(nullptr, "basalt_print_string", "const char *", r->second);
+            CreateBIFCall("print_string", r->second);
             break;          
-            case Variable::eInt16:
-            func = "print_int16";
+          case Variable::eInt16:
+            CreateBIFCall("print_int16",  r->second);
             break;          
           case Variable::eSingle:
-            func = "print_single";
+            CreateBIFCall("print_single",  r->second);
             break;          
           case Variable::eDouble:
-            func = "print_double";
+            CreateBIFCall("print_double",  r->second);
             break;          
          case Variable::eUntyped:
             InternalError("unknown print variable type " << varRef->m_variable.m_type);
         }
-        //m_ostrm << "  basalt_" << func << "(" << varRef->m_variable.m_normalizedName << ");\n";
         return true;
       }
       
@@ -463,7 +461,6 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
         InternalError("unknown print expression type " << typeid(printExpr).name());
       }
     }  
-#endif
   } 
 
   else {
