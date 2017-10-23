@@ -8,3 +8,4 @@ basalt
 tmp/
 .vscode/settings.json
 startrek.zip
+libbasaltrt.a

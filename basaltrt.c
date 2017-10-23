@@ -5,7 +5,6 @@
 
 #define   STDOUT_FD     0
 
-
 static int g_tabLen       = 14;
 static int g_outputColumn = 0;
 

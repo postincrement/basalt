@@ -477,6 +477,7 @@ assign_expression:  var_ref '=' expression
                           $$ = nullptr;
                         else {  
                           $$ = new AST::ExprList();
+                          cout << "defined " << $1->m_variable.m_name << endl;
                           $$->push_back(new AST::VariableDefExpr($1->m_variable, $1->GetDim(), true));
                           $$->push_back(new AST::BinaryExpr('=', $1, $3));
                         }

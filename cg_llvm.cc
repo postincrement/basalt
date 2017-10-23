@@ -89,34 +89,46 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
         case Variable::eString:
           break;
         case Variable::eInt16:
-          gvar = new llvm::GlobalVariable(
-            /*Module=*/      *m_module.get(),
-            /*Type=*/        llvm::IntegerType::get(m_module->getContext(), 16),
-            /*isConstant=*/  false,
-            /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
-            /*Initializer=*/ 0, // has initializer, specified below
-            /*Name=*/        var.m_normalizedName);
-          gvar->setAlignment(2);
+          {
+            llvm::Type * type = llvm::IntegerType::get(m_module->getContext(), 16);
+            gvar = new llvm::GlobalVariable(
+              /*Module=*/      *m_module.get(),
+              /*Type=*/        type,
+              /*isConstant=*/  false,
+              /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
+              /*Initializer=*/ 0, // has initializer, specified below
+              /*Name=*/        var.m_normalizedName);
+            gvar->setAlignment(2);
+            gvar->setInitializer(llvm::ConstantFP::get(type, 0));
+          }
           break;
         case Variable::eSingle:
-          gvar = new llvm::GlobalVariable(
-            /*Module=*/      *m_module.get(),
-            /*Type=*/        llvm::Type::getFloatTy(m_module->getContext()),
-            /*isConstant=*/  false,
-            /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
-            /*Initializer=*/ 0, // has initializer, specified below
-            /*Name=*/        var.m_normalizedName);
-          gvar->setAlignment(4);
+          {
+            llvm::Type * type = llvm::Type::getFloatTy(m_module->getContext());
+            gvar = new llvm::GlobalVariable(
+              /*Module=*/      *m_module.get(),
+              /*Type=*/        type,
+              /*isConstant=*/  false,
+              /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
+              /*Initializer=*/ 0, // has initializer, specified below
+              /*Name=*/        var.m_normalizedName);
+            gvar->setAlignment(4);
+            gvar->setInitializer(llvm::ConstantFP::get(type, 0));
+          }
           break;
         case Variable::eDouble:
-          gvar = new llvm::GlobalVariable(
-            /*Module=*/      *m_module.get(),
-            /*Type=*/        llvm::Type::getDoubleTy(m_module->getContext()),
-            /*isConstant=*/  false,
-            /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
-            /*Initializer=*/ 0, // has initializer, specified below
-            /*Name=*/        var.m_normalizedName);
-          //gvar->setAlignment(2);
+          {
+            llvm::Type * type = llvm::Type::getDoubleTy(m_module->getContext());
+            gvar = new llvm::GlobalVariable(
+              /*Module=*/      *m_module.get(),
+              /*Type=*/        type,
+              /*isConstant=*/  false,
+              /*Linkage=*/     llvm::GlobalValue::CommonLinkage,
+              /*Initializer=*/ 0, // has initializer, specified below
+              /*Name=*/        var.m_normalizedName);
+            gvar->setAlignment(8);
+            gvar->setInitializer(llvm::ConstantFP::get(type, 0));
+          }
           break;
         default:
           InternalError("unsupported global variable type " << var.m_type); 
@@ -219,8 +231,11 @@ void CodegenLLVM::VCreateFunctionCall(
         val = va_arg(varg, llvm::Value *);
       }
       else if (r == "double") {
+        llvm::Value * var = va_arg(varg, llvm::Value *);
+        llvm::LoadInst * loadInst = new llvm::LoadInst(var, "", false, m_mainBlock);
+        loadInst->setAlignment(8);
         type = llvm::Type::getDoubleTy(m_module->getContext()),
-        val = va_arg(varg, llvm::Value *);
+        val = loadInst;
       }
       else
         InternalError("unknown argument type '" << r << "'");
@@ -231,8 +246,7 @@ void CodegenLLVM::VCreateFunctionCall(
 
   // create function call
   llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
-  //llvm::FunctionType * funcType = llvm::FunctionType::get(returnType, argsRef, false);
-  llvm::Constant     * func     = m_module->getOrInsertFunction(name, returnType);  
+  llvm::Constant * func = m_module->getOrInsertFunction(name, returnType);  
   m_builder.CreateCall(func, args);
 }
 
@@ -436,7 +450,7 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
       if (varRef != nullptr) {
         auto r = m_globalVarValues.find(varRef->m_variable.m_normalizedName);
         if (r == m_globalVarValues.end())
-          InternalError("cannot find global variable def for '" << varRef->m_variable.m_name);
+          InternalError("cannot find global variable def for '" << varRef->m_variable.m_name << "'");
         switch (varRef->m_variable.m_type) {
           case Variable::eString:
             CreateBIFCall("print_string", r->second);
