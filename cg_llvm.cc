@@ -215,7 +215,6 @@ void CodegenLLVM::VCreateFunctionCall(
     std::vector<std::string> tokens;
     Tokenize(tokens, argStr, ',');
     for (auto & r : tokens) {
-      cout << " token = '" << r << "'" << endl;
       llvm::Type * type;
       llvm::Value * val;
       if (r == "int16_t") { 
@@ -414,9 +413,12 @@ bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
   return LLVMError(expr);
 }
 
-///////////////////////////////////////////////////////////////////////
-
 bool CodegenLLVM::Visit(ConstantExpr<short int> & expr)
+{
+  return LLVMError(expr);
+}
+
+bool CodegenLLVM::Visit(ConstantExpr<double> & expr)
 {
   return LLVMError(expr);
 }

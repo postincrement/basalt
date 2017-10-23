@@ -3,6 +3,7 @@
 #define CG_CXX_H_
 
 #include <fstream>
+#include <deque>
 
 #include "ast.h"
  
@@ -33,6 +34,16 @@ class CodegenCXX : public CodeGenerator
     std::ostream * m_ostrm;
     std::ofstream m_outputFile;
 
+    struct ValueDef {
+      ValueDef(const std::string & name, Variable::Type type)
+        : m_name(name)
+        , m_type(type)
+      { }
+      std::string m_name;
+      Variable::Type m_type;
+    };
+
+    std::deque<ValueDef> m_valueStack;
 };
   
 #endif // CG_CXX_H_

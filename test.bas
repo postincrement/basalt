@@ -1,8 +1,10 @@
 10 print "hello, world"
 11 print "hello, world"
 12 a$="hello, world"
-15 a$=a$+"fred"
-16 let a=a+1
+13 let a=1
+15 let a=1+1
+17 let a=a+1
+19 a$=a$+"fred"
 20 a=42
 30 b=3 + 2 * a
 31 c(1) = 123

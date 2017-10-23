@@ -98,6 +98,11 @@ bool AST::Visitor::Visit(ConstantExpr<float> & expr)
   return VisitError(expr);
 }
 
+bool AST::Visitor::Visit(ConstantExpr<double> & expr)
+{
+  return VisitError(expr);
+}
+
 ///////////////////////////////////////////////////////////
 
 struct FindGlobalVars

@@ -33,6 +33,7 @@ virtual bool Visit(AST::UnaryExpr & expr); \
 virtual bool Visit(AST::ConstantStringExpr & expr); \
 virtual bool Visit(AST::ConstantInt16Expr & expr); \
 virtual bool Visit(AST::ConstantSingleExpr & expr); \
+virtual bool Visit(AST::ConstantDoubleExpr & expr); \
 \
 virtual bool Visit(AST::BIFExpr & expr); \
 virtual bool Visit(AST::CallExpr & expr); \
@@ -59,7 +60,8 @@ namespace AST {
   typedef ConstantExpr<std::string> ConstantStringExpr;  
   typedef ConstantExpr<int16_t> ConstantInt16Expr;
   typedef ConstantExpr<float> ConstantSingleExpr;
-
+  typedef ConstantExpr<double> ConstantDoubleExpr;
+  
   class BIFExpr;
   class CallExpr;
   

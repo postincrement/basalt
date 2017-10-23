@@ -193,21 +193,81 @@ bool CodegenCXX::Visit(VariableDefExpr & expr)
 
 bool CodegenCXX::Visit(VariableRefExpr & expr)
 {
-  *m_ostrm << "  // reference to " << expr.m_variable.m_name << endl;
+  ValueDef def(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
+  m_valueStack.push_back(def);
   return true;
 }
 
 bool CodegenCXX::Visit(BinaryExpr & expr)
 {
   if (expr.m_op == '=') {
+
+    // LHS must be a variable ref
+    AST::VariableRefExpr * lhRef = nullptr;    
     if (expr.m_lhs != nullptr) {
-      expr.m_lhs->Generate(*this);
+      lhRef = dynamic_cast<AST::VariableRefExpr *>(expr.m_lhs);
+      if (lhRef == nullptr)
+        InternalError("LHS of assignment is not variable ref (" << typeid(lhRef).name());
     }
 
+    // evaluate RHS as expression
+    if (expr.m_rhs == nullptr)
+      InternalError("RHS of assignment missing");
+    expr.m_rhs->Generate(*this);
+    if (m_valueStack.size() == 0)
+      InternalError("RHS of binary expression did not evaluate");
+    
+    *m_ostrm << "  " << lhRef->m_variable.m_normalizedName << " = " << m_valueStack.back().m_name << ";\n";
+    m_valueStack.pop_back(); 
+      
     return true;
   }
 
-  return CXXError(expr);
+  if (expr.m_lhs == nullptr)
+    InternalError("LHS of binary expression '" << expr.m_op << "' not defined");
+  if (expr.m_rhs == nullptr)
+    InternalError("RHS of binary expression '" << expr.m_op << "' not defined");
+
+  expr.m_rhs->Generate(*this);
+  expr.m_lhs->Generate(*this);
+  
+  if (m_valueStack.size() != 2)
+    InternalError("binary expression did not evaluate to two value");
+
+  ValueDef lhs = m_valueStack.back();
+  m_valueStack.pop_back(); 
+  ValueDef rhs = m_valueStack.back();  
+  m_valueStack.pop_back();
+  
+  Variable::Type lhType = lhs.m_type;
+  Variable::Type rhType = rhs.m_type;
+
+  bool sameType = (lhType == rhType);
+
+  std::string temp = "temp";
+
+  std::string op;
+  
+  switch (expr.m_op) {
+    case '+':
+    case '-':
+    case '*':
+    case '/':
+    op = expr.m_op;
+      break;
+    default:
+      InternalError("RHS of binary expression '" << expr.m_op << "' did not evaluate");
+      return CXXError(expr);
+  }
+
+  if (sameType) {
+    *m_ostrm << "  " << temp << " = " << lhs.m_name << " " << op << " " << rhs.m_name << ";\n"; 
+  }
+
+  ValueDef def(temp, lhType);
+  m_valueStack.push_back(def);
+  
+  return true;
 }
 
 bool CodegenCXX::Visit(UnaryExpr & expr)
@@ -219,7 +279,14 @@ bool CodegenCXX::Visit(UnaryExpr & expr)
 
 bool CodegenCXX::Visit(ConstantStringExpr & expr)
 {
-  // string constants handled elsewhere
+  auto r = m_constStrings.find(expr.m_value);
+  if (r == m_constStrings.end()) {
+    InternalError("cannot find constant string def for '" << expr.m_value << "'");
+  }
+
+  ValueDef val(r->second, Variable::Type::eString);
+  m_valueStack.push_back(val);
+
   return true;
 }
 
@@ -227,12 +294,29 @@ bool CodegenCXX::Visit(ConstantStringExpr & expr)
 
 bool CodegenCXX::Visit(ConstantExpr<short int> & expr)
 {
-  return CXXError(expr);
+  std::stringstream strm;
+  strm << expr.m_value;
+  ValueDef val(strm.str(), Variable::Type::eInt16);
+  m_valueStack.push_back(val);
+  return true;
 }
 
 bool CodegenCXX::Visit(ConstantExpr<float> & expr)
 {
-  return CXXError(expr);
+  std::stringstream strm;
+  strm << expr.m_value << "f";
+  ValueDef val(strm.str(), Variable::Type::eSingle);
+  m_valueStack.push_back(val);
+  return true;
+}
+
+bool CodegenCXX::Visit(ConstantExpr<double> & expr)
+{
+  std::stringstream strm;
+  strm << expr.m_value << "lf";
+  ValueDef val(strm.str(), Variable::Type::eDouble);
+  m_valueStack.push_back(val);
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////
