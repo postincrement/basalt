@@ -62,7 +62,10 @@ enum WarningCode {
   eWarning_PrintUsingQuestionMark = eWarning_Syntax,
   eWarning_RemUsingQuote,
   eWarning_MixedExpression,
-
+  eWarning_CannotEvaluate,
+  eWarning_CannotAssignString,
+  eWarning_UnsupportedStringOp,
+  
   // LLVM code generation warning
   eWarning_LLVM                  = 0x2000, 
   eWarning_UnknownLLVMBIF        = eWarning_LLVM,

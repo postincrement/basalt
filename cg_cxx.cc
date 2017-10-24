@@ -50,8 +50,11 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
     cout << "info: outputting to '" << m_srcFilename << "'" << endl;
   }
 
-  *m_ostrm << "#include <inttypes.h>\n\n";
-
+  *m_ostrm << "#include <inttypes.h>\n"
+           << "#include <stdlib.h>\n"
+           << "#include <string.h>\n"
+           << "\n";
+           
   RuntimeFunctionDef * rtDef = g_runtimeDefs;
   std::stringstream strm;
   if (m_genType != "c") 
@@ -231,6 +234,15 @@ bool CodegenCXX::Visit(VariableRefExpr & expr)
   return true;
 }
 
+void CodegenCXX::AssignString(const std::string & indent, const std::string & lhs, const std::string & rhs)
+{
+  *m_ostrm << indent << "if (" << lhs << " != 0L)\n"
+           << indent << "  free(" << lhs << ");\n"
+           << indent << lhs << " = strdup(" << rhs << ");"
+           << "\n";
+}
+
+
 bool CodegenCXX::Visit(BinaryExpr & expr)
 {
   if (expr.m_op == '=') {
@@ -247,12 +259,27 @@ bool CodegenCXX::Visit(BinaryExpr & expr)
     if (expr.m_rhs == nullptr)
       InternalError("RHS of assignment missing");
     expr.m_rhs->Generate(*this);
-    if (m_valueStack.size() == 0)
-      InternalError("RHS of binary expression did not evaluate");
-    
-    std::string indent = StartOutput();
-    *m_ostrm << indent << lhRef->m_variable.m_normalizedName << " = " << m_valueStack.back().m_name << ";\n";
-    m_valueStack.pop_back(); 
+    if (m_valueStack.size() == 0) {
+      SourceWarning(eWarning_CannotEvaluate, "RHS of binary expression did not evaluate");
+      return true;
+    }
+
+    ValueDef rhs = m_valueStack.back();  
+    m_valueStack.pop_back();
+
+    // strings need to be handled differently
+    if (rhs.m_type == Variable::eString) {
+      if (lhRef->m_variable.m_type != Variable::eString)
+        SourceWarning(eWarning_CannotAssignString, "cannot assign string to non-string");
+      else {
+        std::string indent = StartOutput();
+        AssignString(indent, lhRef->m_variable.m_normalizedName, rhs.m_name);
+      }
+    }
+    else {
+      std::string indent = StartOutput();
+      *m_ostrm << indent << lhRef->m_variable.m_normalizedName << " = " << rhs.m_name << ";\n";
+    }
       
     return true;
   }
@@ -280,10 +307,31 @@ bool CodegenCXX::Visit(BinaryExpr & expr)
   if (!sameType)
     SourceWarning(eWarning_MixedExpression, "not yet supporting mixed type expressions");
 
-  std::string tempName = GetTempName("temp");
+  // handle string binary ops  
+  if (lhType == Variable::eString) {
+    switch (expr.m_op) {
+      case '+':
+        {
+          std::string tempName(GetTempName("temp"));
+          std::string indent = StartOutput();
+          *m_ostrm << indent << "char * " << tempName << " = malloc(1 + strlen(" << lhs.m_name << ") + strlen(" << rhs.m_name << "));\n"
+                   << indent << "strcpy(" << tempName << ", " << lhs.m_name << ");\n"   
+                   << indent << "strcat(" << tempName << ", " << rhs.m_name << ");\n"
+                   ;
+          ValueDef def(tempName, Variable::eString);
+          m_valueStack.push_back(def);
+        }
+        break;
+      default:
+        SourceWarning(eWarning_UnsupportedStringOp, "unsupported string op '" << (int)expr.m_op << "'");
+    }
 
+    return true;
+  }  
+
+  // handle scalar binary ops  
+  std::string tempName(GetTempName("temp"));
   std::string op;
-  
   switch (expr.m_op) {
     case '+':
     case '-':

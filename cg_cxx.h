@@ -31,7 +31,8 @@ class CodegenCXX : public CodeGenerator
       va_list varg);
 
     std::string StartOutput(); 
-          
+    void AssignString(const std::string & indent, const std::string & lhs, const std::string & rhs);
+    
     Filename m_srcFilename;
     std::ostream * m_ostrm;
     std::ofstream m_outputFile;

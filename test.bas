@@ -6,9 +6,10 @@
 17 let a=a+1
 19 a$=a$+"fred"
 20 a=42
-25 a=A$ + 1
+25 rem a=A$ + 1
 30 b=3 + 2 * a
-31 c(1) = 123
+31 rem c(1) = 123
 40 rem print "string is " ; a$
+41 print a$
 50 print "var is " , b ;
 60 if b < 42 then a=a+1
