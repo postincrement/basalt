@@ -86,9 +86,39 @@ bool CodegenCXX::Close()
 
 ///////////////////////////////////////////////////////////
 
+static std::string CTypeForVarType(Variable::Type type)
+{
+  switch (type) {
+    case Variable::eString:
+      return "char *";
+    case Variable::eInt16:
+      return "uin16_t";
+    case Variable::eSingle:
+      return "float";
+    case Variable::eDouble:
+      return "double";
+    default:
+      InternalError("Cannot create temp for variable type " << (int)type);  
+  }
+  return "";
+}
+
+std::string CodegenCXX::StartOutput()
+{
+  if (m_firstLine)
+    *m_ostrm << "  {\n";
+  m_firstLine = false;  
+  return "    ";  
+}
+
 bool CodegenCXX::Visit(LineMarkerExpr & expr)
 {
-  *m_ostrm << "  // " << expr.m_lineNumber << ": " << expr.m_line << endl;
+  if (!m_firstLine) {
+    *m_ostrm << "  }\n";
+  }
+  m_firstLine = true;
+  *m_ostrm << "  // " << expr.m_lineNumber << ": " << expr.m_line << "\n";
+  m_currentLineMarkerExpr = &expr;
   return true;
 }
 
@@ -165,6 +195,9 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
              "  basalt_init();\n"
              ;
 
+  m_firstLine = true; 
+  m_currentLineMarkerExpr = nullptr;          
+
   // output code
   for (auto & r : expr) {
     if (r != nullptr)
@@ -217,7 +250,8 @@ bool CodegenCXX::Visit(BinaryExpr & expr)
     if (m_valueStack.size() == 0)
       InternalError("RHS of binary expression did not evaluate");
     
-    *m_ostrm << "  " << lhRef->m_variable.m_normalizedName << " = " << m_valueStack.back().m_name << ";\n";
+    std::string indent = StartOutput();
+    *m_ostrm << indent << lhRef->m_variable.m_normalizedName << " = " << m_valueStack.back().m_name << ";\n";
     m_valueStack.pop_back(); 
       
     return true;
@@ -243,8 +277,10 @@ bool CodegenCXX::Visit(BinaryExpr & expr)
   Variable::Type rhType = rhs.m_type;
 
   bool sameType = (lhType == rhType);
+  if (!sameType)
+    SourceWarning(eWarning_MixedExpression, "not yet supporting mixed type expressions");
 
-  std::string temp = "temp";
+  std::string tempName = GetTempName("temp");
 
   std::string op;
   
@@ -261,10 +297,11 @@ bool CodegenCXX::Visit(BinaryExpr & expr)
   }
 
   if (sameType) {
-    *m_ostrm << "  " << temp << " = " << lhs.m_name << " " << op << " " << rhs.m_name << ";\n"; 
+    std::string indent = StartOutput();    
+    *m_ostrm << indent << CTypeForVarType(lhType) << " " << tempName << " = " << lhs.m_name << " " << op << " " << rhs.m_name << ";\n"; 
   }
 
-  ValueDef def(temp, lhType);
+  ValueDef def(tempName, lhType);
   m_valueStack.push_back(def);
   
   return true;
@@ -304,7 +341,11 @@ bool CodegenCXX::Visit(ConstantExpr<short int> & expr)
 bool CodegenCXX::Visit(ConstantExpr<float> & expr)
 {
   std::stringstream strm;
-  strm << expr.m_value << "f";
+  strm << expr.m_value;
+  if (strm.str().find('.') == std::string::npos)
+    strm << ".";
+  strm << "f";
+
   ValueDef val(strm.str(), Variable::Type::eSingle);
   m_valueStack.push_back(val);
   return true;
@@ -313,7 +354,11 @@ bool CodegenCXX::Visit(ConstantExpr<float> & expr)
 bool CodegenCXX::Visit(ConstantExpr<double> & expr)
 {
   std::stringstream strm;
-  strm << expr.m_value << "lf";
+  strm << expr.m_value;
+  if (strm.str().find('.') == std::string::npos)
+    strm << ".";
+  strm << "f";
+    
   ValueDef val(strm.str(), Variable::Type::eDouble);
   m_valueStack.push_back(val);
   return true;
@@ -327,7 +372,8 @@ void CodegenCXX::VCreateFunctionCall(
   const char * argsStr_,
   va_list varg)
 {
-  *m_ostrm << "  " << name << "(";
+  std::string indent = StartOutput();  
+  *m_ostrm << indent << name << "(";
   if (argsStr_ != nullptr) {    
     std::string argStr(argsStr_);
     std::vector<std::string> tokens;

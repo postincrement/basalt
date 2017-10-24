@@ -29,10 +29,14 @@ class CodegenCXX : public CodeGenerator
       const char * name,
       const char * argsStr_,
       va_list varg);
+
+    std::string StartOutput(); 
           
     Filename m_srcFilename;
     std::ostream * m_ostrm;
     std::ofstream m_outputFile;
+    bool m_firstLine = true;
+    AST::LineMarkerExpr * m_currentLineMarkerExpr = nullptr;
 
     struct ValueDef {
       ValueDef(const std::string & name, Variable::Type type)

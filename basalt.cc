@@ -74,7 +74,7 @@ void InternalErrorFunc(const char * fn, unsigned ln, const std::string & str)
 void SourceWarningFunc(WarningCode code, unsigned line, const std::string & marker, const std::string & str)
 {
   std::stringstream strm;
-  strm << "warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
+  strm << "line " << line << ": warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
   cerr << strm.str();
 }
 

@@ -6,6 +6,7 @@
 17 let a=a+1
 19 a$=a$+"fred"
 20 a=42
+25 a=A$ + 1
 30 b=3 + 2 * a
 31 c(1) = 123
 40 rem print "string is " ; a$

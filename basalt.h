@@ -55,10 +55,13 @@ do { std::stringstream strm; strm << expr; InternalErrorFunc(__FILE__, __LINE__,
 
 enum WarningCode {
 
+  eWarning_Unknown                = 0x0000,
+
   // syntax warnings
   eWarning_Syntax                 = 0x1000, 
   eWarning_PrintUsingQuestionMark = eWarning_Syntax,
   eWarning_RemUsingQuote,
+  eWarning_MixedExpression,
 
   // LLVM code generation warning
   eWarning_LLVM                  = 0x2000, 
@@ -71,7 +74,12 @@ enum WarningCode {
 
 extern void SourceWarningFunc(WarningCode code, unsigned line, const std::string & marker, const std::string & str);
 #define SourceWarning(code, expr) \
-do { std::stringstream strm; strm << expr; SourceWarningFunc(code, line, marker, strm.str()); } while (0)
+do { std::stringstream strm; strm << expr; \
+     if (m_currentLineMarkerExpr == nullptr) \
+       SourceWarningFunc(code, 0, "unknown", strm.str()); \
+     else \
+       SourceWarningFunc(code, m_currentLineMarkerExpr->m_lineNumber, m_currentLineMarkerExpr->m_marker, strm.str()); \
+    } while (0)
 
 extern void WarningFunc(WarningCode code, const std::string & str);
 #define Warning(code, expr) \
