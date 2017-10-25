@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <deque>
+#include <set>
 
 #include "ast.h"
  
@@ -49,6 +50,7 @@ class CodegenCXX : public CodeGenerator
     };
 
     std::deque<ValueDef> m_valueStack;
-};
+    std::set<std::string> m_cleanupList;
+  };
   
 #endif // CG_CXX_H_

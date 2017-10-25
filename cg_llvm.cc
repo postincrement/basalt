@@ -72,7 +72,7 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   func_main->setAttributes(func_main_PAL);
 
   // create top level block
-  m_mainBlock = llvm::BasicBlock::Create(m_context, "", func_main, 0);  
+  m_mainBlock = llvm::BasicBlock::Create(m_context, "main", func_main, 0);  
   m_builder.SetInsertPoint(m_mainBlock);   
 
   // output global string definitions

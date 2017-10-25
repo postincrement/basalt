@@ -4,7 +4,7 @@
 13 let a=1
 15 let a=1+1
 17 let a=a+1
-19 a$=a$+"fred"
+19 a$=a$+"fred"+"george"
 20 a=42
 25 rem a=A$ + 1
 30 b=3 + 2 * a
