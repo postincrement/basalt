@@ -1,7 +1,8 @@
 10 print "hello, world"
 11 print "hello, world"
-12 a$="hello, world"
-13 let a=1
+12 goto 19
+13 a$="hello, world"
+14 let a=1
 15 let a=1+1
 17 let a=a+1
 19 a$=a$+"fred"+"george"

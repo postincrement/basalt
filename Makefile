@@ -31,3 +31,6 @@ mbasic.lex.cpp: mbasic.l
 
 mbasic.tab.cpp mbasic.tab.hpp: mbasic.ypp
 	$(BISON) -v -d mbasic.ypp	
+
+test: test.c
+	cc -o test test.c -g -L. -lbasaltrt

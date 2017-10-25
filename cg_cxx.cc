@@ -52,6 +52,7 @@ bool CodegenCXX::Open(const std::string & inputFilename, int argc, const char **
 
   *m_ostrm << "#include <inttypes.h>\n"
            << "#include <stdlib.h>\n"
+           << "#include <stdbool.h>\n"
            << "#include <string.h>\n"
            << "\n";
            
@@ -106,6 +107,13 @@ static std::string CTypeForVarType(Variable::Type type)
   return "";
 }
 
+std::string CreateGotoTarget(const std::string & marker)
+{
+  std::stringstream strm;
+  strm << "line_" << marker;
+  return strm.str();
+}
+
 std::string CodegenCXX::StartOutput()
 {
   if (m_firstLine)
@@ -116,12 +124,24 @@ std::string CodegenCXX::StartOutput()
 
 bool CodegenCXX::Visit(LineMarkerExpr & expr)
 {
+  if (m_cleanupList.size() > 0) {
+    std::string indent = StartOutput();
+    for (auto & r : m_cleanupList)
+      *m_ostrm << indent << "free(" << r << ");\n";
+    m_cleanupList.clear();  
+  }
   if (!m_firstLine) {
     *m_ostrm << "  }\n";
   }
+
   m_firstLine = true;
   *m_ostrm << "  // " << expr.m_lineNumber << ": " << expr.m_line << "\n";
   m_currentLineMarkerExpr = &expr;
+
+  if (g_gotoTargets.count(expr.m_marker) > 0) {
+    *m_ostrm << CreateGotoTarget(expr.m_marker) << ":\n";
+  }
+  
   return true;
 }
 
@@ -238,10 +258,45 @@ void CodegenCXX::AssignString(const std::string & indent, const std::string & lh
 {
   *m_ostrm << indent << "if (" << lhs << " != 0L)\n"
            << indent << "  free(" << lhs << ");\n"
-           << indent << lhs << " = strdup(" << rhs << ");"
-           << "\n";
+           << indent << "if (" << rhs << " != 0L)\n"
+           ;
+           
+  if (m_cleanupList.count(rhs) != 0) {
+    *m_ostrm << indent << "  " << lhs << " = " << rhs << ";"
+             << "\n";
+    m_cleanupList.erase(rhs);         
+  }
+  else {
+    *m_ostrm << indent << "  " << lhs << " = strdup(" << rhs << ");"
+          << "\n";
+  }
+  *m_ostrm << indent << "else\n"
+           << indent << "  " << lhs << " = 0L;\n"
+           ;
 }
 
+void CodegenCXX::JoinStrings(const std::string & indent, const std::string & lhs, const std::string & rhs)
+{
+  std::string tempName(GetTempName("temp"));  
+  *m_ostrm << indent << "char * " << tempName << " = 0L;\n"
+           << indent << "{\n"
+           << indent << "  bool l = " << lhs << " != 0L;\n"
+           << indent << "  bool r = " << rhs << " != 0L;\n"
+           << indent << "  if (l & r) {\n"
+           << indent << "    " << tempName << " = malloc(1 + strlen(" << lhs << ") + strlen(" << rhs << "));\n"
+           << indent << "    strcpy(" << tempName << ", " << lhs << ");\n"   
+           << indent << "    strcat(" << tempName << ", " << rhs << ");\n"
+           << indent << "  }\n"
+           << indent << "  else if (l) \n"
+           << indent << "    " << tempName << " = strdup(" << lhs << ");\n"
+           << indent << "  else if (r)\n"
+           << indent << "    " << tempName << " = strdup(" << rhs << ");\n"
+           << indent << "};\n"
+           ;
+  ValueDef def(tempName, Variable::eString);
+  m_valueStack.push_back(def);
+  m_cleanupList.insert(tempName);
+}
 
 bool CodegenCXX::Visit(BinaryExpr & expr)
 {
@@ -311,16 +366,7 @@ bool CodegenCXX::Visit(BinaryExpr & expr)
   if (lhType == Variable::eString) {
     switch (expr.m_op) {
       case '+':
-        {
-          std::string tempName(GetTempName("temp"));
-          std::string indent = StartOutput();
-          *m_ostrm << indent << "char * " << tempName << " = malloc(1 + strlen(" << lhs.m_name << ") + strlen(" << rhs.m_name << "));\n"
-                   << indent << "strcpy(" << tempName << ", " << lhs.m_name << ");\n"   
-                   << indent << "strcat(" << tempName << ", " << rhs.m_name << ");\n"
-                   ;
-          ValueDef def(tempName, Variable::eString);
-          m_valueStack.push_back(def);
-        }
+        JoinStrings(StartOutput(), lhs.m_name, rhs.m_name);
         break;
       default:
         SourceWarning(eWarning_UnsupportedStringOp, "unsupported string op '" << (int)expr.m_op << "'");
@@ -337,7 +383,7 @@ bool CodegenCXX::Visit(BinaryExpr & expr)
     case '-':
     case '*':
     case '/':
-    op = expr.m_op;
+      op = expr.m_op;
       break;
     default:
       InternalError("RHS of binary expression '" << expr.m_op << "' did not evaluate");
@@ -530,5 +576,13 @@ bool CodegenCXX::Visit(CallExpr & expr)
 {
   return CXXError(expr);
 }
+
+bool CodegenCXX::Visit(GotoExpr & expr)
+{
+  std::string indent = StartOutput();
+  *m_ostrm << "goto " << CreateGotoTarget(expr.m_marker) << ";\n";
+  return true;
+}
+
 
 ///////////////////////////////////////////////////////////////////////

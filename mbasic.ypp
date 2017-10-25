@@ -122,6 +122,8 @@ extern void MBASIC_SetRemMode();
 
 %type <exprlist>    FOR_statement
 
+%type <exprlist>    GOTO_statement
+
 %type <exprlist>    PRINT_statement print_expression_list 
 %type <expr>        print_expression
 
@@ -183,12 +185,9 @@ opt_line_number: /* empty */
 
 line_number:    integer
                     {
-                      // extract line number literal string
-                      std::string & line = g_application.m_line;
-                      size_t i;
-                      for (i = 0; i < line.length() && !isspace(line[i]); ++i)
-                        ;
-                      $$ = new std::string(line.substr(0, i));
+                      std::stringstream strm;
+                      strm << $1;
+                      $$ = new std::string(strm.str());
                     }
                  ; 
 
@@ -251,7 +250,7 @@ statement:     CLEAR_statement
                   }
                | GOTO_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | GOSUB_statement
                   {
@@ -416,6 +415,10 @@ RETURN_statement:  RETURN_TOKEN
  *********************************************************/ 
               
 GOTO_statement: GOTO_TOKEN line_number
+                  {
+                    g_gotoTargets.insert(*$2);
+                    $$ = new AST::ExprList(new AST::GotoExpr(*$2));
+                  }
                 ;
 
 /*********************************************************

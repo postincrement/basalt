@@ -491,5 +491,11 @@ bool CodegenLLVM::Visit(CallExpr & expr)
   return LLVMError(expr);
 }
 
+bool CodegenLLVM::Visit(GotoExpr & expr)
+{
+  return LLVMError(expr);
+}
+
+
 ///////////////////////////////////////////////////////////////////////
 
