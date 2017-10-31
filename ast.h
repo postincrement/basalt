@@ -24,20 +24,24 @@ DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
 virtual bool Visit(AST::Expr & expr); \
 virtual bool Visit(AST::ExprList & expr); \
 virtual bool Visit(AST::SourceFileExprList & expr); \
-virtual bool Visit(AST::VariableDefExpr & expr); \
 virtual bool Visit(AST::VariableRefExpr & expr); \
-virtual bool Visit(AST::BinaryExpr & expr); \
 \
 virtual bool Visit(AST::UnaryExpr & expr); \
 \
-virtual bool Visit(AST::ConstantStringExpr & expr); \
 virtual bool Visit(AST::ConstantInt16Expr & expr); \
 virtual bool Visit(AST::ConstantSingleExpr & expr); \
 virtual bool Visit(AST::ConstantDoubleExpr & expr); \
 \
-virtual bool Visit(AST::BIFExpr & expr); \
 virtual bool Visit(AST::CallExpr & expr); \
-virtual bool Visit(AST::LineMarkerExpr & expr) \
+virtual bool Visit(AST::GotoExpr & expr) \
+\
+
+#define DECLARE_COMMON_EXPR_VISIT_FUNCTIONS() \
+virtual bool Visit(AST::LineMarkerExpr & expr); \
+virtual bool Visit(AST::ConstantStringExpr & expr); \
+virtual bool Visit(AST::VariableDefExpr & expr); \
+virtual bool Visit(AST::BinaryExpr & expr); \
+virtual bool Visit(AST::BIFExpr & expr) \
 
 namespace AST {
 
@@ -47,6 +51,7 @@ namespace AST {
   class ExprList;
   class SourceFileExprList;
   class LineMarkerExpr;
+  class GotoExpr;
   
   class VariableDefExpr;
   class ArrayVariableDefExpr;
@@ -77,6 +82,7 @@ namespace AST {
 
       // visit functions
       DECLARE_EXPR_VISIT_FUNCTIONS();
+      DECLARE_COMMON_EXPR_VISIT_FUNCTIONS();
       
       SourceFileExprList & m_tree;
     };
@@ -315,6 +321,24 @@ class BIFExpr : public Expr
     ExprList * m_args = nullptr;
 };
 
+//////////////////////////////////////////////////////////////////
+//
+//  GotoExpr
+//
+
+class GotoExpr : public Expr
+{
+  public:
+    GotoExpr(const std::string & marker)
+      : m_marker(marker)
+    {       
+    }
+
+    IMPLEMENT_EXPR_VISITOR();
+
+    std::string m_marker;
+};
+
 
 //////////////////////////////////////////////////////////////////
 //
@@ -378,45 +402,13 @@ struct DoubleFloat
   double m_value;
 };
 
-class CodeGenerator : public AST::Visitor
-{
-  public:
-    CodeGenerator(const std::string & genType, AST::SourceFileExprList & tree);
-
-    // open generator
-    virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) = 0;
-
-    // close generator
-    virtual bool Close() = 0;
-
-    template <class Fn>
-    bool Traverse(AST::ExprList & list, Fn & fn)
-    {
-      for (auto & r : list) {
-        if (r != nullptr) {
-          if (!fn(*r))
-            return false;
-        }
-      }
-
-      return true;
-    }
-
-    std::string GetTempName(const std::string & prefix);
-
-    typedef std::map<std::string, AST::VariableDefExpr *> VarDefExprMap;
-
-    std::string m_genType;
-    unsigned m_tempCounter = 1;
-    std::map<std::string, std::string> m_constStrings;
-    VarDefExprMap m_globalVars;    
-};
-
+#include "codegen.h"
 #include "cg_cxx.h"
 #include "cg_llvm.h"
 
 extern AST::SourceFileExprList g_expressions;
 extern std::set<std::string> g_stringConstants;
+extern std::set<std::string> g_gotoTargets;
 extern AST::LineMarkerExpr * g_currentSourceFileMarker; 
 
 #endif // CODEGEN_H

@@ -148,6 +148,17 @@ struct RuntimeFunctionDef
   const char * m_args;
 };
 
+struct FunctionDef
+{
+  FunctionDef();
+  FunctionDef(const std::string & name);
+  FunctionDef(const RuntimeFunctionDef & def);
+
+  std::string m_returnType;
+  std::string m_name;
+  std::vector<std::string> m_args;
+};
+
 extern const char * g_runtimeDefPrefix;
 
 //////////////////////////////////////////////////////////////////

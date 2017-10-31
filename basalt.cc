@@ -16,6 +16,7 @@ int g_warningCount = 0;
 LanguageProfile * g_languageProfile = nullptr;
 AST::SourceFileExprList  g_expressions;
 std::set<std::string> g_stringConstants;
+std::set<std::string> g_gotoTargets;
 
 Basalt g_application;
 
@@ -37,7 +38,7 @@ ArgDef g_argDefs[] = {
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
-static Factory<CodeGenerator,   const std::string &, AST::SourceFileExprList &> g_codegeneratorFactory;
+static Factory<CodeGenerator,   const std::string &, const std::string, AST::SourceFileExprList &> g_codegeneratorFactory;
 static Factory<LanguageProfile> g_languageProfileFactory;
 
 const char * g_runtimeDefPrefix = "basalt_";
@@ -83,6 +84,26 @@ void WarningFunc(WarningCode code, const std::string & str)
   std::stringstream strm;
   strm << "warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
   cerr << strm.str();
+}
+
+FunctionDef::FunctionDef()
+{
+}
+
+FunctionDef::FunctionDef(const std::string & name)
+  : m_returnType("void")
+  , m_name(name)
+{
+}
+
+FunctionDef::FunctionDef(const RuntimeFunctionDef & def)
+  : m_returnType(def.m_returnType)
+  , m_name(def.m_name)
+{
+  if (def.m_args != nullptr) {    
+    std::string argStr(def.m_args);
+    Tokenize(m_args, argStr, ',');
+  }  
 }
 
 void Basalt::DecodeOpt(ArgDef * def, int & index, int argc, const char **argv)
@@ -272,21 +293,21 @@ int Basalt::Main(int argc, char const *argv[])
   }
 
   CodeGenerator * generator = 
-      g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_codeGeneratorName, g_expressions);
+      g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_codeGeneratorName, m_inputFilename, g_expressions);
 
   if (generator == nullptr) {
     cerr << "internal error: cannot instantiate generator with name '" << g_codeGeneratorName << "'" << endl;
     return -1;
   }
 
-  if (!generator->Open(m_inputFilename, argc, argv))
-    return -1;
-  
-  if (!g_expressions.Generate(*generator)) {
-    return -1;
-  }
+  if (
+      !generator->Open(argc, argv) ||
+      !g_expressions.Generate(*generator) ||
+      !generator->Close(g_outputFilename)
+     )
+     return -1;
 
-  return generator->Close() ? 0 : -1;
+  return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////

@@ -8,7 +8,7 @@ CXXFLAGS += -std=c++11 -g `llvm-config --cxxflags`
 BASALT_LDFLAGS  += -g `llvm-config --ldflags` 
 BASALT_LDLIBS   += `llvm-config --libs --system-libs all` 
 
-OBJS = basalt.o mbasic.lex.o mbasic.tab.o ast.o cg_cxx.o cg_llvm.o common.o
+OBJS = basalt.o mbasic.lex.o mbasic.tab.o ast.o cg_cxx.o cg_llvm.o common.o codegen.o
 
 all: basalt libbasaltrt.a
 

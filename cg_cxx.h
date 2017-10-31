@@ -11,17 +11,34 @@
 class CodegenCXX : public CodeGenerator
 {
   public:
-    CodegenCXX(const std::string & genType, AST::SourceFileExprList & tree); 
+    CodegenCXX(const std::string & genType, const std::string & inputFilename, AST::SourceFileExprList & tree); 
 
-    DECLARE_EXPR_VISIT_FUNCTIONS();      
-
+    DECLARE_EXPR_VISIT_FUNCTIONS();
+    
     // open generator
-    virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) override;
-    virtual bool Close();
+    virtual bool Open(int argc, const char ** argv) override;
+    virtual bool Close(const std::string & m_outputFilename);
+
+    void Output(std::ostream & strm);
     
     // generate code
     virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
     { return dispatcher.Generate(*this); }
+
+    struct CXXScope : public Scope
+    {
+      CXXScope(Scope * parent = nullptr)
+        : Scope(parent)
+      { }
+    };
+
+    virtual Scope * CreateScope(Scope * parent = nullptr) override
+    { return new CXXScope(parent); }
+
+    virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
+    virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
+    virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
+    virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) override;
 
     void CreateBIFCall(const std::string & name ...);
 
@@ -31,27 +48,15 @@ class CodegenCXX : public CodeGenerator
       const char * argsStr_,
       va_list varg);
 
-    std::string StartOutput(); 
-    void AssignString(const std::string & indent, const std::string & lhs, const std::string & rhs);
-    void JoinStrings(const std::string & indent, const std::string & lhs, const std::string & rhs);
-    
     Filename m_srcFilename;
-    std::ostream * m_ostrm;
     std::ofstream m_outputFile;
     bool m_firstLine = true;
-    AST::LineMarkerExpr * m_currentLineMarkerExpr = nullptr;
-
-    struct ValueDef {
-      ValueDef(const std::string & name, Variable::Type type)
-        : m_name(name)
-        , m_type(type)
-      { }
-      std::string m_name;
-      Variable::Type m_type;
-    };
-
-    std::deque<ValueDef> m_valueStack;
-    std::set<std::string> m_cleanupList;
+    
+    std::stringstream m_prefixStream;
+    std::stringstream m_constStringStrm;
+    std::stringstream m_externFuncStrm;
+    std::stringstream m_globalVarsStrm;
+    std::stringstream m_codeStrm;
   };
   
 #endif // CG_CXX_H_

@@ -21,19 +21,20 @@ static bool LLVMError(Expr & expr)
 
 //////////////////////////////////////////////////////////////////////////
 
-CodegenLLVM::CodegenLLVM(const std::string & genType, SourceFileExprList & tree)
-  : CodeGenerator(genType, tree)
+CodegenLLVM::CodegenLLVM(const std::string & genType, const std::string & inputFilename, SourceFileExprList & tree)
+  : CodeGenerator(genType, inputFilename, tree)
   , m_builder(m_context)
 { 
   m_module.reset(new llvm::Module("basalt", m_context));
 }
 
-bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char ** argv)
+bool CodegenLLVM::Open(int argc, const char ** argv)
 {
-  m_srcFilename = inputFilename;
+  if (!CodeGenerator::Open())
+    return false;
 
   // create output filename
-  Filename ifn(inputFilename);  
+  Filename ifn(m_inputFilename);  
   m_objectFilename = Filename(ifn.GetDir() + ifn.GetBasename() + ".o");
 
   // create function prototype for main
@@ -43,7 +44,6 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
        /*Params=*/   FuncTy_1_args,
        /*isVarArg=*/ false
       );  				
-      
       
   // create code for main  
   llvm::Function * func_main = llvm::Function::Create(
@@ -75,9 +75,10 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
   m_mainBlock = llvm::BasicBlock::Create(m_context, "main", func_main, 0);  
   m_builder.SetInsertPoint(m_mainBlock);   
 
+#if 0  
   // output global string definitions
   for (auto & r : m_constStrings)
-    m_constStringValues[r.first] = m_builder.CreateGlobalStringPtr(r.first, r.second);
+    m_constStringValues[r] = m_builder.CreateGlobalStringPtr(r, "");
 
   // look for global variable definitions
   {
@@ -136,6 +137,7 @@ bool CodegenLLVM::Open(const std::string & inputFilename, int argc, const char *
       m_globalVarValues[var.m_normalizedName] = gvar;
     }
   }
+#endif
 
   // declare runtime init function
   CreateBIFCall("init");
@@ -270,15 +272,13 @@ void CodegenLLVM::CreateBIFCall(const std::string & name ...)
   InternalError("unknown BIF '" << name << "'");
 }
 
-bool CodegenLLVM::Close()
+bool CodegenLLVM::Close(const std::string & outputFilename)
 {
   llvm::ConstantInt * const_int32_9 = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
   llvm::ReturnInst::Create(m_context, const_int32_9, m_mainBlock);  
 
-  if (g_dump) {
+  if (g_dump)
     m_module->dump();
-    return true;
-  }
     
   /////////////////////////////////////////////////////////////
   //
@@ -342,7 +342,7 @@ bool CodegenLLVM::Close()
     return true;
 
   // do the linker thing
-  Filename exeFilename(m_srcFilename.GetDir() + m_srcFilename.GetBasename());
+  Filename exeFilename(m_inputFilename.GetDir() + m_inputFilename.GetBasename());
   cout << "info: creating '" << exeFilename.GetFilename() << "'" << endl;
   
   std::stringstream cmd;
@@ -375,17 +375,6 @@ bool CodegenLLVM::Visit(SourceFileExprList & expr)
   return true;
 }
 
-bool CodegenLLVM::Visit(LineMarkerExpr & expr)
-{
-  //m_builder.SetCurrentDebugLocation(llvm::DebugLoc::get(AST->getLine(), AST->getCol(), Scope));  
-  return true;
-}
-
-bool CodegenLLVM::Visit(VariableDefExpr & expr)
-{
-  return LLVMError(expr);
-}
-
 bool CodegenLLVM::Visit(VariableRefExpr & expr)
 {
   return LLVMError(expr);
@@ -396,17 +385,7 @@ bool CodegenLLVM::Visit(UnaryExpr & expr)
   return LLVMError(expr);
 }
 
-bool CodegenLLVM::Visit(BinaryExpr & expr)
-{
-  return LLVMError(expr);
-}
-
 ///////////////////////////////////////////////////////////////////////
-
-bool CodegenLLVM::Visit(ConstantStringExpr & expr)
-{
-  return LLVMError(expr);
-}
 
 bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
 {
@@ -424,6 +403,8 @@ bool CodegenLLVM::Visit(ConstantExpr<double> & expr)
 }
 
 ///////////////////////////////////////////////////////////////////////
+
+#if 0
 
 bool CodegenLLVM::Visit(BIFExpr & expr)
 {
@@ -486,6 +467,8 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
   return true;
 }
 
+#endif
+
 bool CodegenLLVM::Visit(CallExpr & expr)
 {
   return LLVMError(expr);
@@ -496,6 +479,17 @@ bool CodegenLLVM::Visit(GotoExpr & expr)
   return LLVMError(expr);
 }
 
-
 ///////////////////////////////////////////////////////////////////////
+
+void CodegenLLVM::AssignString(const std::string & lhName, const std::string & rhName)
+{}
+
+void CodegenLLVM::AssignVar(const std::string & lhs, const std::string & rhs)
+{}
+
+void CodegenLLVM::JoinStrings(const std::string & lhName, const std::string & rhName)
+{}
+
+void CodegenLLVM::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs)
+{}
 

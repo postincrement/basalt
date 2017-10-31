@@ -29,18 +29,33 @@
 class CodegenLLVM : public CodeGenerator
 {
   public:
-    CodegenLLVM(const std::string & genType, AST::SourceFileExprList & tree); 
+    CodegenLLVM(const std::string & genType, const std::string & inputFilename, AST::SourceFileExprList & tree); 
 
-    DECLARE_EXPR_VISIT_FUNCTIONS();      
+    DECLARE_EXPR_VISIT_FUNCTIONS();
 
     // open generator
-    virtual bool Open(const std::string & inputFilename, int argc, const char ** argv) override;
-    virtual bool Close();
+    virtual bool Open(int argc, const char ** argv) override;
+    virtual bool Close(const std::string & m_outputFilename);
       
     // generate code
     virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
     { return dispatcher.Generate(*this); }
 
+    struct LLVMScope : public Scope
+    {
+      LLVMScope(Scope * parent = nullptr)
+        : Scope(parent)
+      { }
+    };
+    
+    virtual Scope * CreateScope(Scope * parent = nullptr)
+    { return new LLVMScope(parent); }
+    
+    virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
+    virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
+    virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
+    virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) override;
+        
     // internal functions
     llvm::FunctionType * CreateFunctionType(const char * typeStr);
     void CreateCallExternalFunc(RuntimeFunctionDef & funcDef);
@@ -53,7 +68,6 @@ class CodegenLLVM : public CodeGenerator
     void CreateFunctionCall(const char * returnType, const char * name, const char * argsStr...);
     void VCreateFunctionCall(const char * returnType, const char * name, const char * argsStr, va_list varg);
 
-    Filename m_srcFilename;
     Filename m_objectFilename;
 
 		std::unique_ptr<llvm::Module> m_module;	
