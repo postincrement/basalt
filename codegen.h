@@ -24,22 +24,29 @@ class CodeGenerator : public AST::Visitor
     
     void DeclareVar(AST::VariableDefExpr & expr);
     void DeclareConstString(const std::string & str);
-    void DeclareExternalFunction(const FunctionDef & fn);
-    
+    bool DeclareExternalFunction(const FunctionDef & fn);
+    bool DeclareRuntimeFunction(const std::string & name);
+    bool CallRuntimeFunction(const std::string & name ...);
+    bool VCreateFunctionCall(
+      const char * returnTypeStr,
+      const char * name,
+      const char * argsStr_,
+      va_list varg);
+
+    std::string GetTempName(const std::string & prefix);
+        
 		// funcs to define in descendant generators
     virtual void AssignString(const std::string & lhName, const std::string & rhName) = 0;
     virtual void AssignVar(const std::string & lhs, const std::string & rhs) = 0;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) = 0;
     virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) = 0;
-		
-    // open generator
+    virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) = 0;
+    
+    // open/close generator
     virtual bool Open();
     virtual bool Open(int argc, const char ** argv) = 0;
-
-    // close generator
     virtual bool Close(const std::string & m_outputFilename) = 0;
-
-    std::string GetTempName(const std::string & prefix);
+    virtual bool Run(AST::SourceFileExprList & expr);
 
     typedef std::map<std::string, AST::VariableDefExpr *> VarDefExprMap;
 
@@ -51,7 +58,7 @@ class CodeGenerator : public AST::Visitor
 
       virtual AST::Expr * FindVar(const std::string & name);
 
-      virtual void OnDeclareVar(const AST::Expr & expr) { } 
+      virtual bool OnDeclareVar(const AST::Expr & expr) { return true; } 
       
       VarDefExprMap m_vars;
       std::deque<ValueDef> m_valueStack;    
@@ -61,8 +68,8 @@ class CodeGenerator : public AST::Visitor
     };
 
     virtual Scope * CreateScope(Scope * parent = nullptr) = 0;
-    virtual void OnDeclareConstString(const std::string & str, const std::string & name) { } 
-    virtual void OnDeclareExternalFunc(const FunctionDef & fn) { }
+    virtual bool OnDeclareConstString(const std::string & str, const std::string & name) { return true; } 
+    virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
     
 		Filename m_inputFilename;
     std::string m_genType;

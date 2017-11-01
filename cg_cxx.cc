@@ -24,7 +24,7 @@ static bool CXXError(Expr & expr)
 
 ////////////////////////////////////////////////////////
 
-static std::string CreateVarDecl(AST::VariableDefExpr & expr)
+static std::string DeclareVariable(AST::VariableDefExpr & expr)
 {
   std::stringstream strm;
 
@@ -69,98 +69,23 @@ static std::string CreateVarDecl(AST::VariableDefExpr & expr)
 
 ////////////////////////////////////////////////////////
 
-static std::string CreateFunctionCallOrDecl(
-  const std::string returnTypeStr,
-  const std::string name,
-  const std::vector<std::string> args)
+static std::string DeclareFunction(const FunctionDef & func)
 {
   std::stringstream strm;
-
-  strm << name << "(";
+  if (func.m_returnType.empty())
+    strm << "void";
+  else  
+    strm << func.m_returnType;
+  strm << " " << func.m_name << "(";
   bool first = true;
-  for (auto & r : args) {
-    if (!first) {
+  for (auto & r : func.m_args) {
+    if (!first)
       strm << ", ";
-    }     
     first = false;
     strm << r;
   }
   strm << ")";
-  return strm.str();
-}
-
-/*
-static std::string CreateFunctionCallOrDecl(const FunctionDef & func, const std::string & args)
-{
-  std::vector<std::string> tokens;
-  Tokenize(tokens, args, ',');
-  return CreateFunctionCallOrDecl(func.m_returnType, func.m_name, tokens);
-}
-*/
-
-static std::string CreateFunctionCallOrDecl(const FunctionDef & func)
-{
-  return CreateFunctionCallOrDecl(func.m_returnType, func.m_name, func.m_args);
-}
-
-static std::string VCreateFunctionCall(
-  const char * returnTypeStr,
-  const char * name,
-  const char * argsStr_,
-  va_list varg)
-{
-  std::vector<std::string> args;
-
-  if (argsStr_ != nullptr) {    
-    std::string argStr(argsStr_);
-    std::vector<std::string> tokens;
-    Tokenize(tokens, argStr, ',');
-    for (size_t i = 0; i < tokens.size(); ++i) {
-      const char * strVal = va_arg(varg, const char *);
-      args.push_back(std::string(strVal));
-    }
-  }
-
-  return CreateFunctionCallOrDecl(returnTypeStr, name, args);
-}
-
-static std::string CreateRuntimeFunctionCall(const std::string & name ...)
-{
-  va_list argValues;
-  va_start(argValues, name);
-
-  std::string funcName(g_runtimeDefPrefix);
-  funcName += name;
-
-  int i = 0;
-  while (g_runtimeDefs[i].m_name != nullptr) {
-    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
-    if (name == funcDef.m_name) {
-      return VCreateFunctionCall(funcDef.m_returnType, funcName.c_str(), funcDef.m_args, argValues);
-    }
-    ++i;
-  }
-
-  InternalError("unknown runtime function '" << name << "'");
-}
-
-///////////////////////////////////////////////////////////////////////////////////
-
-static std::string CreateRuntimeFunctionDecl(const std::string & name)
-{
-  std::string funcName(g_runtimeDefPrefix);
-  funcName += name;
-
-  int i = 0;
-  while (g_runtimeDefs[i].m_name != nullptr) {
-    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
-    if (name == funcDef.m_name) {
-      return CreateFunctionCallOrDecl(FunctionDef(funcDef));
-    }
-    ++i;
-  }
-  
-  InternalError("unknown runtime function '" << name << "'");
+  return strm.str();  
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -186,6 +111,9 @@ void CodegenCXX::Output(ostream & strm)
   if (m_constStringStrm.str().length() > 0)
     strm << m_constStringStrm.str() << "\n";
 
+  if (m_externFuncStrm.str().length() > 0)
+    strm << m_externFuncStrm.str() << "\n";
+
   if (m_globalVarsStrm.str().length() > 0)  
     strm << m_globalVarsStrm.str() << "\n";
 
@@ -199,7 +127,6 @@ bool CodegenCXX::Close(const std::string & outputFilename)
                  << "#include <stdlib.h>\n"
                  << "#include <stdbool.h>\n"
                  << "#include <string.h>\n"
-                 << "\n"
                  ;
 
   // declare const strings
@@ -212,7 +139,7 @@ bool CodegenCXX::Close(const std::string & outputFilename)
       m_externFuncStrm << "extern \"C\" {\n";
   
     for (auto & r : m_externFunctionMap)
-      m_externFuncStrm << "extern " << CreateFunctionCallOrDecl(r.second) << ";\n";
+      m_externFuncStrm << "extern " << DeclareFunction(r.second) << ";\n";
 
     if (m_genType != "c") 
       m_externFuncStrm << "} // extern \"C\"\n\n";
@@ -220,7 +147,7 @@ bool CodegenCXX::Close(const std::string & outputFilename)
 
   // declare global vars
   for (auto & r : m_globalScope->m_vars)
-    m_globalVarsStrm << CreateVarDecl(*r.second) << "\n";
+    m_globalVarsStrm << DeclareVariable(*r.second) << "\n";
 
   // create output filename
   m_srcFilename = Filename(m_inputFilename.GetDir() + m_inputFilename.GetBasename() + "." + m_genType);
@@ -280,17 +207,10 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
 {
   m_codeStrm << "int main(int argc, char *argv[])\n"
              "{\n"
-             "  basalt_init();\n"
              ;
 
-  m_firstLine = true; 
-  m_currentLineMarkerExpr = nullptr;          
-
-  // output code
-  for (auto & r : expr) {
-    if (r != nullptr)
-      r->Generate(*this);
-  }
+  if (!Run(expr))
+    return false;           
 
   m_codeStrm << "}\n"
           ; 
@@ -426,4 +346,21 @@ void CodegenCXX::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op
              << " " << op 
              << " " << rhs.m_name 
              << ";\n"; 
+}
+
+bool CodegenCXX::CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args)
+{
+  std::stringstream strm;
+  strm << name << "(";
+  bool first = true;
+  for (auto & r : args) {
+    if (!first) {
+      strm << ", ";
+    }     
+    first = false;
+    strm << r;
+  }
+  strm << ");\n";
+  m_codeStrm << strm.str();
+  return true;
 }

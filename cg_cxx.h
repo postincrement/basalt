@@ -17,7 +17,7 @@ class CodegenCXX : public CodeGenerator
     
     // open generator
     virtual bool Open(int argc, const char ** argv) override;
-    virtual bool Close(const std::string & m_outputFilename);
+    virtual bool Close(const std::string & m_outputFilename) override;
 
     void Output(std::ostream & strm);
     
@@ -39,7 +39,8 @@ class CodegenCXX : public CodeGenerator
     virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
     virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) override;
-
+    virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
+    
     void CreateBIFCall(const std::string & name ...);
 
     void VCreateFunctionCall(                                      

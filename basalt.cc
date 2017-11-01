@@ -97,9 +97,11 @@ FunctionDef::FunctionDef(const std::string & name)
 }
 
 FunctionDef::FunctionDef(const RuntimeFunctionDef & def)
-  : m_returnType(def.m_returnType)
-  , m_name(def.m_name)
+  : m_name(def.m_name)
 {
+  if (def.m_returnType != nullptr)
+    m_returnType = def.m_returnType;
+
   if (def.m_args != nullptr) {    
     std::string argStr(def.m_args);
     Tokenize(m_args, argStr, ',');

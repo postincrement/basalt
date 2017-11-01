@@ -45,16 +45,104 @@ AST::Expr * CodeGenerator::Scope::FindVar(const std::string & name)
 
 ///////////////////////////////////////////////////////////////////////
 
-void CodeGenerator::DeclareExternalFunction(const FunctionDef & fn)
+bool CodeGenerator::DeclareExternalFunction(const FunctionDef & fn)
 {
   auto r = m_externFunctionMap.find(fn.m_name);
   if (r == m_externFunctionMap.end()) {
     m_externFunctionMap[fn.m_name] = fn;
-    OnDeclareExternalFunc(fn);
+    return OnDeclareExternalFunc(fn);
   }
+  return false;
+}
+
+bool CodeGenerator::DeclareRuntimeFunction(const std::string & name)
+{
+  std::string funcName(g_runtimeDefPrefix);
+  funcName += name;
+
+  int i = 0;
+  while (g_runtimeDefs[i].m_name != nullptr) {
+    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
+    if (name == funcDef.m_name) {
+      FunctionDef newDef(funcDef);
+      newDef.m_name = funcName;
+      return DeclareExternalFunction(newDef);
+    }
+    ++i;
+  }
+  
+  InternalError("unknown runtime function '" << name << "'");
+  return false;
+}
+
+bool CodeGenerator::VCreateFunctionCall(
+  const char * returnTypeStr_,
+  const char * name,
+  const char * argsStr_,
+  va_list varg)
+{
+  std::vector<std::string> args;
+
+  if (argsStr_ != nullptr) {    
+    std::string argStr(argsStr_);
+    std::vector<std::string> tokens;
+    Tokenize(tokens, argStr, ',');
+    for (size_t i = 0; i < tokens.size(); ++i) {
+      const char * strVal = va_arg(varg, const char *);
+      args.push_back(std::string(strVal));
+    }
+  }
+
+  std::string returnType;
+  if (returnTypeStr_ != nullptr)
+    returnType = returnTypeStr_;
+
+  return CallFunction(returnType, name, args);
+}
+
+bool CodeGenerator::CallRuntimeFunction(const std::string & name ...)
+{
+  // always declare before calling
+  if (!DeclareRuntimeFunction(name))
+    return false;
+
+  std::string funcName(g_runtimeDefPrefix);
+  funcName += name;
+
+  va_list argValues;
+  va_start(argValues, name);
+
+  int i = 0;
+  while (g_runtimeDefs[i].m_name != nullptr) {
+    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
+    if (name == funcDef.m_name) {
+      return VCreateFunctionCall(funcDef.m_returnType, funcName.c_str(), funcDef.m_args, argValues);
+    }
+    ++i;
+  }
+
+  InternalError("unknown runtime function '" << name << "'");
+  return false;
 }
 
 ///////////////////////////////////////////////////////////////////////
+
+bool CodeGenerator::Run(AST::SourceFileExprList & expr)
+{
+  m_currentLineMarkerExpr = nullptr;          
+
+  if (!CallRuntimeFunction("init"))
+    return false;
+  
+  // output code
+  for (auto & r : expr) {
+    if (r != nullptr)
+      if (!r->Generate(*this))
+        return false;
+  }
+
+  return true;
+}
 
 bool CodeGenerator::Visit(LineMarkerExpr & expr)
 {
@@ -203,15 +291,14 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
 
 bool CodeGenerator::Visit(BIFExpr & expr)
 {
-#if 0  
   if (
       (expr.m_name == "print_eol") || 
       (expr.m_name == "print_tab")
     ) {
-    DeclareExternalFunction
-    CreateRuntimeFunctionCall(expr.m_name);
+      CallRuntimeFunction(expr.m_name);
   }
-
+  
+#if 0    
   else if (expr.m_name == "print_expr") {
     if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
       InternalError("print_expr has invalid args");
@@ -264,10 +351,11 @@ bool CodeGenerator::Visit(BIFExpr & expr)
     }  
   } 
   
+#endif
+
   else {
     Warning(eWarning_UnknownCXXBIF, "unknown BIF '" << expr.m_name << "'");
   }
-#endif
 
   return true;
 }

@@ -368,11 +368,7 @@ bool CodegenLLVM::Visit(ExprList & expr)
 
 bool CodegenLLVM::Visit(SourceFileExprList & expr)
 {
-  for (auto & r : expr) {
-    if (r != nullptr)
-      r->Generate(*this);
-  }
-  return true;
+  return Run(expr);
 }
 
 bool CodegenLLVM::Visit(VariableRefExpr & expr)
@@ -493,3 +489,8 @@ void CodegenLLVM::JoinStrings(const std::string & lhName, const std::string & rh
 void CodegenLLVM::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs)
 {}
 
+bool CodegenLLVM::CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args)
+{
+  return true;
+}
+  

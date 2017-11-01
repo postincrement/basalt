@@ -55,7 +55,8 @@ class CodegenLLVM : public CodeGenerator
     virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
     virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) override;
-        
+    virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
+    
     // internal functions
     llvm::FunctionType * CreateFunctionType(const char * typeStr);
     void CreateCallExternalFunc(RuntimeFunctionDef & funcDef);
