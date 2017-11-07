@@ -17,8 +17,8 @@ CodeGenerator::CodeGenerator(const std::string & genType, const std::string & fn
 
 bool CodeGenerator::Open()
 {
-  m_globalScope = CreateScope();
-  m_currentScope = m_globalScope;
+  m_globalScope  = CreateScope();
+  m_currentScope = CreateScope(m_globalScope);
   return true;
 }
 
@@ -171,10 +171,10 @@ bool CodeGenerator::Visit(ConstantStringExpr & expr)
 
 bool CodeGenerator::Visit(VariableDefExpr & expr)
 {
-  auto r = m_currentScope->m_vars.find(expr.m_variable.m_normalizedName);
-  if (r != m_currentScope->m_vars.end()) {
-    m_currentScope->m_vars[expr.m_variable.m_normalizedName] = &expr;
-    m_currentScope->OnDeclareVar(expr);
+  Scope * scope = expr.m_global ? m_globalScope : m_currentScope;
+  if (scope->FindVar(expr.m_variable.m_normalizedName) == nullptr) {
+    scope->m_vars[expr.m_variable.m_normalizedName] = &expr;
+    scope->OnDeclareVar(expr);
   }
 
   ValueDef val(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
@@ -223,7 +223,6 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   }
     
   if (expr.m_op == '=') {
-
     // LHS must be a variable ref
     AST::VariableRefExpr * lhRef = dynamic_cast<AST::VariableRefExpr *>(expr.m_lhs);
     if (lhRef == nullptr)
@@ -243,7 +242,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
       ValueDef def(lhRef->m_variable.m_normalizedName, lhType);
       m_currentScope->m_valueStack.push_back(def);
     }
-      
+
     return true;
   }
 

@@ -88,5 +88,6 @@ void Tokenize(std::vector<std::string> & tokens, const std::string & str, char s
     while ((*ptr != '\0') && (*ptr != sep))
       ++ptr;
     tokens.push_back(std::string(start, ptr - start));
+    ++ptr;
   }
 }

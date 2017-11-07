@@ -27,13 +27,18 @@ class CodegenCXX : public CodeGenerator
 
     struct CXXScope : public Scope
     {
-      CXXScope(Scope * parent = nullptr)
+      CXXScope(const std::string & indent, Scope * parent = nullptr)
         : Scope(parent)
+        , m_indent(indent)
       { }
+
+      std::string GetIndent() const
+      { return m_indent; }
+
+      std::string m_indent;
     };
 
-    virtual Scope * CreateScope(Scope * parent = nullptr) override
-    { return new CXXScope(parent); }
+    virtual Scope * CreateScope(Scope * parent = nullptr) override;
 
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
     virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
@@ -43,6 +48,8 @@ class CodegenCXX : public CodeGenerator
     
     void CreateBIFCall(const std::string & name ...);
 
+    std::string DeclareFunction(const FunctionDef & func);
+  
     void VCreateFunctionCall(                                      
       const char * returnTypeStr,
       const char * name,

@@ -18,6 +18,25 @@ class CodeGenerator : public AST::Visitor
       Variable::Type m_type;
     };
 
+    typedef std::map<std::string, AST::VariableDefExpr *> VarDefExprMap;
+
+    struct Scope 
+    {
+      Scope(Scope * parent = nullptr)
+        : m_parent(parent)
+      { }
+
+      virtual AST::Expr * FindVar(const std::string & name);
+
+      virtual bool OnDeclareVar(const AST::Expr & expr) { return true; } 
+      
+      VarDefExprMap m_vars;
+      std::deque<ValueDef> m_valueStack;    
+      std::set<std::string> m_cleanupList;
+
+      Scope * m_parent = nullptr;
+    };
+
 		CodeGenerator(const std::string & genType, const std::string & fn, AST::SourceFileExprList & tree);
 		
     DECLARE_COMMON_EXPR_VISIT_FUNCTIONS();
@@ -47,25 +66,6 @@ class CodeGenerator : public AST::Visitor
     virtual bool Open(int argc, const char ** argv) = 0;
     virtual bool Close(const std::string & m_outputFilename) = 0;
     virtual bool Run(AST::SourceFileExprList & expr);
-
-    typedef std::map<std::string, AST::VariableDefExpr *> VarDefExprMap;
-
-    struct Scope 
-    {
-      Scope(Scope * parent = nullptr)
-        : m_parent(parent)
-      { }
-
-      virtual AST::Expr * FindVar(const std::string & name);
-
-      virtual bool OnDeclareVar(const AST::Expr & expr) { return true; } 
-      
-      VarDefExprMap m_vars;
-      std::deque<ValueDef> m_valueStack;    
-      std::set<std::string> m_cleanupList;
-
-      Scope * m_parent = nullptr;
-    };
 
     virtual Scope * CreateScope(Scope * parent = nullptr) = 0;
     virtual bool OnDeclareConstString(const std::string & str, const std::string & name) { return true; } 
