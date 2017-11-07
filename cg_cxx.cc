@@ -69,27 +69,6 @@ static std::string DeclareVariable(AST::VariableDefExpr & expr)
 
 ////////////////////////////////////////////////////////
 
-static std::string DeclareFunction(const FunctionDef & func)
-{
-  std::stringstream strm;
-  if (func.m_returnType.empty())
-    strm << "void";
-  else  
-    strm << func.m_returnType;
-  strm << " " << func.m_name << "(";
-  bool first = true;
-  for (auto & r : func.m_args) {
-    if (!first)
-      strm << ", ";
-    first = false;
-    strm << r;
-  }
-  strm << ")";
-  return strm.str();  
-}
-
-//////////////////////////////////////////////////////////////////////////
-
 CodegenCXX::CodegenCXX(const std::string & genType, const std::string & fn, SourceFileExprList & tree)
   : CodeGenerator(genType, fn, tree)
 {  
@@ -174,6 +153,29 @@ bool CodegenCXX::Close(const std::string & outputFilename)
 
 ///////////////////////////////////////////////////////////
 
+std::string CodegenCXX::DeclareFunction(const FunctionDef & func)
+{
+  std::stringstream strm;
+  if (func.m_returnType.empty())
+    strm << "void";
+  else  
+    strm << func.m_returnType;
+  strm << " " << func.m_name << "(";
+  bool first = true;
+  for (auto & r : func.m_args) {
+    if (!first)
+      strm << ", ";
+    first = false;
+    strm << r;
+  }
+  if (!first && (m_genType == "c")) 
+    strm << "void";
+  strm << ")";
+  return strm.str();  
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 static std::string CTypeForVarType(Variable::Type type)
 {
   switch (type) {
@@ -212,8 +214,9 @@ bool CodegenCXX::Visit(SourceFileExprList & expr)
   if (!Run(expr))
     return false;           
 
-  m_codeStrm << "}\n"
-          ; 
+  m_codeStrm << "  return 0;\n"
+             << "}\n"
+             ; 
 
   return true;
 }
@@ -287,55 +290,44 @@ bool CodegenCXX::Visit(GotoExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
+
 void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
 {
-  std::string indent = "    ";
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+  
   m_codeStrm << indent << "if (" << lhs << " != 0L)\n"
-           << indent << "  free(" << lhs << ");\n"
-           << indent << "if (" << rhs << " != 0L)\n"
-           ;
-           
-  if (m_currentScope->m_cleanupList.count(rhs) != 0) {
-    m_codeStrm << indent << "  " << lhs << " = " << rhs << ";"
-             << "\n";
-             m_currentScope->m_cleanupList.erase(rhs);         
-  }
-  else {
-    m_codeStrm << indent << "  " << lhs << " = strdup(" << rhs << ");"
-          << "\n";
-  }
-  m_codeStrm << indent << "else\n"
-           << indent << "  " << lhs << " = 0L;\n"
-           ;
+             << indent << "  free(" << lhs << ");\n"
+             << indent << lhs << " = strdup(" << rhs << ");\n"
+             ;
 }
 
 void CodegenCXX::AssignVar(const std::string & lhs, const std::string & rhs)
 {
-  m_codeStrm << lhs << " = " << rhs << ";\n";
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+
+  m_codeStrm << indent << lhs << " = " << rhs << ";\n";
 }
 
 void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)
 {
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+
   std::string tempName(GetTempName("temp"));
-  std::string indent;
-  m_codeStrm << indent << "char * " << tempName << " = 0L;\n"
-           << indent << "{\n"
-           << indent << "  bool l = " << lhs << " != 0L;\n"
-           << indent << "  bool r = " << rhs << " != 0L;\n"
-           << indent << "  if (l & r) {\n"
-           << indent << "    " << tempName << " = malloc(1 + strlen(" << lhs << ") + strlen(" << rhs << "));\n"
-           << indent << "    strcpy(" << tempName << ", " << lhs << ");\n"   
-           << indent << "    strcat(" << tempName << ", " << rhs << ");\n"
-           << indent << "  }\n"
-           << indent << "  else if (l) \n"
-           << indent << "    " << tempName << " = strdup(" << lhs << ");\n"
-           << indent << "  else if (r)\n"
-           << indent << "    " << tempName << " = strdup(" << rhs << ");\n"
-           << indent << "};\n"
-           ;
+  m_codeStrm << indent << "char * " << tempName << " = alloca(1 + \n"
+             << indent << "         ((" << lhs << " != 0L) ? strlen(" << lhs << ") : 0) +\n"
+             << indent << "         ((" << rhs << " != 0L) ? strlen(" << rhs << ") : 0)\n"
+             << indent << "         );\n"
+             << indent << tempName << "[0] = '\\0';\n"
+             << indent << "if (" << lhs << " != 0L)\n"
+             << indent << "  strcat(" << tempName << ", " << lhs << ");\n" 
+             << indent << "if (" << rhs << " != 0L)\n"
+             << indent << "  strcat(" << tempName << ", " << rhs << ");\n" 
+             ;
   ValueDef def(tempName, Variable::eString);
   m_currentScope->m_valueStack.push_back(def);
-  m_currentScope->m_cleanupList.insert(tempName);
 }
 
 void CodegenCXX::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs)
@@ -350,8 +342,11 @@ void CodegenCXX::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op
 
 bool CodegenCXX::CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args)
 {
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+
   std::stringstream strm;
-  strm << name << "(";
+  strm << indent << name << "(";
   bool first = true;
   for (auto & r : args) {
     if (!first) {
@@ -363,4 +358,35 @@ bool CodegenCXX::CallFunction(const std::string & returnTypeStr, const std::stri
   strm << ");\n";
   m_codeStrm << strm.str();
   return true;
+}
+
+///////////////////////////////////////////////////////////////////////
+
+CodeGenerator::Scope * CodegenCXX::CreateScope(CodeGenerator & codeGen, Scope * parent)
+{ 
+  return new CXXScope(codeGen, parent); 
+}
+
+CodegenCXX::CXXScope::CXXScope(CodeGenerator & codeGen, Scope * parent)
+  : Scope(parent)
+  , m_owner(static_cast<CodegenCXX *>(&codeGen))
+{ }
+
+void CodegenCXX::CXXScope::Enter()
+{
+  m_owner->m_codeStrm << m_indent << "{\n";
+  if (m_parent != nullptr) {
+    CXXScope * parent = static_cast<CXXScope *>(m_parent);
+    m_indent = parent->m_indent;
+  }    
+  m_indent = m_indent + "  ";
+}
+
+void CodegenCXX::CXXScope::Leave()
+{
+  if (m_parent != nullptr) {
+    CXXScope * parent = static_cast<CXXScope *>(m_parent);
+    m_indent = parent->m_indent;
+  }
+  m_owner->m_codeStrm << m_indent << "}\n";
 }

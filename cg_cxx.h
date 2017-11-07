@@ -27,18 +27,19 @@ class CodegenCXX : public CodeGenerator
 
     struct CXXScope : public Scope
     {
-      CXXScope(const std::string & indent, Scope * parent = nullptr)
-        : Scope(parent)
-        , m_indent(indent)
-      { }
+      CXXScope(CodeGenerator & codeGen, Scope * parent = nullptr);
+
+      virtual void Enter() override;
+      virtual void Leave() override;
 
       std::string GetIndent() const
       { return m_indent; }
 
+      CodegenCXX * m_owner;
       std::string m_indent;
     };
 
-    virtual Scope * CreateScope(Scope * parent = nullptr) override;
+    virtual Scope * CreateScope(CodeGenerator & codeGen, Scope * parent = nullptr) override;
 
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
     virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;

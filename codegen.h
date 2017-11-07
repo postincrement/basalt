@@ -26,6 +26,11 @@ class CodeGenerator : public AST::Visitor
         : m_parent(parent)
       { }
 
+      virtual ~Scope() { }
+
+      virtual void Enter() {};
+      virtual void Leave() {};
+      
       virtual AST::Expr * FindVar(const std::string & name);
 
       virtual bool OnDeclareVar(const AST::Expr & expr) { return true; } 
@@ -67,7 +72,10 @@ class CodeGenerator : public AST::Visitor
     virtual bool Close(const std::string & m_outputFilename) = 0;
     virtual bool Run(AST::SourceFileExprList & expr);
 
-    virtual Scope * CreateScope(Scope * parent = nullptr) = 0;
+    virtual Scope * CreateScope(CodeGenerator & codeGen, Scope * parent = nullptr) = 0;
+    virtual void EnterScope();  
+    virtual void LeaveScope();  
+    
     virtual bool OnDeclareConstString(const std::string & str, const std::string & name) { return true; } 
     virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
     

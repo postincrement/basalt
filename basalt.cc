@@ -44,13 +44,14 @@ static Factory<LanguageProfile> g_languageProfileFactory;
 const char * g_runtimeDefPrefix = "basalt_";
 
 struct RuntimeFunctionDef g_runtimeDefs[] = {
-  { nullptr, "init",          nullptr        },
-  { nullptr, "print_string",  "const char *" },
-  { nullptr, "print_int16",   "uint16_t"     },
-  { nullptr, "print_single",  "float"        },
-  { nullptr, "print_double",  "double"       },
-  { nullptr, "print_tab",     nullptr        },
-  { nullptr, "print_eol",     nullptr        },
+  { nullptr,  "init",          nullptr        },
+  { nullptr,  "print_string",  "const char *" },
+  { nullptr,  "print_int16",   "uint16_t"     },
+  { nullptr,  "print_single",  "float"        },
+  { nullptr,  "print_double",  "double"       },
+  { nullptr,  "print_tab",     nullptr        },
+  { nullptr,  "print_eol",     nullptr        },
+  { nullptr,  "assign_string", "const char *,const char *" },
   { nullptr, nullptr, nullptr }
 };
 

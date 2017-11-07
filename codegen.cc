@@ -17,8 +17,8 @@ CodeGenerator::CodeGenerator(const std::string & genType, const std::string & fn
 
 bool CodeGenerator::Open()
 {
-  m_globalScope  = CreateScope();
-  m_currentScope = CreateScope(m_globalScope);
+  m_globalScope  = CreateScope(*this);
+  m_currentScope = nullptr;
   return true;
 }
 
@@ -127,19 +127,36 @@ bool CodeGenerator::CallRuntimeFunction(const std::string & name ...)
 
 ///////////////////////////////////////////////////////////////////////
 
+void CodeGenerator::EnterScope()
+{
+  m_currentScope = CreateScope(*this, m_currentScope);  
+  m_currentScope->Enter();
+}
+
+void CodeGenerator::LeaveScope()
+{
+  m_currentScope->Leave();
+  Scope * parent = m_currentScope->m_parent;
+  delete m_currentScope;
+  m_currentScope = parent;  
+}
+
+
 bool CodeGenerator::Run(AST::SourceFileExprList & expr)
 {
-  m_currentLineMarkerExpr = nullptr;          
+  m_currentLineMarkerExpr = nullptr;
 
-  if (!CallRuntimeFunction("init"))
-    return false;
+  EnterScope();
   
   // output code
-  for (auto & r : expr) {
-    if (r != nullptr)
-      if (!r->Generate(*this))
-        return false;
+  if (CallRuntimeFunction("init")) {
+    for (auto & r : expr) {
+      if ((r != nullptr) && !r->Generate(*this))
+        break;
+    }
   }
+
+  LeaveScope();
 
   return true;
 }

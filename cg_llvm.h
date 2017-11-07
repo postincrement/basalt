@@ -48,7 +48,7 @@ class CodegenLLVM : public CodeGenerator
       { }
     };
     
-    virtual Scope * CreateScope(Scope * parent = nullptr)
+    virtual Scope * CreateScope(CodeGenerator & codeGen, Scope * parent = nullptr)
     { return new LLVMScope(parent); }
     
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
