@@ -208,15 +208,10 @@ bool CodegenCXX::Visit(Expr & expr)
 bool CodegenCXX::Visit(SourceFileExprList & expr)
 {
   m_codeStrm << "int main(int argc, char *argv[])\n"
-             "{\n"
              ;
 
   if (!Run(expr))
     return false;           
-
-  m_codeStrm << "  return 0;\n"
-             << "}\n"
-             ; 
 
   return true;
 }
@@ -229,7 +224,7 @@ bool CodegenCXX::Visit(ExprList & expr)
 bool CodegenCXX::Visit(VariableRefExpr & expr)
 {
   ValueDef def(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
-  m_currentScope->m_valueStack.push_back(def);
+  m_valueStack.push_back(def);
   return true;
 }
 
@@ -245,7 +240,7 @@ bool CodegenCXX::Visit(ConstantExpr<short int> & expr)
   std::stringstream strm;
   strm << expr.m_value;
   ValueDef val(strm.str(), Variable::Type::eInt16);
-  m_currentScope->m_valueStack.push_back(val);
+  m_valueStack.push_back(val);
   return true;
 }
 
@@ -258,7 +253,7 @@ bool CodegenCXX::Visit(ConstantExpr<float> & expr)
   strm << "f";
 
   ValueDef val(strm.str(), Variable::Type::eSingle);
-  m_currentScope->m_valueStack.push_back(val);
+  m_valueStack.push_back(val);
   return true;
 }
 
@@ -271,7 +266,7 @@ bool CodegenCXX::Visit(ConstantExpr<double> & expr)
   strm << "f";
     
   ValueDef val(strm.str(), Variable::Type::eDouble);
-  m_currentScope->m_valueStack.push_back(val);
+  m_valueStack.push_back(val);
   return true;
 }
 
@@ -327,7 +322,7 @@ void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)
              << indent << "  strcat(" << tempName << ", " << rhs << ");\n" 
              ;
   ValueDef def(tempName, Variable::eString);
-  m_currentScope->m_valueStack.push_back(def);
+  m_valueStack.push_back(def);
 }
 
 void CodegenCXX::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs)
@@ -374,17 +369,19 @@ CodegenCXX::CXXScope::CXXScope(CodeGenerator & codeGen, Scope * parent)
 
 void CodegenCXX::CXXScope::Enter()
 {
-  m_owner->m_codeStrm << m_indent << "{\n";
-  if (m_parent != nullptr) {
+  if (m_scopeLevel != 0) {
     CXXScope * parent = static_cast<CXXScope *>(m_parent);
     m_indent = parent->m_indent;
   }    
+  m_owner->m_codeStrm << m_indent << "{\n";
   m_indent = m_indent + "  ";
 }
 
 void CodegenCXX::CXXScope::Leave()
 {
-  if (m_parent != nullptr) {
+  if (m_scopeLevel == 0) 
+    m_indent = "";
+  else {
     CXXScope * parent = static_cast<CXXScope *>(m_parent);
     m_indent = parent->m_indent;
   }

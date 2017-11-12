@@ -135,6 +135,8 @@ void CodeGenerator::EnterScope()
 
 void CodeGenerator::LeaveScope()
 {
+  if (m_currentScope == nullptr)
+    InternalError("Attempt to pop past global scope");
   m_currentScope->Leave();
   Scope * parent = m_currentScope->m_parent;
   delete m_currentScope;
@@ -148,12 +150,14 @@ bool CodeGenerator::Run(AST::SourceFileExprList & expr)
 
   EnterScope();
   
+  // call init function
+  if (!CallRuntimeFunction("init"))
+    return false;
+
   // output code
-  if (CallRuntimeFunction("init")) {
-    for (auto & r : expr) {
-      if ((r != nullptr) && !r->Generate(*this))
-        break;
-    }
+  for (auto & r : expr) {
+    if ((r != nullptr) && !r->Generate(*this))
+      break;
   }
 
   LeaveScope();
@@ -181,7 +185,7 @@ bool CodeGenerator::Visit(ConstantStringExpr & expr)
 
   cout << "push const string " << name << endl; 
   ValueDef val(name, Variable::Type::eString);
-  m_currentScope->m_valueStack.push_back(val);
+  m_valueStack.push_back(val);
 
   return true;
 }
@@ -195,7 +199,7 @@ bool CodeGenerator::Visit(VariableDefExpr & expr)
   }
 
   ValueDef val(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
-  m_currentScope->m_valueStack.push_back(val);
+  m_valueStack.push_back(val);
   return true; 
 }
 
@@ -211,25 +215,25 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   }
 
   // evalaute RHS first
-  cout << "expr stack for " << expr.m_op << " starts with " << m_currentScope->m_valueStack.size() << " values" << endl;
+  cout << "expr stack for " << expr.m_op << " starts with " << m_valueStack.size() << " values" << endl;
   if (!expr.m_rhs->Generate(*this)) {
     InternalError("RHS of binary expression did not evaluate");
     return false;
   }
 
-  cout << "after eval of rhs of binary expression " << expr.m_op << " : stack has " << m_currentScope->m_valueStack.size() << " entries" << endl;
+  cout << "after eval of rhs of binary expression " << expr.m_op << " : stack has " << m_valueStack.size() << " entries" << endl;
   
   // get RHS
-  ValueDef rhs = m_currentScope->m_valueStack.back();  
-  m_currentScope->m_valueStack.pop_back();
+  ValueDef rhs = m_valueStack.back();  
+  m_valueStack.pop_back();
   Variable::Type rhType = rhs.m_type;
   
   // evalaute LHS
   expr.m_lhs->Generate(*this);
 
   // get LHS
-  ValueDef lhs = m_currentScope->m_valueStack.back();
-  m_currentScope->m_valueStack.pop_back(); 
+  ValueDef lhs = m_valueStack.back();
+  m_valueStack.pop_back(); 
   Variable::Type lhType = lhs.m_type;
 
   // evaluate expression
@@ -240,6 +244,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   }
     
   if (expr.m_op == '=') {
+
     // LHS must be a variable ref
     AST::VariableRefExpr * lhRef = dynamic_cast<AST::VariableRefExpr *>(expr.m_lhs);
     if (lhRef == nullptr)
@@ -251,13 +256,14 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
         InternalError("cannot assign string to non-string");
         return false;
       }
-      else
+      else {
         AssignString(lhRef->m_variable.m_normalizedName, rhs.m_name);
+      }
     }
     else {
       AssignVar(lhRef->m_variable.m_normalizedName, rhs.m_name);
       ValueDef def(lhRef->m_variable.m_normalizedName, lhType);
-      m_currentScope->m_valueStack.push_back(def);
+      m_valueStack.push_back(def);
     }
 
     return true;
@@ -300,7 +306,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   }
   
   // just in case assignment is an expression
-  m_currentScope->m_valueStack.push_back(result);
+  m_valueStack.push_back(result);
   
   return true;
 }

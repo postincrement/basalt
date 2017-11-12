@@ -24,7 +24,9 @@ class CodeGenerator : public AST::Visitor
     {
       Scope(Scope * parent = nullptr)
         : m_parent(parent)
-      { }
+      { 
+        m_scopeLevel = (parent == nullptr) ? 0 : (parent->GetScopeLevel()+1);
+      }
 
       virtual ~Scope() { }
 
@@ -34,12 +36,14 @@ class CodeGenerator : public AST::Visitor
       virtual AST::Expr * FindVar(const std::string & name);
 
       virtual bool OnDeclareVar(const AST::Expr & expr) { return true; } 
+
+      virtual unsigned GetScopeLevel() const 
+      { return m_scopeLevel; }
       
       VarDefExprMap m_vars;
-      std::deque<ValueDef> m_valueStack;    
-      std::set<std::string> m_cleanupList;
 
       Scope * m_parent = nullptr;
+      unsigned m_scopeLevel;
     };
 
 		CodeGenerator(const std::string & genType, const std::string & fn, AST::SourceFileExprList & tree);
@@ -83,6 +87,9 @@ class CodeGenerator : public AST::Visitor
     std::string m_genType;
     Scope * m_globalScope = nullptr;
     Scope * m_currentScope = nullptr;
+    unsigned m_scopeLevel = 0;
+    std::deque<ValueDef> m_valueStack;    
+    std::set<std::string> m_cleanupList;
 
     std::map<std::string, std::string> m_constStringMap;
     std::map<std::string, FunctionDef> m_externFunctionMap;
