@@ -82,6 +82,7 @@ class CodeGenerator : public AST::Visitor
     
     virtual bool OnDeclareConstString(const std::string & str, const std::string & name) { return true; } 
     virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
+    virtual void OnLineMarker(const AST::LineMarkerExpr & expr) { }
     
 		Filename m_inputFilename;
     std::string m_genType;

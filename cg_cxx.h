@@ -46,6 +46,7 @@ class CodegenCXX : public CodeGenerator
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
     virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) override;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
+    virtual void OnLineMarker(const AST::LineMarkerExpr & expr) override;
     
     void CreateBIFCall(const std::string & name ...);
 
@@ -66,6 +67,7 @@ class CodegenCXX : public CodeGenerator
     std::stringstream m_externFuncStrm;
     std::stringstream m_globalVarsStrm;
     std::stringstream m_codeStrm;
+    bool m_needCleanup = false;
   };
   
 #endif // CG_CXX_H_

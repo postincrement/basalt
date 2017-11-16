@@ -34,3 +34,6 @@ mbasic.tab.cpp mbasic.tab.hpp: mbasic.ypp
 
 test: test.c
 	cc -o test test.c -g -L. -lbasaltrt
+
+test1: test1.c
+	cc -o test1 test1.c -g -L. -lbasaltrt

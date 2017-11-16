@@ -156,8 +156,11 @@ bool CodeGenerator::Run(AST::SourceFileExprList & expr)
 
   // output code
   for (auto & r : expr) {
-    if ((r != nullptr) && !r->Generate(*this))
-      break;
+    if (r != nullptr) {
+      bool result = r->Generate(*this);
+      if (!result)
+        break;
+    }
   }
 
   LeaveScope();
@@ -168,6 +171,7 @@ bool CodeGenerator::Run(AST::SourceFileExprList & expr)
 bool CodeGenerator::Visit(LineMarkerExpr & expr)
 {
   m_currentLineMarkerExpr = &expr;
+  OnLineMarker(*m_currentLineMarkerExpr);
   return true;
 }
 
@@ -320,7 +324,6 @@ bool CodeGenerator::Visit(BIFExpr & expr)
       CallRuntimeFunction(expr.m_name);
   }
   
-#if 0    
   else if (expr.m_name == "print_expr") {
     if ((expr.m_args == nullptr) || (expr.m_args->size() != 1))
       InternalError("print_expr has invalid args");
@@ -336,10 +339,11 @@ bool CodeGenerator::Visit(BIFExpr & expr)
           InternalError("cannot find constant string def for '" << constantString->m_value << "'");
         }
         else { 
-          CreateRuntimeFunctionCall("print_string", r->second.c_str());
+          CallRuntimeFunction("print_string", r->second.c_str());
         }
         return true;
       }
+
       // variable reference
       AST::VariableRefExpr * varRef = dynamic_cast<AST::VariableRefExpr *>(printExpr);
       if (varRef != nullptr) {
@@ -361,7 +365,7 @@ bool CodeGenerator::Visit(BIFExpr & expr)
             InternalError("unknown print variable type " << varRef->m_variable.m_type);
             exit(1);
         }
-        CreateBIFCall(func, varRef->m_variable.m_normalizedName.c_str());
+        CallRuntimeFunction(func, varRef->m_variable.m_normalizedName.c_str());
         return true;
       }
 
@@ -373,8 +377,6 @@ bool CodeGenerator::Visit(BIFExpr & expr)
     }  
   } 
   
-#endif
-
   else {
     Warning(eWarning_UnknownCXXBIF, "unknown BIF '" << expr.m_name << "'");
   }

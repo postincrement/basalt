@@ -32,6 +32,9 @@ class Basalt
     void OnWarning(const std::string & msg);
     void DisplayError(const std::string & msg, const std::string & type);
 
+    std::string GetCurrentLine() const { return m_line; }
+
+  protected:    
     bool m_interactive;
 
     std::string m_progname;

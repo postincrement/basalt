@@ -168,7 +168,7 @@ std::string CodegenCXX::DeclareFunction(const FunctionDef & func)
     first = false;
     strm << r;
   }
-  if (!first && (m_genType == "c")) 
+  if (first && (m_genType == "c")) 
     strm << "void";
   strm << ")";
   return strm.str();  
@@ -285,6 +285,19 @@ bool CodegenCXX::Visit(GotoExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
+void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
+{
+  if (m_needCleanup) {
+    LeaveScope();
+    m_needCleanup = false;
+  }
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+  m_codeStrm << "\n" 
+             << "#line " << expr.m_lineNumber << "\n"
+             << indent << "// " << expr.m_line << "\n";
+}
+
 
 void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
 {
@@ -307,6 +320,11 @@ void CodegenCXX::AssignVar(const std::string & lhs, const std::string & rhs)
 
 void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)
 {
+  if (!m_needCleanup) {
+    EnterScope();
+    m_needCleanup = true;
+  }
+
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
   std::string indent = scope->GetIndent();
 
@@ -323,6 +341,7 @@ void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)
              ;
   ValueDef def(tempName, Variable::eString);
   m_valueStack.push_back(def);
+
 }
 
 void CodegenCXX::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs)

@@ -166,7 +166,7 @@ line:     opt_line_number
                 marker = new AST::LineMarkerExpr(g_lineNumber, *$1);
                 delete $1;
               }
-              marker->m_line = g_application.m_line;
+              marker->m_line = g_application.GetCurrentLine();
               $<expr>$ = marker;
               g_currentSourceFileMarker = marker;
             }
@@ -185,9 +185,16 @@ opt_line_number: /* empty */
 
 line_number:    integer
                     {
-                      std::stringstream strm;
-                      strm << $1;
-                      $$ = new std::string(strm.str());
+                      // take advantage of the read ahead buffer that contains the
+                      // entire line to return the line number as a string
+                      std::string line = g_application.GetCurrentLine();
+                      const char * ptr = line.c_str();
+                      while (isspace(*ptr))
+                        ++ptr;
+                      while (!isspace(*ptr))
+                        ++ptr;  
+                      size_t len = ptr - line.c_str();
+                      $$ = new std::string(line.substr(0, len));
                     }
                  ; 
 
