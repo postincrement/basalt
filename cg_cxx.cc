@@ -279,7 +279,7 @@ bool CodegenCXX::Visit(CallExpr & expr)
 
 bool CodegenCXX::Visit(GotoExpr & expr)
 {
-  m_codeStrm << "goto " << CreateGotoTarget(expr.m_marker) << ";\n";
+  //m_codeStrm << "goto " << CreateGotoTarget(expr.m_marker) << ";\n";
   return true;
 }
 
@@ -346,7 +346,11 @@ void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)
 
 void CodegenCXX::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs)
 {
-  m_codeStrm << CTypeForVarType(lhs.m_type) 
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+  
+  m_codeStrm << indent 
+             << CTypeForVarType(lhs.m_type) 
              << " " << result.m_name
              << " = " << lhs.m_name 
              << " " << op 

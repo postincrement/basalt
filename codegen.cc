@@ -48,11 +48,10 @@ AST::Expr * CodeGenerator::Scope::FindVar(const std::string & name)
 bool CodeGenerator::DeclareExternalFunction(const FunctionDef & fn)
 {
   auto r = m_externFunctionMap.find(fn.m_name);
-  if (r == m_externFunctionMap.end()) {
-    m_externFunctionMap[fn.m_name] = fn;
-    return OnDeclareExternalFunc(fn);
-  }
-  return false;
+  if (r != m_externFunctionMap.end())
+    return true;
+  m_externFunctionMap[fn.m_name] = fn;
+  return OnDeclareExternalFunc(fn);
 }
 
 bool CodeGenerator::DeclareRuntimeFunction(const std::string & name)
@@ -260,7 +259,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
         InternalError("cannot assign string to non-string");
         return false;
       }
-      else {
+      else if (lhRef->m_variable.m_normalizedName != rhs.m_name) {
         AssignString(lhRef->m_variable.m_normalizedName, rhs.m_name);
       }
     }
