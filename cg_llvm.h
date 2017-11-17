@@ -25,6 +25,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/IR/DIBuilder.h"
 
 class CodegenLLVM : public CodeGenerator
 {
@@ -56,9 +57,13 @@ class CodegenLLVM : public CodeGenerator
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
     virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) override;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
+
+    virtual bool OnDeclareExternalFunc(const FunctionDef & fn) override;
     
     // internal functions
-    llvm::FunctionType * CreateFunctionType(const char * typeStr);
+    llvm::FunctionType * CreateFunctionType(const FunctionDef & fn);
+
+#if 0    
     void CreateCallExternalFunc(RuntimeFunctionDef & funcDef);
 
     void CreateBIFCall(const std::string & name ...);
@@ -68,11 +73,13 @@ class CodegenLLVM : public CodeGenerator
 
     void CreateFunctionCall(const char * returnType, const char * name, const char * argsStr...);
     void VCreateFunctionCall(const char * returnType, const char * name, const char * argsStr, va_list varg);
+ #endif   
 
     Filename m_objectFilename;
 
-		std::unique_ptr<llvm::Module> m_module;	
+    std::unique_ptr<llvm::Module> m_module;	
     llvm::IRBuilder<> m_builder;
+    std::unique_ptr<llvm::DIBuilder> m_debugBuilder;
     llvm::LLVMContext m_context;    
     llvm::BasicBlock * m_mainBlock;
 

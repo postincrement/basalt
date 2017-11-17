@@ -26,6 +26,16 @@ CodegenLLVM::CodegenLLVM(const std::string & genType, const std::string & inputF
   , m_builder(m_context)
 { 
   m_module.reset(new llvm::Module("basalt", m_context));
+
+  // set debug info version
+  m_module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);  
+
+  // Darwin only supports dwarf2.
+  if (llvm::Triple(llvm::sys::getProcessTriple()).isOSDarwin())
+    m_module->addModuleFlag(llvm::Module::Warning, "Dwarf Version", 2);  
+
+  // create debug info
+  m_debugBuilder = llvm::make_unique<llvm::DIBuilder>(*m_module);
 }
 
 bool CodegenLLVM::Open(int argc, const char ** argv)
@@ -36,6 +46,11 @@ bool CodegenLLVM::Open(int argc, const char ** argv)
   // create output filename
   Filename ifn(m_inputFilename);  
   m_objectFilename = Filename(ifn.GetDir() + ifn.GetBasename() + ".o");
+
+  llvm::DICompileUnit * theCU = m_debugBuilder->createCompileUnit(
+    llvm::dwarf::DW_LANG_C, ifn.GetFilename(), ifn.GetDir(), "Basalt", 0, "", 0);  
+
+  llvm::DIFile * unit = m_debugBuilder->createFile(ifn.GetFilename(), ifn.GetDir());  
 
   // create function prototype for main
   std::vector<llvm::Type*>FuncTy_1_args;
@@ -137,47 +152,114 @@ bool CodegenLLVM::Open(int argc, const char ** argv)
       m_globalVarValues[var.m_normalizedName] = gvar;
     }
   }
-#endif
 
   // declare runtime init function
   CreateBIFCall("init");
   
+  #endif
+
   return true;
 } 
 
-llvm::FunctionType * CodegenLLVM::CreateFunctionType(const char * typeStr)
+llvm::FunctionType * CodegenLLVM::CreateFunctionType(const FunctionDef & fn)
 {
-  llvm::FunctionType * type = nullptr;
-  std::string str((typeStr == nullptr) ? "" : typeStr);
+  // create function type list
+  std::vector<llvm::Type *> argTypes;
+  for (auto & r : fn.m_args) {
+    llvm::Type * type;
+    if (r == "int16_t") { 
+      type = llvm::Type::getInt16Ty(m_context);
+    }
+    else if (r == "const char *") {
+      type = llvm::Type::getInt8PtrTy(m_context)->getPointerTo();
+    }
+    else if (r == "float") {
+      type = llvm::Type::getFloatTy(m_module->getContext());
+    }
+    else if (r == "double") {
+      type = llvm::Type::getDoubleTy(m_module->getContext());
+    }
+    else
+      InternalError("unknown argument type '" << r << "'");
+    argTypes.push_back(type);  
+  }
 
-  if ((str == "void") || (str == "")) {
+  // create return type  
+  llvm::FunctionType * type = nullptr;
+  if ((fn.m_returnType == "void") || fn.m_returnType.empty()) {
     type = llvm::FunctionType::get(
                     llvm::Type::getVoidTy(m_context),
+                    argTypes,
                     false);
   }
   else {
-    InternalError("unknown BIF return type '" << typeStr << "'");
+    InternalError("unknown function return type '" << fn.m_returnType << "'");
   }
 
   return type; 
 }
 
-void CodegenLLVM::CreateCallExternalFunc(RuntimeFunctionDef & funcDef)
-{
-  llvm::FunctionType * returnType = CreateFunctionType(funcDef.m_returnType);
-  
-  std::string funcName(g_runtimeDefPrefix);
-  funcName += funcDef.m_name;
+#if 0
+  // create argument type list
+  std::vector<llvm::Type *> argTypes;
+  if (argsStr_ != nullptr) {
+    std::string argStr(argsStr_);
+    std::vector<std::string> tokens;
+    Tokenize(tokens, argStr, ',');
+    for (auto & r : tokens) {
+      llvm::Type * type;
+      llvm::Value * val;
+      if (r == "int16_t") { 
+        type = llvm::Type::getInt16Ty(m_context);
+        val = llvm::ConstantInt::get(m_context, llvm::APInt(16, va_arg(varg, int)));
+      }
+      else if (r == "const char *") {
+        type = llvm::Type::getInt8PtrTy(m_context)->getPointerTo();
+        val = va_arg(varg, llvm::Value *);
+      }
+      else if (r == "float") {
+        type = llvm::Type::getFloatTy(m_module->getContext()),
+        val = va_arg(varg, llvm::Value *);
+      }
+      else if (r == "double") {
+        llvm::Value * var = va_arg(varg, llvm::Value *);
+        llvm::LoadInst * loadInst = new llvm::LoadInst(var, "", false, m_mainBlock);
+        loadInst->setAlignment(8);
+        type = llvm::Type::getDoubleTy(m_module->getContext()),
+        val = loadInst;
+      }
+      else
+        InternalError("unknown argument type '" << r << "'");
+      argTypes.push_back(type);  
+      args.push_back(val);
+    }
+  }
 
+  // create function call
+  llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
+  llvm::Constant * func = m_module->getOrInsertFunction(name, returnType);  
+  m_builder.CreateCall(func, args);
+}
+#endif
+
+bool CodegenLLVM::OnDeclareExternalFunc(const FunctionDef & fn)
+{
+  llvm::FunctionType * returnType = CreateFunctionType(fn);
+  
   llvm::Function * func = llvm::Function::Create(returnType, 
                                                  llvm::GlobalValue::ExternalLinkage, 
-                                                 funcName.c_str(), 
+                                                 fn.m_name, 
                                                  m_module.get()
                                                 );
+                                                
   llvm::CallInst * call = llvm::CallInst::Create(func, "", m_mainBlock);
   call->setCallingConv(llvm::CallingConv::C);
-  call->setTailCall(false);    
+  call->setTailCall(false);
+
+  return true;
 }
+
+#if 0
 
 void CodegenLLVM::CreateFunctionCall(RuntimeFunctionDef & funcDef ...)
 {
@@ -271,11 +353,14 @@ void CodegenLLVM::CreateBIFCall(const std::string & name ...)
 
   InternalError("unknown BIF '" << name << "'");
 }
+#endif
 
 bool CodegenLLVM::Close(const std::string & outputFilename)
 {
   llvm::ConstantInt * const_int32_9 = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
   llvm::ReturnInst::Create(m_context, const_int32_9, m_mainBlock);  
+
+  m_debugBuilder->finalize();
 
   if (g_dump)
     m_module->dump();
