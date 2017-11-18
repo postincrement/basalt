@@ -9,15 +9,6 @@ class CodeGenerator : public AST::Visitor
 {
   public:
 		// common code
-    struct ValueDef {
-      ValueDef(const std::string & name, Variable::Type type)
-        : m_name(name)
-        , m_type(type)
-      { }
-      std::string m_name;
-      Variable::Type m_type;
-    };
-
     typedef std::map<std::string, AST::VariableDefExpr *> VarDefExprMap;
 
     struct Scope 
@@ -35,7 +26,7 @@ class CodeGenerator : public AST::Visitor
       
       virtual AST::Expr * FindVar(const std::string & name);
 
-      virtual bool OnDeclareVar(const AST::Expr & expr) { return true; } 
+      virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) { return true; } 
 
       virtual unsigned GetScopeLevel() const 
       { return m_scopeLevel; }
@@ -44,6 +35,15 @@ class CodeGenerator : public AST::Visitor
 
       Scope * m_parent = nullptr;
       unsigned m_scopeLevel;
+    };
+
+    struct ValueDef {
+      ValueDef(const std::string & name, Variable::Type type)
+        : m_name(name)
+        , m_type(type)
+      { }
+      std::string m_name;
+      Variable::Type m_type;
     };
 
 		CodeGenerator(const std::string & genType, const std::string & fn, AST::SourceFileExprList & tree);
@@ -63,11 +63,14 @@ class CodeGenerator : public AST::Visitor
 
     std::string GetTempName(const std::string & prefix);
         
-		// funcs to define in descendant generators
+    // funcs to define in descendant generators
+    virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type)
+    { return new ValueDef(name, type); }
+
     virtual void AssignString(const std::string & lhName, const std::string & rhName) = 0;
     virtual void AssignVar(const std::string & lhs, const std::string & rhs) = 0;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) = 0;
-    virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) = 0;
+    virtual void BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs) = 0;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) = 0;
     
     // open/close generator
@@ -83,13 +86,14 @@ class CodeGenerator : public AST::Visitor
     virtual bool OnDeclareConstString(const std::string & str, const std::string & name) { return true; } 
     virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
     virtual void OnLineMarker(const AST::LineMarkerExpr & expr) { }
+    virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, Scope & scope) { return scope.OnDeclareVar(expr); }
     
 		Filename m_inputFilename;
     std::string m_genType;
     Scope * m_globalScope = nullptr;
     Scope * m_currentScope = nullptr;
     unsigned m_scopeLevel = 0;
-    std::deque<ValueDef> m_valueStack;    
+    std::deque<ValueDef *> m_valueStack;    
     std::set<std::string> m_cleanupList;
 
     std::map<std::string, std::string> m_constStringMap;

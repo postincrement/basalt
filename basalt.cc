@@ -328,6 +328,8 @@ bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
   for (auto & r : rawName)
     if (!isalnum(r) && (r != '_'))
       r = '_';
+    else
+      r = tolower(r);  
 
   std::stringstream strm;
   strm << rawName;

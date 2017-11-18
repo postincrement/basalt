@@ -223,7 +223,7 @@ bool CodegenCXX::Visit(ExprList & expr)
 
 bool CodegenCXX::Visit(VariableRefExpr & expr)
 {
-  ValueDef def(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
+  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
   m_valueStack.push_back(def);
   return true;
 }
@@ -239,8 +239,8 @@ bool CodegenCXX::Visit(ConstantExpr<short int> & expr)
 {
   std::stringstream strm;
   strm << expr.m_value;
-  ValueDef val(strm.str(), Variable::Type::eInt16);
-  m_valueStack.push_back(val);
+  auto def = CreateValueDef(strm.str(), Variable::Type::eInt16);
+  m_valueStack.push_back(def);
   return true;
 }
 
@@ -252,7 +252,7 @@ bool CodegenCXX::Visit(ConstantExpr<float> & expr)
     strm << ".";
   strm << "f";
 
-  ValueDef val(strm.str(), Variable::Type::eSingle);
+  auto val = CreateValueDef(strm.str(), Variable::Type::eSingle);
   m_valueStack.push_back(val);
   return true;
 }
@@ -265,7 +265,7 @@ bool CodegenCXX::Visit(ConstantExpr<double> & expr)
     strm << ".";
   strm << "f";
     
-  ValueDef val(strm.str(), Variable::Type::eDouble);
+  auto val = CreateValueDef(strm.str(), Variable::Type::eDouble);
   m_valueStack.push_back(val);
   return true;
 }
@@ -339,23 +339,27 @@ void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)
              << indent << "if (" << rhs << " != 0L)\n"
              << indent << "  strcat(" << tempName << ", " << rhs << ");\n" 
              ;
-  ValueDef def(tempName, Variable::eString);
+  auto def = CreateValueDef(tempName, Variable::eString);
   m_valueStack.push_back(def);
-
 }
 
-void CodegenCXX::BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs)
+void CodegenCXX::BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs)
 {
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
   std::string indent = scope->GetIndent();
-  
+
+  std::string tempName(GetTempName("temp"));
+  auto result = CreateValueDef(tempName, lhs.m_type);
+
   m_codeStrm << indent 
              << CTypeForVarType(lhs.m_type) 
-             << " " << result.m_name
+             << " " << result->m_name
              << " = " << lhs.m_name 
              << " " << op 
              << " " << rhs.m_name 
              << ";\n"; 
+
+  m_valueStack.push_back(result);
 }
 
 bool CodegenCXX::CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args)

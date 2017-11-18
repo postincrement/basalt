@@ -186,8 +186,7 @@ bool CodeGenerator::Visit(ConstantStringExpr & expr)
     OnDeclareConstString(expr.m_value, name);
   }
 
-  cout << "push const string " << name << endl; 
-  ValueDef val(name, Variable::Type::eString);
+  auto val = CreateValueDef(name, Variable::Type::eString);
   m_valueStack.push_back(val);
 
   return true;
@@ -198,10 +197,11 @@ bool CodeGenerator::Visit(VariableDefExpr & expr)
   Scope * scope = expr.m_global ? m_globalScope : m_currentScope;
   if (scope->FindVar(expr.m_variable.m_normalizedName) == nullptr) {
     scope->m_vars[expr.m_variable.m_normalizedName] = &expr;
-    scope->OnDeclareVar(expr);
+    if (!OnDeclareVar(expr, *scope))
+      return false;
   }
 
-  ValueDef val(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
+  auto val = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
   m_valueStack.push_back(val);
   return true; 
 }
@@ -227,17 +227,17 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   cout << "after eval of rhs of binary expression " << expr.m_op << " : stack has " << m_valueStack.size() << " entries" << endl;
   
   // get RHS
-  ValueDef rhs = m_valueStack.back();  
+  std::unique_ptr<ValueDef> rhs(m_valueStack.back());  
   m_valueStack.pop_back();
-  Variable::Type rhType = rhs.m_type;
+  Variable::Type rhType = rhs->m_type;
   
   // evalaute LHS
   expr.m_lhs->Generate(*this);
 
   // get LHS
-  ValueDef lhs = m_valueStack.back();
+  std::unique_ptr<ValueDef> lhs(m_valueStack.back());
   m_valueStack.pop_back(); 
-  Variable::Type lhType = lhs.m_type;
+  Variable::Type lhType = lhs->m_type;
 
   // evaluate expression
   bool sameType = (lhType == rhType);
@@ -250,8 +250,10 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
 
     // LHS must be a variable ref
     AST::VariableRefExpr * lhRef = dynamic_cast<AST::VariableRefExpr *>(expr.m_lhs);
-    if (lhRef == nullptr)
-      InternalError("LHS of assignment is not variable ref (" << typeid(lhRef).name());    
+    if (lhRef == nullptr) {
+      InternalError("LHS of assignment is not variable ref (" << typeid(lhRef).name());
+      return false;
+    }
 
     // strings need to be handled differently
     if (rhType == Variable::eString) {
@@ -259,13 +261,13 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
         InternalError("cannot assign string to non-string");
         return false;
       }
-      else if (lhRef->m_variable.m_normalizedName != rhs.m_name) {
-        AssignString(lhRef->m_variable.m_normalizedName, rhs.m_name);
+      else if (lhRef->m_variable.m_normalizedName != rhs->m_name) {
+        AssignString(lhRef->m_variable.m_normalizedName, rhs->m_name);
       }
     }
     else {
-      AssignVar(lhRef->m_variable.m_normalizedName, rhs.m_name);
-      ValueDef def(lhRef->m_variable.m_normalizedName, lhType);
+      AssignVar(lhRef->m_variable.m_normalizedName, rhs->m_name);
+      auto def = CreateValueDef(lhRef->m_variable.m_normalizedName, lhType);
       m_valueStack.push_back(def);
     }
 
@@ -276,7 +278,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   if (lhType == Variable::eString) {
     switch (expr.m_op) {
       case '+':
-        JoinStrings(lhs.m_name, rhs.m_name);
+        JoinStrings(lhs->m_name, rhs->m_name);
         break;
       default:
         SourceWarning(eWarning_UnsupportedStringOp, "unsupported string op '" << (int)expr.m_op << "'");
@@ -285,7 +287,6 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   }  
 
   // handle scalar binary ops  
-  std::string tempName(GetTempName("temp"));
   std::string op;
   switch (expr.m_op) {
     case '+':
@@ -299,17 +300,12 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
       return false;
   }
 
-  ValueDef result(tempName, lhType);
-
   if (sameType)
-    BinaryOp(result, lhs, expr.m_op, rhs);
+    BinaryOp(*lhs, expr.m_op, *rhs);
   else {
     InternalError("mixed ops not supported");
     return false;
   }
-  
-  // just in case assignment is an expression
-  m_valueStack.push_back(result);
   
   return true;
 }

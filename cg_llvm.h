@@ -48,17 +48,29 @@ class CodegenLLVM : public CodeGenerator
         : Scope(parent)
       { }
     };
-    
+
+    struct LLVMValueDef : public ValueDef
+    {
+      LLVMValueDef(const std::string & name, Variable::Type type)
+        : ValueDef(name, type)
+      { }
+    };
+        
     virtual Scope * CreateScope(CodeGenerator & codeGen, Scope * parent = nullptr)
     { return new LLVMScope(parent); }
+    
+    virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type)
+    { return new LLVMValueDef(name, type); }
     
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
     virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
-    virtual void BinaryOp(const ValueDef & result, const ValueDef & lhs, char op, const ValueDef & rhs) override;
+    virtual void BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs) override;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
 
     virtual bool OnDeclareExternalFunc(const FunctionDef & fn) override;
+    virtual bool OnDeclareConstString(const std::string & str, const std::string & name) override; 
+    virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, Scope & scope) override;
     
     // internal functions
     llvm::FunctionType * CreateFunctionType(const FunctionDef & fn);
