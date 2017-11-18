@@ -299,6 +299,13 @@ void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
 }
 
 
+bool CodegenCXX::ReferenceVar(AST::VariableDefExpr & expr)
+{
+  auto val = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
+  m_valueStack.push_back(val);
+  return true;
+}
+
 void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
 {
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
@@ -310,12 +317,18 @@ void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
              ;
 }
 
-void CodegenCXX::AssignVar(const std::string & lhs, const std::string & rhs)
+void CodegenCXX::AssignVar(const ValueDef & lhs, const ValueDef & rhs)
 {
+  std::string lhName = lhs.m_name;
+  std::string rhName = rhs.m_name;
+  
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
   std::string indent = scope->GetIndent();
 
-  m_codeStrm << indent << lhs << " = " << rhs << ";\n";
+  m_codeStrm << indent << lhName << " = " << rhName << ";\n";
+
+  auto def = CreateValueDef(lhName, lhs.m_type);
+  m_valueStack.push_back(def);
 }
 
 void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)

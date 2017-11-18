@@ -67,8 +67,9 @@ class CodeGenerator : public AST::Visitor
     virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type)
     { return new ValueDef(name, type); }
 
+    virtual bool ReferenceVar(AST::VariableDefExpr & expr) = 0;
     virtual void AssignString(const std::string & lhName, const std::string & rhName) = 0;
-    virtual void AssignVar(const std::string & lhs, const std::string & rhs) = 0;
+    virtual void AssignVar(const ValueDef & lhs, const ValueDef & rhs) = 0;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) = 0;
     virtual void BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs) = 0;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) = 0;

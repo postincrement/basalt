@@ -460,28 +460,30 @@ bool CodegenLLVM::Visit(GotoExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
+ValueDef * CodegenLLVM::CreateValueDef(const std::string & name, Variable::Type type)
+{ return new LLVMValueDef(name, type, alloc); }
+
+bool CodegenCXX::ReferenceVar(AST::VariableDefExpr & expr)
+{
+  auto val = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
+  m_valueStack.push_back(val);
+  return true;
+}
+
 bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
 {
   std::string tempName(GetTempName("float_"));
 
   llvm::Type * type = llvm::Type::getFloatTy(m_module->getContext());
-  
+  llvm::Constant * val = llvm::ConstantFP::get(type, expr.m_value);
+    
   llvm::AllocaInst * temp = new llvm::AllocaInst(type, tempName, m_mainBlock);
   temp->setAlignment(4);
-
-  llvm::Constant * val = llvm::ConstantFP::get(type, expr.m_value);
 
   llvm::StoreInst * ins = new llvm::StoreInst(val, temp, false, m_mainBlock);
   ins->setAlignment(4);
 
-  auto def = CreateValueDef(tempName, Variable::Type::eSingle);
-  m_valueStack.push_back(def);
-  return true;
-}
-
-bool CodegenLLVM::Visit(VariableRefExpr & expr)
-{
-  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
+  auto def = CreateValueDef(tempName, Variable::Type::eSingle, temp);
   m_valueStack.push_back(def);
   return true;
 }
@@ -489,15 +491,15 @@ bool CodegenLLVM::Visit(VariableRefExpr & expr)
 bool CodegenLLVM::Visit(ConstantExpr<short int> & expr)
 {  
   std::string tempName(GetTempName("int16_"));
+  llvm::ConstantInt * val = llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_value));
+    
   llvm::AllocaInst * temp = new llvm::AllocaInst(llvm::IntegerType::get(m_module->getContext(), 16), tempName, m_mainBlock);
   temp->setAlignment(4);
-
-  llvm::ConstantInt * val = llvm::ConstantInt::get(m_context, llvm::APInt(16, expr.m_value));
 
   llvm::StoreInst * ins = new llvm::StoreInst(val, temp, false, m_mainBlock);
   ins->setAlignment(8);
 
-  auto def = CreateValueDef(tempName, Variable::Type::eInt16);
+  auto def = CreateValueDef(tempName, Variable::Type::eInt16, temp);
   m_valueStack.push_back(def);
   return true;
 }
@@ -507,11 +509,34 @@ bool CodegenLLVM::Visit(ConstantExpr<double> & expr)
   return LLVMError(expr);
 }
 
-void CodegenLLVM::AssignString(const std::string & lhName, const std::string & rhName)
-{}
+bool CodegenLLVM::Visit(VariableRefExpr & expr)
+{
+  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, nullptr);
+  m_valueStack.push_back(def);
+  return true;
+}
 
-void CodegenLLVM::AssignVar(const std::string & lhs, const std::string & rhs)
-{}
+//////////////////////////////////////////////////////////////////////////////////
+
+void CodegenLLVM::AssignString(const std::string & lhName, const std::string & rhName)
+{
+  // get variable associated with RHS
+  // get variable associated with LHS
+  //llvm::StoreInst * ins = new llvm::StoreInst(rhName, lhs, false, m_mainBlock);
+  //ins->setAlignment(8);
+}
+
+void CodegenLLVM::AssignVar(const ValueDef & lhs, const ValueDef & rhs)
+{
+  llvm::AllocaInst * lhsData = static_cast<const LLVMValueDef &>(lhs).m_alloc;
+  llvm::AllocaInst * rhsData = static_cast<const LLVMValueDef &>(rhs).m_alloc;
+
+  llvm::StoreInst * ins = new llvm::StoreInst(rhsData, lhsData, false, m_mainBlock);
+  ins->setAlignment(4);
+    
+  auto def = CreateValueDef(lhs.m_name, lhs.m_type, lhsData);
+  m_valueStack.push_back(def);    
+}
 
 void CodegenLLVM::JoinStrings(const std::string & lhName, const std::string & rhName)
 {}
@@ -526,8 +551,6 @@ bool CodegenLLVM::CallFunction(const std::string & returnTypeStr, const std::str
 
 bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, Scope & scope)
 {
-  cout << "declare " << expr.m_variable.m_normalizedName << endl;
-
   if (scope.m_scopeLevel != 0) {
     InternalError("non-global vars not supported (" << m_scopeLevel << ")");
     return false;

@@ -42,7 +42,7 @@ class CodegenCXX : public CodeGenerator
     virtual Scope * CreateScope(CodeGenerator & codeGen, Scope * parent = nullptr) override;
 
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
-    virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
+    virtual void AssignVar(const ValueDef & lhs, const ValueDef & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
     virtual void BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs) override;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;

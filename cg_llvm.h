@@ -51,19 +51,25 @@ class CodegenLLVM : public CodeGenerator
 
     struct LLVMValueDef : public ValueDef
     {
-      LLVMValueDef(const std::string & name, Variable::Type type)
+      LLVMValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
         : ValueDef(name, type)
+        , m_alloc(alloc)
       { }
+
+      llvm::AllocaInst * m_alloc;
     };
         
     virtual Scope * CreateScope(CodeGenerator & codeGen, Scope * parent = nullptr)
     { return new LLVMScope(parent); }
     
-    virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type)
-    { return new LLVMValueDef(name, type); }
+    virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type) override;
+
+    virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
+    { return new LLVMValueDef(name, type, alloc); }
     
+    virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
-    virtual void AssignVar(const std::string & lhs, const std::string & rhs) override;
+    virtual void AssignVar(const ValueDef & lhs, const ValueDef & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
     virtual void BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs) override;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;

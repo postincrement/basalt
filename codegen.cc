@@ -201,9 +201,7 @@ bool CodeGenerator::Visit(VariableDefExpr & expr)
       return false;
   }
 
-  auto val = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
-  m_valueStack.push_back(val);
-  return true; 
+  return ReferenceVar(expr);
 }
 
 bool CodeGenerator::Visit(BinaryExpr & expr)
@@ -266,9 +264,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
       }
     }
     else {
-      AssignVar(lhRef->m_variable.m_normalizedName, rhs->m_name);
-      auto def = CreateValueDef(lhRef->m_variable.m_normalizedName, lhType);
-      m_valueStack.push_back(def);
+      AssignVar(*lhs, *rhs);
     }
 
     return true;
@@ -286,7 +282,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
     return true;
   }  
 
-  // handle scalar binary ops  
+  //   handle scalar binary ops  
   std::string op;
   switch (expr.m_op) {
     case '+':
