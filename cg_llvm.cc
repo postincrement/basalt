@@ -3,6 +3,11 @@
 using namespace std;
 using namespace AST;
 
+static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
+{ 
+  return new LLVMValueDef(name, type, alloc); 
+}
+
 ////////////////////////////////////////////////////////
 //
 // LLVM visit functions
@@ -22,7 +27,7 @@ static bool LLVMError(Expr & expr)
 //////////////////////////////////////////////////////////////////////////
 
 CodegenLLVM::CodegenLLVM(const std::string & genType, const std::string & inputFilename, SourceFileExprList & tree)
-  : CodeGenerator(genType, inputFilename, tree)
+  : CodeGeneratorBase(genType, inputFilename, tree)
   , m_builder(m_context)
 { 
   m_module.reset(new llvm::Module("basalt", m_context));
@@ -40,7 +45,7 @@ CodegenLLVM::CodegenLLVM(const std::string & genType, const std::string & inputF
 
 bool CodegenLLVM::Open(int argc, const char ** argv)
 {
-  if (!CodeGenerator::Open())
+  if (!CodeGeneratorBase::Open())
     return false;
 
   // create output filename
@@ -381,6 +386,21 @@ bool CodegenLLVM::Visit(UnaryExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
+bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
+{
+  /*
+  auto var = m_currentScope->m_vars.find(expr.m_variable.m_normalizedName);
+  if (var == m_currentScope->m_vars.end())
+    return false;
+
+  */
+
+  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, nullptr);
+  m_valueStack.push_back(def);
+
+  return true;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 #if 0
@@ -460,15 +480,15 @@ bool CodegenLLVM::Visit(GotoExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
-ValueDef * CodegenLLVM::CreateValueDef(const std::string & name, Variable::Type type)
-{ return new LLVMValueDef(name, type, alloc); }
-
-bool CodegenCXX::ReferenceVar(AST::VariableDefExpr & expr)
+/*
+bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
 {
+//  #warning "Need to maintain binding between variables names and AllocA pointers probably in the VarDefExprMap in the scope"
   auto val = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
   m_valueStack.push_back(val);
   return true;
 }
+*/
 
 bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
 {
@@ -526,7 +546,7 @@ void CodegenLLVM::AssignString(const std::string & lhName, const std::string & r
   //ins->setAlignment(8);
 }
 
-void CodegenLLVM::AssignVar(const ValueDef & lhs, const ValueDef & rhs)
+void CodegenLLVM::AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs)
 {
   llvm::AllocaInst * lhsData = static_cast<const LLVMValueDef &>(lhs).m_alloc;
   llvm::AllocaInst * rhsData = static_cast<const LLVMValueDef &>(rhs).m_alloc;
@@ -541,7 +561,7 @@ void CodegenLLVM::AssignVar(const ValueDef & lhs, const ValueDef & rhs)
 void CodegenLLVM::JoinStrings(const std::string & lhName, const std::string & rhName)
 {}
 
-void CodegenLLVM::BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs)
+void CodegenLLVM::BinaryOp(const ValueDefBase & lhs, char op, const ValueDefBase & rhs)
 {}
 
 bool CodegenLLVM::CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args)
@@ -549,7 +569,7 @@ bool CodegenLLVM::CallFunction(const std::string & returnTypeStr, const std::str
   return true;
 }
 
-bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, Scope & scope)
+bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope)
 {
   if (scope.m_scopeLevel != 0) {
     InternalError("non-global vars not supported (" << m_scopeLevel << ")");
@@ -619,8 +639,30 @@ bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, Scope & scope)
     default:
       InternalError("unsupported global variable type " << var.m_type); 
   }
-  
+
+//%%%%%%%%%%%%%%%%  
+
   return true;
 }
 
+///////////////////////////////////////////////////////////////////////
   
+ScopeBase * CodegenLLVM::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
+{ 
+  return new LLVMScope(codeGen, parent); 
+}
+
+LLVMScope::LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
+  : ScopeBase(parent)
+{ }
+
+bool LLVMScope::OnDeclareVar(const AST::VariableDefExpr & expr)
+{
+  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
+  m_vars.insert(
+    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
+  );
+  return true;
+}
+
+

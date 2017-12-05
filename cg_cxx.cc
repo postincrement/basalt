@@ -6,6 +6,11 @@ using namespace std;
 
 using namespace AST;
 
+static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type)
+{ 
+  return new ValueDefBase(name, type); 
+}
+    
 ////////////////////////////////////////////////////////
 //
 // CXX visit functions
@@ -24,12 +29,13 @@ static bool CXXError(Expr & expr)
 
 ////////////////////////////////////////////////////////
 
-static std::string DeclareVariable(AST::VariableDefExpr & expr)
+static std::string DeclareVariable(VarDefExprBase & varDef)
 {
+  const AST::VariableDefExpr & expr = *varDef.m_expr;
   std::stringstream strm;
 
   cout << "declare global " << expr.m_variable.m_name << endl;
-  Variable & var = expr.m_variable;
+  const Variable & var = expr.m_variable;
 
   std::string type;
   std::string initExpr = " = ";
@@ -70,13 +76,13 @@ static std::string DeclareVariable(AST::VariableDefExpr & expr)
 ////////////////////////////////////////////////////////
 
 CodegenCXX::CodegenCXX(const std::string & genType, const std::string & fn, SourceFileExprList & tree)
-  : CodeGenerator(genType, fn, tree)
+  : CodeGeneratorBase(genType, fn, tree)
 {  
 }
 
 bool CodegenCXX::Open(int argc, const char ** argv)
 {
-  if (!CodeGenerator::Open())
+  if (!CodeGeneratorBase::Open())
     return false;
 
   return true;
@@ -298,14 +304,6 @@ void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
              << indent << "// " << expr.m_line << "\n";
 }
 
-
-bool CodegenCXX::ReferenceVar(AST::VariableDefExpr & expr)
-{
-  auto val = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
-  m_valueStack.push_back(val);
-  return true;
-}
-
 void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
 {
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
@@ -317,7 +315,7 @@ void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
              ;
 }
 
-void CodegenCXX::AssignVar(const ValueDef & lhs, const ValueDef & rhs)
+void CodegenCXX::AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs)
 {
   std::string lhName = lhs.m_name;
   std::string rhName = rhs.m_name;
@@ -356,7 +354,7 @@ void CodegenCXX::JoinStrings(const std::string & lhs, const std::string & rhs)
   m_valueStack.push_back(def);
 }
 
-void CodegenCXX::BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs)
+void CodegenCXX::BinaryOp(const ValueDefBase & lhs, char op, const ValueDefBase & rhs)
 {
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
   std::string indent = scope->GetIndent();
@@ -395,19 +393,26 @@ bool CodegenCXX::CallFunction(const std::string & returnTypeStr, const std::stri
   return true;
 }
 
+bool CodegenCXX::ReferenceVar(AST::VariableDefExpr & expr)
+{
+  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
+  m_valueStack.push_back(def);
+  return true;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
-CodeGenerator::Scope * CodegenCXX::CreateScope(CodeGenerator & codeGen, Scope * parent)
+ScopeBase * CodegenCXX::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
 { 
   return new CXXScope(codeGen, parent); 
 }
 
-CodegenCXX::CXXScope::CXXScope(CodeGenerator & codeGen, Scope * parent)
-  : Scope(parent)
+CXXScope::CXXScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
+  : ScopeBase(parent)
   , m_owner(static_cast<CodegenCXX *>(&codeGen))
 { }
 
-void CodegenCXX::CXXScope::Enter()
+void CXXScope::Enter()
 {
   if (m_scopeLevel != 0) {
     CXXScope * parent = static_cast<CXXScope *>(m_parent);
@@ -417,7 +422,7 @@ void CodegenCXX::CXXScope::Enter()
   m_indent = m_indent + "  ";
 }
 
-void CodegenCXX::CXXScope::Leave()
+void CXXScope::Leave()
 {
   if (m_scopeLevel == 0) 
     m_indent = "";
@@ -427,3 +432,17 @@ void CodegenCXX::CXXScope::Leave()
   }
   m_owner->m_codeStrm << m_indent << "}\n";
 }
+
+bool CXXScope::OnDeclareVar(const AST::VariableDefExpr & expr)
+{
+  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
+  m_vars.insert(
+    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
+  );
+  return true;
+}
+
+
+
+
+

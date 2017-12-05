@@ -7,7 +7,7 @@ using namespace std;
 
 using namespace AST;
 
-CodeGenerator::CodeGenerator(const std::string & genType, const std::string & fn, SourceFileExprList & tree)
+CodeGeneratorBase::CodeGeneratorBase(const std::string & genType, const std::string & fn, SourceFileExprList & tree)
   : Visitor(tree)
   , m_inputFilename(fn)
   , m_genType(genType)
@@ -15,14 +15,14 @@ CodeGenerator::CodeGenerator(const std::string & genType, const std::string & fn
 {
 }
 
-bool CodeGenerator::Open()
+bool CodeGeneratorBase::Open()
 {
   m_globalScope  = CreateScope(*this);
   m_currentScope = nullptr;
   return true;
 }
 
-std::string CodeGenerator::GetTempName(const std::string & prefix)
+std::string CodeGeneratorBase::GetTempName(const std::string & prefix)
 {
   std::stringstream strm;
   strm << prefix << "_" << m_tempCounter++;
@@ -31,11 +31,11 @@ std::string CodeGenerator::GetTempName(const std::string & prefix)
 
 ///////////////////////////////////////////////////////////////////////
 
-AST::Expr * CodeGenerator::Scope::FindVar(const std::string & name)
+VarDefExprBase * ScopeBase::FindVar(const std::string & name)
 {
   auto r = m_vars.find(name);
   if (r != m_vars.end())
-    return r->second;
+    return r->second.get();
 
   if (m_parent == nullptr)
     return nullptr;
@@ -45,7 +45,7 @@ AST::Expr * CodeGenerator::Scope::FindVar(const std::string & name)
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodeGenerator::DeclareExternalFunction(const FunctionDef & fn)
+bool CodeGeneratorBase::DeclareExternalFunction(const FunctionDef & fn)
 {
   auto r = m_externFunctionMap.find(fn.m_name);
   if (r != m_externFunctionMap.end())
@@ -54,7 +54,7 @@ bool CodeGenerator::DeclareExternalFunction(const FunctionDef & fn)
   return OnDeclareExternalFunc(fn);
 }
 
-bool CodeGenerator::DeclareRuntimeFunction(const std::string & name)
+bool CodeGeneratorBase::DeclareRuntimeFunction(const std::string & name)
 {
   std::string funcName(g_runtimeDefPrefix);
   funcName += name;
@@ -74,7 +74,7 @@ bool CodeGenerator::DeclareRuntimeFunction(const std::string & name)
   return false;
 }
 
-bool CodeGenerator::VCreateFunctionCall(
+bool CodeGeneratorBase::VCreateFunctionCall(
   const char * returnTypeStr_,
   const char * name,
   const char * argsStr_,
@@ -99,7 +99,7 @@ bool CodeGenerator::VCreateFunctionCall(
   return CallFunction(returnType, name, args);
 }
 
-bool CodeGenerator::CallRuntimeFunction(const std::string & name ...)
+bool CodeGeneratorBase::CallRuntimeFunction(const std::string & name ...)
 {
   // always declare before calling
   if (!DeclareRuntimeFunction(name))
@@ -126,24 +126,24 @@ bool CodeGenerator::CallRuntimeFunction(const std::string & name ...)
 
 ///////////////////////////////////////////////////////////////////////
 
-void CodeGenerator::EnterScope()
+void CodeGeneratorBase::EnterScope()
 {
   m_currentScope = CreateScope(*this, m_currentScope);  
   m_currentScope->Enter();
 }
 
-void CodeGenerator::LeaveScope()
+void CodeGeneratorBase::LeaveScope()
 {
   if (m_currentScope == nullptr)
     InternalError("Attempt to pop past global scope");
   m_currentScope->Leave();
-  Scope * parent = m_currentScope->m_parent;
+  ScopeBase * parent = m_currentScope->m_parent;
   delete m_currentScope;
   m_currentScope = parent;  
 }
 
 
-bool CodeGenerator::Run(AST::SourceFileExprList & expr)
+bool CodeGeneratorBase::Run(AST::SourceFileExprList & expr)
 {
   m_currentLineMarkerExpr = nullptr;
 
@@ -167,14 +167,14 @@ bool CodeGenerator::Run(AST::SourceFileExprList & expr)
   return true;
 }
 
-bool CodeGenerator::Visit(LineMarkerExpr & expr)
+bool CodeGeneratorBase::Visit(LineMarkerExpr & expr)
 {
   m_currentLineMarkerExpr = &expr;
   OnLineMarker(*m_currentLineMarkerExpr);
   return true;
 }
 
-bool CodeGenerator::Visit(ConstantStringExpr & expr)
+bool CodeGeneratorBase::Visit(ConstantStringExpr & expr)
 {
   std::string name;
   auto r = m_constStringMap.find(expr.m_value);
@@ -192,19 +192,18 @@ bool CodeGenerator::Visit(ConstantStringExpr & expr)
   return true;
 }
 
-bool CodeGenerator::Visit(VariableDefExpr & expr)
+bool CodeGeneratorBase::Visit(VariableDefExpr & expr)
 {
-  Scope * scope = expr.m_global ? m_globalScope : m_currentScope;
+  ScopeBase * scope = expr.m_global ? m_globalScope : m_currentScope;
   if (scope->FindVar(expr.m_variable.m_normalizedName) == nullptr) {
-    scope->m_vars[expr.m_variable.m_normalizedName] = &expr;
     if (!OnDeclareVar(expr, *scope))
       return false;
   }
 
-  return ReferenceVar(expr);
+  return scope->ReferenceVar(expr);
 }
 
-bool CodeGenerator::Visit(BinaryExpr & expr)
+bool CodeGeneratorBase::Visit(BinaryExpr & expr)
 {
   if (expr.m_rhs == nullptr) {
     InternalError("RHS of assignment missing");
@@ -225,7 +224,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   cout << "after eval of rhs of binary expression " << expr.m_op << " : stack has " << m_valueStack.size() << " entries" << endl;
   
   // get RHS
-  std::unique_ptr<ValueDef> rhs(m_valueStack.back());  
+  std::unique_ptr<ValueDefBase> rhs(m_valueStack.back());  
   m_valueStack.pop_back();
   Variable::Type rhType = rhs->m_type;
   
@@ -233,7 +232,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   expr.m_lhs->Generate(*this);
 
   // get LHS
-  std::unique_ptr<ValueDef> lhs(m_valueStack.back());
+  std::unique_ptr<ValueDefBase> lhs(m_valueStack.back());
   m_valueStack.pop_back(); 
   Variable::Type lhType = lhs->m_type;
 
@@ -306,7 +305,7 @@ bool CodeGenerator::Visit(BinaryExpr & expr)
   return true;
 }
 
-bool CodeGenerator::Visit(BIFExpr & expr)
+bool CodeGeneratorBase::Visit(BIFExpr & expr)
 {
   if (
       (expr.m_name == "print_eol") || 

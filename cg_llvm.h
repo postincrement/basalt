@@ -27,57 +27,65 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/DIBuilder.h"
 
-class CodegenLLVM : public CodeGenerator
+///////////////////////////////////////////////////////////////////////////
+
+struct LLVMVarDef : public VarDefExprBase 
+{
+  LLVMVarDef(const AST::VariableDefExpr * expr)
+    : VarDefExprBase(expr)
+  { }
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+struct LLVMValueDef : public ValueDefBase
+{
+  LLVMValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
+    : ValueDefBase(name, type)
+    , m_alloc(alloc)
+  { }
+
+  llvm::AllocaInst * m_alloc;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+struct LLVMScope : public ScopeBase
+{
+  LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr);
+
+  virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) override;
+};
+
+///////////////////////////////////////////////////////////////////////////
+
+class CodegenLLVM : public CodeGeneratorBase
 {
   public:
     CodegenLLVM(const std::string & genType, const std::string & inputFilename, AST::SourceFileExprList & tree); 
 
-    DECLARE_EXPR_VISIT_FUNCTIONS();
-
-    // open generator
-    virtual bool Open(int argc, const char ** argv) override;
-    virtual bool Close(const std::string & m_outputFilename);
-      
-    // generate code
     virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
     { return dispatcher.Generate(*this); }
 
-    struct LLVMScope : public Scope
-    {
-      LLVMScope(Scope * parent = nullptr)
-        : Scope(parent)
-      { }
-    };
-
-    struct LLVMValueDef : public ValueDef
-    {
-      LLVMValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
-        : ValueDef(name, type)
-        , m_alloc(alloc)
-      { }
-
-      llvm::AllocaInst * m_alloc;
-    };
+    DECLARE_EXPR_VISIT_FUNCTIONS();
         
-    virtual Scope * CreateScope(CodeGenerator & codeGen, Scope * parent = nullptr)
-    { return new LLVMScope(parent); }
-    
-    virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type) override;
-
-    virtual ValueDef * CreateValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
-    { return new LLVMValueDef(name, type, alloc); }
+    // required funcs
+    virtual bool Open(int argc, const char ** argv) override;
+    virtual bool Close(const std::string & m_outputFilename) override;
+      
+    virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) override;
     
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
-    virtual void AssignVar(const ValueDef & lhs, const ValueDef & rhs) override;
+    virtual void AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
-    virtual void BinaryOp(const ValueDef & lhs, char op, const ValueDef & rhs) override;
+    virtual void BinaryOp(const ValueDefBase & lhs, char op, const ValueDefBase & rhs) override;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
 
     virtual bool OnDeclareExternalFunc(const FunctionDef & fn) override;
     virtual bool OnDeclareConstString(const std::string & str, const std::string & name) override; 
-    virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, Scope & scope) override;
-    
+    virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) override;
+
     // internal functions
     llvm::FunctionType * CreateFunctionType(const FunctionDef & fn);
 

@@ -38,7 +38,7 @@ ArgDef g_argDefs[] = {
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
-static Factory<CodeGenerator,   const std::string &, const std::string, AST::SourceFileExprList &> g_codegeneratorFactory;
+static Factory<CodeGeneratorBase, const std::string &, const std::string, AST::SourceFileExprList &> g_codegeneratorFactory;
 static Factory<LanguageProfile> g_languageProfileFactory;
 
 const char * g_runtimeDefPrefix = "basalt_";
@@ -295,7 +295,7 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  CodeGenerator * generator = 
+  CodeGeneratorBase * generator = 
       g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_codeGeneratorName, m_inputFilename, g_expressions);
 
   if (generator == nullptr) {
