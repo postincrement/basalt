@@ -31,21 +31,42 @@
 
 struct LLVMVarDef : public VarDefExprBase 
 {
-  LLVMVarDef(const AST::VariableDefExpr * expr)
+  LLVMVarDef(const AST::VariableDefExpr * expr, llvm::AllocaInst * var)
     : VarDefExprBase(expr)
+    , m_var(var)
   { }
+
+  LLVMVarDef(const AST::VariableDefExpr * expr, llvm::GlobalVariable * glob)
+    : VarDefExprBase(expr)
+    , m_glob(glob)
+  { }
+
+  LLVMVarDef(const AST::VariableDefExpr * expr, llvm::Value * value)
+    : VarDefExprBase(expr)
+    , m_value(value)
+  { }
+
+  llvm::AllocaInst * m_var = nullptr;
+  llvm::GlobalVariable * m_glob = nullptr;
+  llvm::Value * m_value = nullptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
 struct LLVMValueDef : public ValueDefBase
 {
-  LLVMValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
+  LLVMValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * var)
     : ValueDefBase(name, type)
-    , m_alloc(alloc)
+    , m_var(var)
   { }
 
-  llvm::AllocaInst * m_alloc;
+  LLVMValueDef(const std::string & name, Variable::Type type, llvm::Value * value)
+    : ValueDefBase(name, type)
+    , m_value(value)
+  { }
+
+  llvm::AllocaInst * m_var = nullptr;
+  llvm::Value * m_value = nullptr;
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -76,6 +97,7 @@ class CodegenLLVM : public CodeGeneratorBase
     virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) override;
     
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;
+    virtual bool ReferenceConstString(const std::string & name, const std::string & val) override;
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
     virtual void AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
@@ -83,7 +105,7 @@ class CodegenLLVM : public CodeGeneratorBase
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
 
     virtual bool OnDeclareExternalFunc(const FunctionDef & fn) override;
-    virtual bool OnDeclareConstString(const std::string & str, const std::string & name) override; 
+    virtual bool OnDeclareConstString(const AST::ConstantStringExpr & expr, const std::string & name) override; 
     virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) override;
 
     // internal functions
@@ -100,6 +122,8 @@ class CodegenLLVM : public CodeGeneratorBase
     void CreateFunctionCall(const char * returnType, const char * name, const char * argsStr...);
     void VCreateFunctionCall(const char * returnType, const char * name, const char * argsStr, va_list varg);
  #endif   
+
+    LLVMVarDef * FindVarRef(ScopeBase * scope, const std::string & name);
 
     Filename m_objectFilename;
 

@@ -3,9 +3,14 @@
 using namespace std;
 using namespace AST;
 
-static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
+static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type, llvm::Value * value)
 { 
-  return new LLVMValueDef(name, type, alloc); 
+  return new LLVMValueDef(name, type, value); 
+}
+
+static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * var)
+{ 
+  return new LLVMValueDef(name, type, var); 
 }
 
 ////////////////////////////////////////////////////////
@@ -196,9 +201,19 @@ bool CodegenLLVM::OnDeclareExternalFunc(const FunctionDef & fn)
   return true;
 }
 
-bool CodegenLLVM::OnDeclareConstString(const std::string & str, const std::string & name) 
+bool CodegenLLVM::OnDeclareConstString(const AST::ConstantStringExpr & expr, const std::string & name) 
 { 
-  m_builder.CreateGlobalStringPtr(str, name);
+  llvm::Value * value = m_builder.CreateGlobalStringPtr(expr.m_value, name);
+
+  // need a fake string variable to hold the binding
+  Variable constStringVar(Variable::Type::eStringConst, name);
+  AST::VariableDefExpr * var = new VariableDefExpr(constStringVar, 0, false);
+  std::unique_ptr<VarDefExprBase> ptr(new LLVMVarDef(var, value));
+
+  m_globalScope->m_vars.insert(
+    VarDefExprMap::value_type(name, std::move(ptr))
+  );
+
   return true; 
 } 
 
@@ -386,16 +401,48 @@ bool CodegenLLVM::Visit(UnaryExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
+LLVMVarDef * CodegenLLVM::FindVarRef(ScopeBase * scope, const std::string & name)
+{
+  auto r = scope->m_vars.find(name);
+  if (r == scope->m_vars.end()) {
+    if ((scope->m_parent == nullptr) || (scope == m_globalScope)) {
+      InternalError("cannot find variable for '" << name << "'");
+      return nullptr;
+    }
+    return FindVarRef(scope->m_parent, name);
+  }
+
+  return dynamic_cast<LLVMVarDef *>(r->second.get());
+}
+
+bool CodegenLLVM::ReferenceConstString(const std::string & name, const std::string & val)
+{
+  auto r = m_globalScope->m_vars.find(name);
+  if (r == m_globalScope->m_vars.end()) {
+    InternalError("cannot find constant string for '" << name << "'");
+    return false;
+  }
+
+  LLVMVarDef * rv = dynamic_cast<LLVMVarDef *>(r->second.get());
+
+  if (rv->m_glob == nullptr) {
+    InternalError("constant string '" << name << "' is not a global variable");
+    return false;    
+  }
+
+  auto v = CreateValueDef(name, Variable::Type::eString, rv->m_glob);
+  m_valueStack.push_back(v);
+  return true;
+}
+
 bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
 {
-  /*
-  auto var = m_currentScope->m_vars.find(expr.m_variable.m_normalizedName);
-  if (var == m_currentScope->m_vars.end())
+  cout << "looking for var " << expr.m_variable.m_normalizedName << " in " << (void *)m_globalScope << endl;
+  LLVMVarDef * ref = FindVarRef(m_globalScope, expr.m_variable.m_normalizedName);
+  if (ref == nullptr)
     return false;
 
-  */
-
-  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, nullptr);
+  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_var);
   m_valueStack.push_back(def);
 
   return true;
@@ -480,16 +527,6 @@ bool CodegenLLVM::Visit(GotoExpr & expr)
 
 ///////////////////////////////////////////////////////////////////////
 
-/*
-bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
-{
-//  #warning "Need to maintain binding between variables names and AllocA pointers probably in the VarDefExprMap in the scope"
-  auto val = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type);
-  m_valueStack.push_back(val);
-  return true;
-}
-*/
-
 bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
 {
   std::string tempName(GetTempName("float_"));
@@ -531,8 +568,8 @@ bool CodegenLLVM::Visit(ConstantExpr<double> & expr)
 
 bool CodegenLLVM::Visit(VariableRefExpr & expr)
 {
-  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, nullptr);
-  m_valueStack.push_back(def);
+  //auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, nullptr);
+  //m_valueStack.push_back(def);
   return true;
 }
 
@@ -548,8 +585,8 @@ void CodegenLLVM::AssignString(const std::string & lhName, const std::string & r
 
 void CodegenLLVM::AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs)
 {
-  llvm::AllocaInst * lhsData = static_cast<const LLVMValueDef &>(lhs).m_alloc;
-  llvm::AllocaInst * rhsData = static_cast<const LLVMValueDef &>(rhs).m_alloc;
+  llvm::AllocaInst * lhsData = static_cast<const LLVMValueDef &>(lhs).m_var;
+  llvm::AllocaInst * rhsData = static_cast<const LLVMValueDef &>(rhs).m_var;
 
   llvm::StoreInst * ins = new llvm::StoreInst(rhsData, lhsData, false, m_mainBlock);
   ins->setAlignment(4);
@@ -640,7 +677,12 @@ bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & sc
       InternalError("unsupported global variable type " << var.m_type); 
   }
 
-//%%%%%%%%%%%%%%%%  
+  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
+  scope.m_vars.insert(
+    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
+  );
+
+  cout << "declared " << expr.m_variable.m_normalizedName << " into " << (void *)&scope << endl;
 
   return true;
 }
@@ -649,7 +691,9 @@ bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & sc
   
 ScopeBase * CodegenLLVM::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
 { 
-  return new LLVMScope(codeGen, parent); 
+  ScopeBase * ptr = new LLVMScope(codeGen, parent);
+  cout << "created scope " << (void *)ptr << endl; 
+  return ptr;
 }
 
 LLVMScope::LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent)

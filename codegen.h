@@ -92,6 +92,7 @@ class CodeGeneratorBase : public AST::Visitor
       virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) = 0;
       
       virtual bool ReferenceVar(AST::VariableDefExpr & expr) = 0;
+      virtual bool ReferenceConstString(const std::string & name, const std::string & val) = 0;
       virtual void AssignString(const std::string & lhName, const std::string & rhName) = 0;
       virtual void AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs) = 0;
       virtual void JoinStrings(const std::string & lhName, const std::string & rhName) = 0;
@@ -104,7 +105,7 @@ class CodeGeneratorBase : public AST::Visitor
       virtual void EnterScope();  
       virtual void LeaveScope();  
       
-      virtual bool OnDeclareConstString(const std::string & str, const std::string & name) { return true; } 
+      virtual bool OnDeclareConstString(const AST::ConstantStringExpr & expr, const std::string & name) { return true; } 
       virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
       virtual void OnLineMarker(const AST::LineMarkerExpr & expr) { }
       virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) { return scope.OnDeclareVar(expr); }

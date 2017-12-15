@@ -101,6 +101,7 @@ struct Variable
     eInt16,
     eSingle,
     eDouble,
+    eStringConst,
     eUntyped
   };
 

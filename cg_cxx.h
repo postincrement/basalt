@@ -45,6 +45,7 @@ class CodegenCXX : public CodeGeneratorBase
     virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) override;
 
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;
+    virtual bool ReferenceConstString(const std::string & name, const std::string & val) override;
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
     virtual void AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs) override;
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;

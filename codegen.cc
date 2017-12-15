@@ -183,13 +183,10 @@ bool CodeGeneratorBase::Visit(ConstantStringExpr & expr)
   else {  
     name = GetTempName("string");
     m_constStringMap[expr.m_value] = name;
-    OnDeclareConstString(expr.m_value, name);
+    OnDeclareConstString(expr, name);
   }
 
-  auto val = CreateValueDef(name, Variable::Type::eString);
-  m_valueStack.push_back(val);
-
-  return true;
+  return ReferenceConstString(name, expr.m_value);
 }
 
 bool CodeGeneratorBase::Visit(VariableDefExpr & expr)
@@ -200,7 +197,7 @@ bool CodeGeneratorBase::Visit(VariableDefExpr & expr)
       return false;
   }
 
-  return scope->ReferenceVar(expr);
+  return ReferenceVar(expr);
 }
 
 bool CodeGeneratorBase::Visit(BinaryExpr & expr)
