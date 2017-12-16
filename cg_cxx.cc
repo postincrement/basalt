@@ -452,4 +452,3 @@ bool CXXScope::OnDeclareVar(const AST::VariableDefExpr & expr)
 
 
 
-

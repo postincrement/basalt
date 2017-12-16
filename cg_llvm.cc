@@ -412,6 +412,8 @@ LLVMVarDef * CodegenLLVM::FindVarRef(ScopeBase * scope, const std::string & name
     return FindVarRef(scope->m_parent, name);
   }
 
+  cout << "found " << (void *)r->second.get() << endl;
+
   return dynamic_cast<LLVMVarDef *>(r->second.get());
 }
 
@@ -439,8 +441,10 @@ bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
 {
   cout << "looking for var " << expr.m_variable.m_normalizedName << " in " << (void *)m_globalScope << endl;
   LLVMVarDef * ref = FindVarRef(m_globalScope, expr.m_variable.m_normalizedName);
-  if (ref == nullptr)
+  if (ref == nullptr) {
+    cout << "var failed" << endl;
     return false;
+  }
 
   auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_var);
   m_valueStack.push_back(def);
@@ -568,8 +572,20 @@ bool CodegenLLVM::Visit(ConstantExpr<double> & expr)
 
 bool CodegenLLVM::Visit(VariableRefExpr & expr)
 {
-  //auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, nullptr);
-  //m_valueStack.push_back(def);
+  LLVMVarDef * ref = FindVarRef(m_currentScope, expr.m_variable.m_normalizedName);
+  if (ref == nullptr)
+    return false;
+
+  ValueDefBase * def;
+  if (ref->m_var != nullptr)
+    def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_var);
+  else if (ref->m_glob != nullptr)
+    def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_glob);
+  else 
+    InternalError("cannot get value for ref " << expr.m_variable.m_normalizedName);
+
+  m_valueStack.push_back(def);
+
   return true;
 }
 
@@ -585,13 +601,24 @@ void CodegenLLVM::AssignString(const std::string & lhName, const std::string & r
 
 void CodegenLLVM::AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs)
 {
-  llvm::AllocaInst * lhsData = static_cast<const LLVMValueDef &>(lhs).m_var;
+  const LLVMValueDef & lhsLLVM = static_cast<const LLVMValueDef &>(lhs);
   llvm::AllocaInst * rhsData = static_cast<const LLVMValueDef &>(rhs).m_var;
 
-  llvm::StoreInst * ins = new llvm::StoreInst(rhsData, lhsData, false, m_mainBlock);
+  ValueDefBase * def;
+  llvm::StoreInst * ins;
+  if (lhsLLVM.m_var != nullptr) {
+    ins = new llvm::StoreInst(rhsData, lhsLLVM.m_var, false, m_mainBlock);
+    def = CreateValueDef(lhs.m_name, lhs.m_type, lhsLLVM.m_var);
+  }
+  else if (lhsLLVM.m_value != nullptr) {
+    ins = new llvm::StoreInst(rhsData, lhsLLVM.m_value, false, m_mainBlock);
+    def = CreateValueDef(lhs.m_name, lhs.m_type, lhsLLVM.m_value);
+  }
+  else
+    InternalError("cannot find LHS of assignment");
+
   ins->setAlignment(4);
     
-  auto def = CreateValueDef(lhs.m_name, lhs.m_type, lhsData);
   m_valueStack.push_back(def);    
 }
 
@@ -677,7 +704,7 @@ bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & sc
       InternalError("unsupported global variable type " << var.m_type); 
   }
 
-  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
+  std::unique_ptr<VarDefExprBase> ptr(new LLVMVarDef(&expr, gvar));
   scope.m_vars.insert(
     VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
   );
@@ -692,21 +719,9 @@ bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & sc
 ScopeBase * CodegenLLVM::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
 { 
   ScopeBase * ptr = new LLVMScope(codeGen, parent);
-  cout << "created scope " << (void *)ptr << endl; 
   return ptr;
 }
 
 LLVMScope::LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
   : ScopeBase(parent)
 { }
-
-bool LLVMScope::OnDeclareVar(const AST::VariableDefExpr & expr)
-{
-  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
-  m_vars.insert(
-    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
-  );
-  return true;
-}
-
-

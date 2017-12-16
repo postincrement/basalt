@@ -332,7 +332,7 @@ bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
       r = tolower(r);  
 
   std::stringstream strm;
-  strm << rawName;
+  strm << "var_" << rawName;
     
   switch (var.m_type) {
     case Variable::eString:

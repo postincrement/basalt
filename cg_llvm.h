@@ -75,7 +75,7 @@ struct LLVMScope : public ScopeBase
 {
   LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr);
 
-  virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) override;
+  //virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////

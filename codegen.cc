@@ -18,7 +18,7 @@ CodeGeneratorBase::CodeGeneratorBase(const std::string & genType, const std::str
 bool CodeGeneratorBase::Open()
 {
   m_globalScope  = CreateScope(*this);
-  m_currentScope = nullptr;
+  m_currentScope = m_globalScope;
   return true;
 }
 
@@ -225,8 +225,10 @@ bool CodeGeneratorBase::Visit(BinaryExpr & expr)
   m_valueStack.pop_back();
   Variable::Type rhType = rhs->m_type;
   
-  // evalaute LHS
+  // evaluate LHS
+  cout << "about to generate" << endl;
   expr.m_lhs->Generate(*this);
+  cout << "generate done" << endl;
 
   // get LHS
   std::unique_ptr<ValueDefBase> lhs(m_valueStack.back());
@@ -241,6 +243,8 @@ bool CodeGeneratorBase::Visit(BinaryExpr & expr)
   }
     
   if (expr.m_op == '=') {
+
+    cout << "assignment" << endl;
 
     // LHS must be a variable ref
     AST::VariableRefExpr * lhRef = dynamic_cast<AST::VariableRefExpr *>(expr.m_lhs);

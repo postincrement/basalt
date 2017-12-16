@@ -62,7 +62,7 @@ struct ScopeBase
   
   virtual VarDefExprBase * FindVar(const std::string & name);
 
-  virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) = 0;
+  virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) { return false; }
 
   virtual unsigned GetScopeLevel() const 
   { return m_scopeLevel; }
@@ -108,7 +108,8 @@ class CodeGeneratorBase : public AST::Visitor
       virtual bool OnDeclareConstString(const AST::ConstantStringExpr & expr, const std::string & name) { return true; } 
       virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
       virtual void OnLineMarker(const AST::LineMarkerExpr & expr) { }
-      virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) { return scope.OnDeclareVar(expr); }
+      virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) 
+      { return scope.OnDeclareVar(expr); }
 
     // internal functions
     private:
