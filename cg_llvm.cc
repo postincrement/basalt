@@ -427,12 +427,12 @@ bool CodegenLLVM::ReferenceConstString(const std::string & name, const std::stri
 
   LLVMVarDef * rv = dynamic_cast<LLVMVarDef *>(r->second.get());
 
-  if (rv->m_glob == nullptr) {
+  if (rv->m_value == nullptr) {
     InternalError("constant string '" << name << "' is not a global variable");
     return false;    
   }
 
-  auto v = CreateValueDef(name, Variable::Type::eString, rv->m_glob);
+  auto v = CreateValueDef(name, Variable::Type::eString, rv->m_value);
   m_valueStack.push_back(v);
   return true;
 }
@@ -446,7 +446,7 @@ bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
     return false;
   }
 
-  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_var);
+  auto def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_value);
   m_valueStack.push_back(def);
 
   return true;
@@ -576,14 +576,7 @@ bool CodegenLLVM::Visit(VariableRefExpr & expr)
   if (ref == nullptr)
     return false;
 
-  ValueDefBase * def;
-  if (ref->m_var != nullptr)
-    def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_var);
-  else if (ref->m_glob != nullptr)
-    def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_glob);
-  else 
-    InternalError("cannot get value for ref " << expr.m_variable.m_normalizedName);
-
+  ValueDefBase * def = CreateValueDef(expr.m_variable.m_normalizedName, expr.m_variable.m_type, ref->m_value);
   m_valueStack.push_back(def);
 
   return true;
@@ -602,15 +595,11 @@ void CodegenLLVM::AssignString(const std::string & lhName, const std::string & r
 void CodegenLLVM::AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs)
 {
   const LLVMValueDef & lhsLLVM = static_cast<const LLVMValueDef &>(lhs);
-  llvm::AllocaInst * rhsData = static_cast<const LLVMValueDef &>(rhs).m_var;
+  llvm::Value * rhsData = static_cast<const LLVMValueDef &>(rhs).m_value;
 
   ValueDefBase * def;
   llvm::StoreInst * ins;
-  if (lhsLLVM.m_var != nullptr) {
-    ins = new llvm::StoreInst(rhsData, lhsLLVM.m_var, false, m_mainBlock);
-    def = CreateValueDef(lhs.m_name, lhs.m_type, lhsLLVM.m_var);
-  }
-  else if (lhsLLVM.m_value != nullptr) {
+  if (lhsLLVM.m_value != nullptr) {
     ins = new llvm::StoreInst(rhsData, lhsLLVM.m_value, false, m_mainBlock);
     def = CreateValueDef(lhs.m_name, lhs.m_type, lhsLLVM.m_value);
   }
@@ -626,7 +615,23 @@ void CodegenLLVM::JoinStrings(const std::string & lhName, const std::string & rh
 {}
 
 void CodegenLLVM::BinaryOp(const ValueDefBase & lhs, char op, const ValueDefBase & rhs)
-{}
+{
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+
+  std::string tempName(GetTempName("temp"));
+  auto result = CreateValueDef(tempName, lhs.m_type);
+
+  m_codeStrm << indent 
+             << CTypeForVarType(lhs.m_type) 
+             << " " << result->m_name
+             << " = " << lhs.m_name 
+             << " " << op 
+             << " " << rhs.m_name 
+             << ";\n"; 
+
+  m_valueStack.push_back(result);  
+}
 
 bool CodegenLLVM::CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args)
 {

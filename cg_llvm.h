@@ -31,23 +31,23 @@
 
 struct LLVMVarDef : public VarDefExprBase 
 {
+/*
   LLVMVarDef(const AST::VariableDefExpr * expr, llvm::AllocaInst * var)
     : VarDefExprBase(expr)
-    , m_var(var)
+    , m_value(var)
   { }
 
   LLVMVarDef(const AST::VariableDefExpr * expr, llvm::GlobalVariable * glob)
     : VarDefExprBase(expr)
-    , m_glob(glob)
+    , m_value(glob)
   { }
+*/
 
   LLVMVarDef(const AST::VariableDefExpr * expr, llvm::Value * value)
     : VarDefExprBase(expr)
     , m_value(value)
   { }
 
-  llvm::AllocaInst * m_var = nullptr;
-  llvm::GlobalVariable * m_glob = nullptr;
   llvm::Value * m_value = nullptr;
 };
 
@@ -55,17 +55,18 @@ struct LLVMVarDef : public VarDefExprBase
 
 struct LLVMValueDef : public ValueDefBase
 {
-  LLVMValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * var)
-    : ValueDefBase(name, type)
-    , m_var(var)
-  { }
-
   LLVMValueDef(const std::string & name, Variable::Type type, llvm::Value * value)
     : ValueDefBase(name, type)
     , m_value(value)
   { }
 
-  llvm::AllocaInst * m_var = nullptr;
+  /*
+  LLVMValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * var)
+    : ValueDefBase(name, type)
+    , m_value(var)
+  { }
+  */
+
   llvm::Value * m_value = nullptr;
 };
 
