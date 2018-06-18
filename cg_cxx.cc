@@ -400,13 +400,6 @@ bool CodegenCXX::ReferenceVar(AST::VariableDefExpr & expr)
   return true;
 }
 
-bool CodegenCXX::ReferenceConstString(const std::string & name, const std::string & val)
-{
-  auto v = CreateValueDef(name, Variable::Type::eString);
-  m_valueStack.push_back(v);
-  return true;
-}
-
 ///////////////////////////////////////////////////////////////////////
 
 ScopeBase * CodegenCXX::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
@@ -448,6 +441,7 @@ bool CXXScope::OnDeclareVar(const AST::VariableDefExpr & expr)
   );
   return true;
 }
+
 
 
 
