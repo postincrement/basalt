@@ -94,9 +94,10 @@ class CodegenLLVM : public CodeGeneratorBase
     // required funcs
     virtual bool Open(int argc, const char ** argv) override;
     virtual bool Close(const std::string & m_outputFilename) override;
-      
+
     virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) override;
     
+#if 0     
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;
     virtual bool ReferenceConstString(const std::string & name, const std::string & val) override;
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
@@ -108,6 +109,7 @@ class CodegenLLVM : public CodeGeneratorBase
     virtual bool OnDeclareExternalFunc(const FunctionDef & fn) override;
     virtual bool OnDeclareConstString(const AST::ConstantStringExpr & expr, const std::string & name) override; 
     virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) override;
+#endif
 
     // internal functions
     llvm::FunctionType * CreateFunctionType(const FunctionDef & fn);

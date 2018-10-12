@@ -24,6 +24,8 @@ AST::Visitor::Visitor(AST::SourceFileExprList & tree)
 {
 }
 
+#if 0
+
 bool AST::Visitor::Visit(Expr & expr)
 {
   return VisitError(expr);
@@ -107,6 +109,8 @@ bool AST::Visitor::Visit(GotoExpr & expr)
 {
   return VisitError(expr);
 }
+
+#endif
 
 ///////////////////////////////////////////////////////////
 

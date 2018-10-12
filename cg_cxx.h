@@ -43,7 +43,9 @@ class CodegenCXX : public CodeGeneratorBase
     virtual bool Close(const std::string & m_outputFilename) override;
 
     virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) override;
+    virtual void OnLineMarker(const AST::LineMarkerExpr & expr) override;
 
+#if 0
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;
     virtual bool ReferenceConstString(const std::string & name, const std::string & val) override;
     virtual void AssignString(const std::string & lhName, const std::string & rhName) override;
@@ -51,8 +53,8 @@ class CodegenCXX : public CodeGeneratorBase
     virtual void JoinStrings(const std::string & lhName, const std::string & rhName) override;
     virtual void BinaryOp(const ValueDefBase & lhs, char op, const ValueDefBase & rhs) override;
     virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) override;
-    virtual void OnLineMarker(const AST::LineMarkerExpr & expr) override;
-    
+#endif
+
     #if 0
     void CreateBIFCall(const std::string & name ...);
 

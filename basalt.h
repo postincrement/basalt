@@ -26,6 +26,7 @@ class Basalt
     int ParseArguments(ArgDef * defs, int argc, char const *argv[], int index);
     void DecodeOpt(ArgDef * def, int & index, int argc, const char **argv);
     void Usage(const ArgDef * defs, bool keys = false);
+    void DisplayHelp();
     char ReadNextChar();
 
     void OnError(const std::string & msg);

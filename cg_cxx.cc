@@ -131,8 +131,10 @@ bool CodegenCXX::Close(const std::string & outputFilename)
   }
 
   // declare global vars
-  for (auto & r : m_globalScope->m_vars)
-    m_globalVarsStrm << DeclareVariable(*r.second) << "\n";
+  if (m_globalScope != nullptr) {
+    for (auto & r : m_globalScope->m_vars)
+      m_globalVarsStrm << DeclareVariable(*r.second) << "\n";
+  }
 
   // create output filename
   m_srcFilename = Filename(m_inputFilename.GetDir() + m_inputFilename.GetBasename() + "." + m_genType);
@@ -205,6 +207,8 @@ std::string CreateGotoTarget(const std::string & marker)
   strm << "line_" << marker;
   return strm.str();
 }
+
+#if 0
 
 bool CodegenCXX::Visit(Expr & expr)
 {
@@ -289,6 +293,8 @@ bool CodegenCXX::Visit(GotoExpr & expr)
   return true;
 }
 
+#endif
+
 ///////////////////////////////////////////////////////////////////////
 
 void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
@@ -304,6 +310,7 @@ void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
              << indent << "// " << expr.m_line << "\n";
 }
 
+#if 0
 void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
 {
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
@@ -400,12 +407,25 @@ bool CodegenCXX::ReferenceVar(AST::VariableDefExpr & expr)
   return true;
 }
 
+bool CXXScope::OnDeclareVar(const AST::VariableDefExpr & expr)
+{
+  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
+  m_vars.insert(
+    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
+  );
+  return true;
+}
+
+#endif
+
 ///////////////////////////////////////////////////////////////////////
 
 ScopeBase * CodegenCXX::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
 { 
-  return new CXXScope(codeGen, parent); 
+  return nullptr; //return new CXXScope(codeGen, parent); 
 }
+
+#if 0
 
 CXXScope::CXXScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
   : ScopeBase(parent)
@@ -433,16 +453,4 @@ void CXXScope::Leave()
   m_owner->m_codeStrm << m_indent << "}\n";
 }
 
-bool CXXScope::OnDeclareVar(const AST::VariableDefExpr & expr)
-{
-  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
-  m_vars.insert(
-    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
-  );
-  return true;
-}
-
-
-
-
-
+#endif

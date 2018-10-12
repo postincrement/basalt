@@ -29,8 +29,6 @@ static AST::ExprList * ConcatExprLists(AST::ExprList * a, AST::ExprList * b)
   return a;
 }
 
-
-
 extern void MBASIC_SetRemMode();
 
 %}

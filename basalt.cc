@@ -21,6 +21,7 @@ std::set<std::string> g_gotoTargets;
 Basalt g_application;
 
 int g_verbose = 0;
+int g_displayHelp = 0;
 std::string g_codeGeneratorName;
 std::string g_outputFilename;
 std::string g_languageProfileName;
@@ -35,6 +36,7 @@ ArgDef g_argDefs[] = {
   { 'o',   "output",    "s",  &g_outputFilename,      "set output filename" },
   { 'p',   "profile",   "s",  &g_languageProfileName, "set language profile" },
   { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
+  { 'h',   "help",      "",   &g_displayHelp,         "display help message"},
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
@@ -214,6 +216,57 @@ void Basalt::Usage(const ArgDef * defs, bool showKeys)
   exit(1);
 }
 
+void Basalt::DisplayHelp()
+{
+  std::vector<std::string> col1;
+  std::vector<std::string> col2;
+  std::vector<std::string> col3;
+  std::vector<std::string> col4;
+
+  int col1Width = 0;
+  int col2Width = 0;
+  int col3Width = 0;
+  int col4Width = 0;
+
+  for (ArgDef * arg = g_argDefs; arg->m_short != 0; ++arg) {    
+    stringstream strm;
+    if (arg->m_short != ' ') {
+      strm << "-" << arg->m_short;
+    }
+    col1.push_back(strm.str());
+    col1Width = std::max<int>(col1Width, strm.str().length());
+    strm.str("");
+
+    if ((arg->m_long != nullptr) && (arg->m_long[0] != '\0')) {
+      strm << "--" << arg->m_long;
+    }
+    col2.push_back(strm.str());
+    col2Width = std::max<int>(col2Width, strm.str().length());
+    strm.str("");
+
+    switch (arg->m_type[0]) {
+      case 's':
+        strm << "string";
+        break;
+      default:
+        break;
+    }
+    col3.push_back(strm.str());
+    col3Width = std::max<int>(col3Width, strm.str().length());
+
+    col4.push_back(arg->m_usage);
+    col4Width = std::max<int>(col4Width, strlen(arg->m_usage));
+  }
+
+  for (size_t i = 0; i < col1.size(); ++i) {
+    cout << std::left << setw(col1Width) << col1[i] 
+         << " " << std::left << setw(col2Width) << col2[i] 
+         << " " << std::left << setw(col3Width) << col3[i] 
+         << "  " << col4[i] << endl;
+  }
+
+}
+
 int Basalt::Main(int argc, char const *argv[])
 {
   m_interactive = false;
@@ -232,6 +285,11 @@ int Basalt::Main(int argc, char const *argv[])
   
   // parse options and arguments
   int index = ParseArguments(g_argDefs, argc, argv);
+
+  if (g_displayHelp) {
+    DisplayHelp();
+    return 0;
+  }
 
   // set default code generator if no output file specified 
   if (g_codeGeneratorName.empty() && g_outputFilename.empty())
@@ -323,6 +381,8 @@ BasicLanguageProfile::BasicLanguageProfile(int normVarLen)
 bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
 {
   std::string rawName = var.m_name;
+
+#if 0  
   
   // take out unprintables
   for (auto & r : rawName)
@@ -354,7 +414,9 @@ bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
   if (dim > 0)
     strm << "_array_" << dim;
 
-  var.m_normalizedName = strm.str();
+#endif
+
+  var.m_normalizedName = rawName;
 
   return true;
 }

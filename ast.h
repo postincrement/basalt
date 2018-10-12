@@ -14,13 +14,17 @@
 class CodegenCXX;
 class CodegenLLVM;
 
-#define DECLARE_EXPR_VISITOR() \
-virtual bool Generate(AST::Visitor & visitor)
+#define DECLARE_EXPR_VISITOR() void * __x0 \
 
-#define IMPLEMENT_EXPR_VISITOR() \
-DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
+//virtual bool Generate(AST::Visitor & visitor)
 
-#define DECLARE_EXPR_VISIT_FUNCTIONS() \
+#define IMPLEMENT_EXPR_VISITOR() void * __x1 \
+
+//DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
+
+#define DECLARE_EXPR_VISIT_FUNCTIONS()  void * __x2 \
+
+#if 0
 virtual bool Visit(AST::Expr & expr); \
 virtual bool Visit(AST::ExprList & expr); \
 virtual bool Visit(AST::SourceFileExprList & expr); \
@@ -36,12 +40,18 @@ virtual bool Visit(AST::CallExpr & expr); \
 virtual bool Visit(AST::GotoExpr & expr) \
 \
 
-#define DECLARE_COMMON_EXPR_VISIT_FUNCTIONS() \
+#endif
+
+#define DECLARE_COMMON_EXPR_VISIT_FUNCTIONS()  void * __x3 \
+
+#if 0
 virtual bool Visit(AST::LineMarkerExpr & expr); \
 virtual bool Visit(AST::ConstantStringExpr & expr); \
 virtual bool Visit(AST::VariableDefExpr & expr); \
 virtual bool Visit(AST::BinaryExpr & expr); \
 virtual bool Visit(AST::BIFExpr & expr) \
+
+#endif
 
 namespace AST {
 
@@ -112,6 +122,9 @@ class Expr
     virtual ~Expr()
     { }
 
+    virtual bool Generate(AST::Visitor & visitor)
+    { return true; }
+
     IMPLEMENT_EXPR_VISITOR();
   };
 
@@ -134,6 +147,9 @@ struct SourceFileExprList : public ExprList
   { }
 
   virtual ~SourceFileExprList() { }
+
+  bool Generate(AST::Visitor & visitor)
+  { return true; }
   
   IMPLEMENT_EXPR_VISITOR();
 };

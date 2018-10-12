@@ -45,6 +45,39 @@ VarDefExprBase * ScopeBase::FindVar(const std::string & name)
 
 ///////////////////////////////////////////////////////////////////////
 
+bool CodeGeneratorBase::CallRuntimeFunction(const std::string & name ...)
+{
+#if 0  
+  // always declare before calling
+  if (!DeclareRuntimeFunction(name))
+    return false;
+
+  std::string funcName(g_runtimeDefPrefix);
+  funcName += name;
+
+  va_list argValues;
+  va_start(argValues, name);
+
+  int i = 0;
+  while (g_runtimeDefs[i].m_name != nullptr) {
+    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
+    if (name == funcDef.m_name) {
+      return VCreateFunctionCall(funcDef.m_returnType, funcName.c_str(), funcDef.m_args, argValues);
+    }
+    ++i;
+  }
+
+  InternalError("unknown runtime function '" << name << "'");
+  return false;
+#endif
+
+  return true;  
+}
+
+
+
+#if 0
+
 bool CodeGeneratorBase::DeclareExternalFunction(const FunctionDef & fn)
 {
   auto r = m_externFunctionMap.find(fn.m_name);
@@ -99,30 +132,7 @@ bool CodeGeneratorBase::VCreateFunctionCall(
   return CallFunction(returnType, name, args);
 }
 
-bool CodeGeneratorBase::CallRuntimeFunction(const std::string & name ...)
-{
-  // always declare before calling
-  if (!DeclareRuntimeFunction(name))
-    return false;
-
-  std::string funcName(g_runtimeDefPrefix);
-  funcName += name;
-
-  va_list argValues;
-  va_start(argValues, name);
-
-  int i = 0;
-  while (g_runtimeDefs[i].m_name != nullptr) {
-    RuntimeFunctionDef & funcDef = g_runtimeDefs[i];
-    if (name == funcDef.m_name) {
-      return VCreateFunctionCall(funcDef.m_returnType, funcName.c_str(), funcDef.m_args, argValues);
-    }
-    ++i;
-  }
-
-  InternalError("unknown runtime function '" << name << "'");
-  return false;
-}
+#endif
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -166,6 +176,8 @@ bool CodeGeneratorBase::Run(AST::SourceFileExprList & expr)
 
   return true;
 }
+
+#if 0
 
 bool CodeGeneratorBase::Visit(LineMarkerExpr & expr)
 {
@@ -374,3 +386,4 @@ bool CodeGeneratorBase::Visit(BIFExpr & expr)
   return true;
 }
 
+#endif

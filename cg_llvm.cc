@@ -137,47 +137,6 @@ llvm::FunctionType * CodegenLLVM::CreateFunctionType(const FunctionDef & fn)
 }
 
 #if 0
-  // create argument type list
-  std::vector<llvm::Type *> argTypes;
-  if (argsStr_ != nullptr) {
-    std::string argStr(argsStr_);
-    std::vector<std::string> tokens;
-    Tokenize(tokens, argStr, ',');
-    for (auto & r : tokens) {
-      llvm::Type * type;
-      llvm::Value * val;
-      if (r == "int16_t") { 
-        type = llvm::Type::getInt16Ty(m_context);
-        val = llvm::ConstantInt::get(m_context, llvm::APInt(16, va_arg(varg, int)));
-      }
-      else if (r == "const char *") {
-        type = llvm::Type::getInt8PtrTy(m_context)->getPointerTo();
-        val = va_arg(varg, llvm::Value *);
-      }
-      else if (r == "float") {
-        type = llvm::Type::getFloatTy(m_module->getContext()),
-        val = va_arg(varg, llvm::Value *);
-      }
-      else if (r == "double") {
-        llvm::Value * var = va_arg(varg, llvm::Value *);
-        llvm::LoadInst * loadInst = new llvm::LoadInst(var, "", false, m_mainBlock);
-        loadInst->setAlignment(8);
-        type = llvm::Type::getDoubleTy(m_module->getContext()),
-        val = loadInst;
-      }
-      else
-        InternalError("unknown argument type '" << r << "'");
-      argTypes.push_back(type);  
-      args.push_back(val);
-    }
-  }
-
-  // create function call
-  llvm::ArrayRef<llvm::Type*> argsRef(argTypes);
-  llvm::Constant * func = m_module->getOrInsertFunction(name, returnType);  
-  m_builder.CreateCall(func, args);
-}
-#endif
 
 bool CodegenLLVM::OnDeclareExternalFunc(const FunctionDef & fn)
 {
@@ -202,6 +161,7 @@ bool CodegenLLVM::OnDeclareConstString(const std::string & str, const std::strin
   return true; 
 } 
 
+#endif
 
 #if 0
 void CodegenLLVM::VCreateFunctionCall(                                      
@@ -364,6 +324,8 @@ bool CodegenLLVM::Close(const std::string & outputFilename)
   return true;
 }
 
+#if 0
+
 bool CodegenLLVM::Visit(Expr & expr)
 {
   return LLVMError(expr);
@@ -402,8 +364,6 @@ bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
 }
 
 ///////////////////////////////////////////////////////////////////////
-
-#if 0
 
 bool CodegenLLVM::Visit(BIFExpr & expr)
 {
@@ -466,8 +426,6 @@ bool CodegenLLVM::Visit(BIFExpr & expr)
   return true;
 }
 
-#endif
-
 bool CodegenLLVM::Visit(CallExpr & expr)
 {
   return LLVMError(expr);
@@ -477,6 +435,9 @@ bool CodegenLLVM::Visit(GotoExpr & expr)
 {
   return LLVMError(expr);
 }
+
+#endif
+
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -489,6 +450,8 @@ bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
   return true;
 }
 */
+
+#if 0
 
 bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
 {
@@ -536,7 +499,11 @@ bool CodegenLLVM::Visit(VariableRefExpr & expr)
   return true;
 }
 
+#endif
+
 //////////////////////////////////////////////////////////////////////////////////
+
+#if 0
 
 void CodegenLLVM::AssignString(const std::string & lhName, const std::string & rhName)
 {
@@ -646,11 +613,15 @@ bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & sc
 }
 
 ///////////////////////////////////////////////////////////////////////
+
+#endif
   
 ScopeBase * CodegenLLVM::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
 { 
-  return new LLVMScope(codeGen, parent); 
+  return nullptr; new LLVMScope(codeGen, parent); 
 }
+
+#if 0
 
 LLVMScope::LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
   : ScopeBase(parent)
@@ -665,4 +636,4 @@ bool LLVMScope::OnDeclareVar(const AST::VariableDefExpr & expr)
   return true;
 }
 
-
+#endif
