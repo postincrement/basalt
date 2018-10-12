@@ -27,6 +27,7 @@ std::string g_outputFilename;
 std::string g_languageProfileName;
 bool g_dump = false;
 bool g_compileOnly = false;
+bool g_enableDebugging = false;
 
 ArgDef g_argDefs[] = {
   { 'c',   "",          "b",  &g_compileOnly,         "compile only" },
@@ -36,6 +37,7 @@ ArgDef g_argDefs[] = {
   { 'o',   "output",    "s",  &g_outputFilename,      "set output filename" },
   { 'p',   "profile",   "s",  &g_languageProfileName, "set language profile" },
   { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
+  { 'g',   "debug",     "b",  &g_enableDebugging,     "add debugging information to output file"},
   { 'h',   "help",      "",   &g_displayHelp,         "display help message"},
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
@@ -73,6 +75,11 @@ void InternalErrorFunc(const char * fn, unsigned ln, const std::string & str)
 {
   cerr << "error: internal error " << fn << "(" << ln << ") - " << str << endl;
   exit(1);
+}
+
+void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str)
+{
+  cerr << "warning: error " << fn << "(" << ln << ") - " << str << endl;
 }
 
 void SourceWarningFunc(WarningCode code, unsigned line, const std::string & marker, const std::string & str)

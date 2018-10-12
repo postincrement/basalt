@@ -94,7 +94,10 @@ class CodeGenerator
 
     // generator functions for each type
     virtual bool TopLevel(AST::SourceFileExprList & expr);
+    virtual void OnLineMarker(const AST::LineMarkerExpr & expr);
+
     virtual bool Generate(AST::SourceFileExprList & expr);
+    virtual bool Generate(AST::LineMarkerExpr & expr);
 
     // optional functions
     virtual bool Open();
@@ -102,8 +105,6 @@ class CodeGenerator
     virtual void EnterScope();  
     virtual void LeaveScope();  
 
-    virtual void OnLineMarker(const AST::LineMarkerExpr & expr) { }
-    
 #if 0   
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) = 0;
     virtual bool ReferenceConstString(const std::string & name, const std::string & val) = 0;

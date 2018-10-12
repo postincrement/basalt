@@ -98,6 +98,8 @@ struct LineMarkerExpr : public Expr
     { 
     }
 
+  DECLARE_GENERATOR()
+  
   unsigned m_lineNumber;
   std::string m_marker;
   std::string m_line;

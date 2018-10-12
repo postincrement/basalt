@@ -168,7 +168,6 @@ bool CodegenLLVM::Close(const std::string & outputFilename)
 // LLVM scope functions
 //
 
-
 ScopeBase * CodegenLLVM::CreateScope(CodeGenerator & codeGen, ScopeBase * parent)
 { 
   return new LLVMScope(codeGen, parent); 
@@ -193,6 +192,10 @@ bool LLVMScope::OnDeclareVar(const AST::VariableDefExpr & expr)
 //
 // LLVM visit functions
 //
+
+void CodegenLLVM::OnLineMarker(const AST::LineMarkerExpr & expr)
+{
+}
 
 /*
 
@@ -256,9 +259,6 @@ llvm::FunctionType * CodegenLLVM::CreateFunctionType(const FunctionDef & fn)
 
   return type; 
 }
-#endif
-
-#if 0
 
 bool CodegenLLVM::OnDeclareExternalFunc(const FunctionDef & fn)
 {
@@ -283,9 +283,6 @@ bool CodegenLLVM::OnDeclareConstString(const std::string & str, const std::strin
   return true; 
 } 
 
-#endif
-
-#if 0
 void CodegenLLVM::VCreateFunctionCall(                                      
                                       const char * returnTypeStr,
                                       const char * name,
@@ -358,10 +355,6 @@ void CodegenLLVM::CreateBIFCall(const std::string & name ...)
 
   InternalError("unknown BIF '" << name << "'");
 }
-#endif
-
-
-#if 0
 
 bool CodegenLLVM::Visit(Expr & expr)
 {
@@ -469,9 +462,6 @@ bool CodegenLLVM::Visit(GotoExpr & expr)
   return LLVMError(expr);
 }
 
-#endif
-
-
 ///////////////////////////////////////////////////////////////////////
 
 /*
@@ -483,8 +473,6 @@ bool CodegenLLVM::ReferenceVar(AST::VariableDefExpr & expr)
   return true;
 }
 */
-
-#if 0
 
 bool CodegenLLVM::Visit(ConstantExpr<float> & expr)
 {
@@ -532,11 +520,7 @@ bool CodegenLLVM::Visit(VariableRefExpr & expr)
   return true;
 }
 
-#endif
-
 //////////////////////////////////////////////////////////////////////////////////
-
-#if 0
 
 void CodegenLLVM::AssignString(const std::string & lhName, const std::string & rhName)
 {

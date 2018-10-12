@@ -26,8 +26,8 @@ bool CodeGenerator::Open()
 
 bool CodeGenerator::VisitorError(const std::string & typeName)
 {
-  InternalError("Generator function not immplemented for '" << typeName << "'");
-  return false;
+  InternalWarning("generator function not implemented for '" << typeName << "'");
+  return true;
 }
 
 
@@ -94,6 +94,18 @@ bool CodeGenerator::Generate(AST::SourceFileExprList & expr)
 
   return true;
 }
+
+bool CodeGenerator::Generate(LineMarkerExpr & expr)
+{
+  m_currentLineMarkerExpr = &expr;
+  OnLineMarker(*m_currentLineMarkerExpr);
+  return true;
+}
+
+void CodeGenerator::OnLineMarker(const AST::LineMarkerExpr & expr)
+{
+}
+
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -209,13 +221,6 @@ bool CodeGenerator::VCreateFunctionCall(
 #endif
 
 #if 0
-
-bool CodeGenerator::Visit(LineMarkerExpr & expr)
-{
-  m_currentLineMarkerExpr = &expr;
-  OnLineMarker(*m_currentLineMarkerExpr);
-  return true;
-}
 
 bool CodeGenerator::Visit(ConstantStringExpr & expr)
 {

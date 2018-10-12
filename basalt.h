@@ -57,6 +57,10 @@ extern void InternalErrorFunc(const char * fn, unsigned ln, const std::string & 
 #define InternalError(expr) \
 do { std::stringstream strm; strm << expr; InternalErrorFunc(__FILE__, __LINE__, strm.str()); } while (0)
 
+extern void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str);
+#define InternalWarning(expr) \
+do { std::stringstream strm; strm << expr; InternalWarningFunc(__FILE__, __LINE__, strm.str()); } while (0)
+
 enum WarningCode {
 
   eWarning_Unknown                = 0x0000,
@@ -96,5 +100,6 @@ extern Basalt g_application;
 extern int g_lineNumber;
 extern bool g_compileOnly;
 extern bool g_dump;
+extern bool g_enableDebugging;
 
 #endif // BASALT_H_

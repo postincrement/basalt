@@ -93,6 +93,9 @@ class CodegenLLVM : public CodeGenerator
     virtual bool Close(const std::string & m_outputFilename) override;
 
     virtual ScopeBase * CreateScope(CodeGenerator & codeGen, ScopeBase * parent = nullptr) override;
+
+    virtual void OnLineMarker(const AST::LineMarkerExpr & expr) override;
+
     
 #if 0     
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;

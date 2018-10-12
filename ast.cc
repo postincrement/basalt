@@ -18,6 +18,9 @@ bool AST::Expr::Dispatch(CodeGenerator & generator)
 bool AST::SourceFileExprList::Dispatch(CodeGenerator & generator)
 { return generator.Generate(*this); }
 
+bool AST::LineMarkerExpr::Dispatch(CodeGenerator & generator)
+{ return generator.Generate(*this); }
+
 #if 0
 
 static bool VisitError(Expr & expr)

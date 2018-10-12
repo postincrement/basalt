@@ -103,10 +103,12 @@ void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
     m_needCleanup = false;
   }
   CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
-  std::string indent = scope->GetIndent();
-  m_codeStrm << "\n" 
-             << "#line " << expr.m_lineNumber << "\n"
-             << indent << "// " << expr.m_line << "\n";
+  if (g_enableDebugging) {
+    std::string indent = scope->GetIndent();
+    m_codeStrm << "\n" 
+              << "#line " << expr.m_lineNumber << "\n"
+              << indent << "// " << expr.m_line << "\n";
+  }
 }
 
 ////////////////////////////////////////////////////////
