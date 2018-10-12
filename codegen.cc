@@ -7,29 +7,103 @@ using namespace std;
 
 using namespace AST;
 
-CodeGeneratorBase::CodeGeneratorBase(const std::string & genType, const std::string & fn, SourceFileExprList & tree)
-  : Visitor(tree)
-  , m_inputFilename(fn)
+//////////////////////////////////////////////////////////////////////////
+
+CodeGenerator::CodeGenerator(const std::string & genType, const std::string & fn, AST::SourceFileExprList & tree)
+  : m_inputFilename(fn)
   , m_genType(genType)
   , m_currentScope(nullptr)
+  , m_tree(tree)
 {
 }
 
-bool CodeGeneratorBase::Open()
+bool CodeGenerator::Open()
 {
   m_globalScope  = CreateScope(*this);
   m_currentScope = nullptr;
   return true;
 }
 
-std::string CodeGeneratorBase::GetTempName(const std::string & prefix)
+bool CodeGenerator::VisitorError(const std::string & typeName)
+{
+  InternalError("Generator function not immplemented for '" << typeName << "'");
+  return false;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+
+void CodeGenerator::EnterScope()
+{
+  m_currentScope = CreateScope(*this, m_currentScope);  
+  m_currentScope->Enter();
+}
+
+void CodeGenerator::LeaveScope()
+{
+  if (m_currentScope == nullptr)
+    InternalError("Attempt to pop past global scope");
+  m_currentScope->Leave();
+  ScopeBase * parent = m_currentScope->m_parent;
+  delete m_currentScope;
+  m_currentScope = parent;  
+}
+
+///////////////////////////////////////////////////////////////////////
+
+bool CodeGenerator::TopLevel(AST::SourceFileExprList & expr)
+{
+  m_currentLineMarkerExpr = nullptr;
+
+  EnterScope();
+  
+  // call init function
+  if (!CallRuntimeFunction("init"))
+    return false;
+
+  // output code
+  for (auto & r : expr) {
+    if (r != nullptr) {
+      bool result = r->Dispatch(*this);
+      if (!result)
+        break;
+    }
+  }
+
+  LeaveScope();
+
+  return true;
+}
+
+///////////////////////////////////////////////////////////////////////
+
+bool CodeGenerator::Generate(AST::SourceFileExprList & expr)
+{
+  EnterScope();
+  
+  // output code
+  for (auto & r : expr) {
+    if (r != nullptr) {
+      bool result = r->Dispatch(*this);
+      if (!result)
+        break;
+    }
+  }
+
+  LeaveScope();
+
+  return true;
+}
+
+///////////////////////////////////////////////////////////////////////
+
+std::string CodeGenerator::GetTempName(const std::string & prefix)
 {
   std::stringstream strm;
   strm << prefix << "_" << m_tempCounter++;
   return strm.str();
 }
 
-///////////////////////////////////////////////////////////////////////
 
 VarDefExprBase * ScopeBase::FindVar(const std::string & name)
 {
@@ -45,7 +119,7 @@ VarDefExprBase * ScopeBase::FindVar(const std::string & name)
 
 ///////////////////////////////////////////////////////////////////////
 
-bool CodeGeneratorBase::CallRuntimeFunction(const std::string & name ...)
+bool CodeGenerator::CallRuntimeFunction(const std::string & name ...)
 {
 #if 0  
   // always declare before calling
@@ -78,7 +152,7 @@ bool CodeGeneratorBase::CallRuntimeFunction(const std::string & name ...)
 
 #if 0
 
-bool CodeGeneratorBase::DeclareExternalFunction(const FunctionDef & fn)
+bool CodeGenerator::DeclareExternalFunction(const FunctionDef & fn)
 {
   auto r = m_externFunctionMap.find(fn.m_name);
   if (r != m_externFunctionMap.end())
@@ -87,7 +161,7 @@ bool CodeGeneratorBase::DeclareExternalFunction(const FunctionDef & fn)
   return OnDeclareExternalFunc(fn);
 }
 
-bool CodeGeneratorBase::DeclareRuntimeFunction(const std::string & name)
+bool CodeGenerator::DeclareRuntimeFunction(const std::string & name)
 {
   std::string funcName(g_runtimeDefPrefix);
   funcName += name;
@@ -107,7 +181,7 @@ bool CodeGeneratorBase::DeclareRuntimeFunction(const std::string & name)
   return false;
 }
 
-bool CodeGeneratorBase::VCreateFunctionCall(
+bool CodeGenerator::VCreateFunctionCall(
   const char * returnTypeStr_,
   const char * name,
   const char * argsStr_,
@@ -134,59 +208,16 @@ bool CodeGeneratorBase::VCreateFunctionCall(
 
 #endif
 
-///////////////////////////////////////////////////////////////////////
-
-void CodeGeneratorBase::EnterScope()
-{
-  m_currentScope = CreateScope(*this, m_currentScope);  
-  m_currentScope->Enter();
-}
-
-void CodeGeneratorBase::LeaveScope()
-{
-  if (m_currentScope == nullptr)
-    InternalError("Attempt to pop past global scope");
-  m_currentScope->Leave();
-  ScopeBase * parent = m_currentScope->m_parent;
-  delete m_currentScope;
-  m_currentScope = parent;  
-}
-
-
-bool CodeGeneratorBase::Run(AST::SourceFileExprList & expr)
-{
-  m_currentLineMarkerExpr = nullptr;
-
-  EnterScope();
-  
-  // call init function
-  if (!CallRuntimeFunction("init"))
-    return false;
-
-  // output code
-  for (auto & r : expr) {
-    if (r != nullptr) {
-      bool result = r->Generate(*this);
-      if (!result)
-        break;
-    }
-  }
-
-  LeaveScope();
-
-  return true;
-}
-
 #if 0
 
-bool CodeGeneratorBase::Visit(LineMarkerExpr & expr)
+bool CodeGenerator::Visit(LineMarkerExpr & expr)
 {
   m_currentLineMarkerExpr = &expr;
   OnLineMarker(*m_currentLineMarkerExpr);
   return true;
 }
 
-bool CodeGeneratorBase::Visit(ConstantStringExpr & expr)
+bool CodeGenerator::Visit(ConstantStringExpr & expr)
 {
   std::string name;
   auto r = m_constStringMap.find(expr.m_value);
@@ -204,7 +235,7 @@ bool CodeGeneratorBase::Visit(ConstantStringExpr & expr)
   return true;
 }
 
-bool CodeGeneratorBase::Visit(VariableDefExpr & expr)
+bool CodeGenerator::Visit(VariableDefExpr & expr)
 {
   ScopeBase * scope = expr.m_global ? m_globalScope : m_currentScope;
   if (scope->FindVar(expr.m_variable.m_normalizedName) == nullptr) {
@@ -215,7 +246,7 @@ bool CodeGeneratorBase::Visit(VariableDefExpr & expr)
   return scope->ReferenceVar(expr);
 }
 
-bool CodeGeneratorBase::Visit(BinaryExpr & expr)
+bool CodeGenerator::Visit(BinaryExpr & expr)
 {
   if (expr.m_rhs == nullptr) {
     InternalError("RHS of assignment missing");
@@ -317,7 +348,7 @@ bool CodeGeneratorBase::Visit(BinaryExpr & expr)
   return true;
 }
 
-bool CodeGeneratorBase::Visit(BIFExpr & expr)
+bool CodeGenerator::Visit(BIFExpr & expr)
 {
   if (
       (expr.m_name == "print_eol") || 

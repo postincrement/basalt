@@ -11,105 +11,39 @@
 
 #include "common.h"
 
-class CodegenCXX;
-class CodegenLLVM;
-
-#define DECLARE_EXPR_VISITOR() void * __x0 \
-
-//virtual bool Generate(AST::Visitor & visitor)
-
-#define IMPLEMENT_EXPR_VISITOR() void * __x1 \
-
-//DECLARE_EXPR_VISITOR() { return visitor.Visit(*this); } \
-
-#define DECLARE_EXPR_VISIT_FUNCTIONS()  void * __x2 \
-
-#if 0
-virtual bool Visit(AST::Expr & expr); \
-virtual bool Visit(AST::ExprList & expr); \
-virtual bool Visit(AST::SourceFileExprList & expr); \
-virtual bool Visit(AST::VariableRefExpr & expr); \
-\
-virtual bool Visit(AST::UnaryExpr & expr); \
-\
-virtual bool Visit(AST::ConstantInt16Expr & expr); \
-virtual bool Visit(AST::ConstantSingleExpr & expr); \
-virtual bool Visit(AST::ConstantDoubleExpr & expr); \
-\
-virtual bool Visit(AST::CallExpr & expr); \
-virtual bool Visit(AST::GotoExpr & expr) \
-\
-
-#endif
-
-#define DECLARE_COMMON_EXPR_VISIT_FUNCTIONS()  void * __x3 \
-
-#if 0
-virtual bool Visit(AST::LineMarkerExpr & expr); \
-virtual bool Visit(AST::ConstantStringExpr & expr); \
-virtual bool Visit(AST::VariableDefExpr & expr); \
-virtual bool Visit(AST::BinaryExpr & expr); \
-virtual bool Visit(AST::BIFExpr & expr) \
-
-#endif
+class CodeGenerator;
 
 namespace AST {
 
-  class AbstractDispatcher;
+#if 0
 
-  class Expr;
-  class ExprList;
-  class SourceFileExprList;
-  class LineMarkerExpr;
-  class GotoExpr;
+class Expr;
+class ExprList;
+class SourceFileExprList;
+class LineMarkerExpr;
+class GotoExpr;
+
+class VariableDefExpr;
+class ArrayVariableDefExpr;
+class VariableRefExpr;
+class BinaryExpr;
+class UnaryExpr;
   
-  class VariableDefExpr;
-  class ArrayVariableDefExpr;
-  class VariableRefExpr;
-  class BinaryExpr;
-  class UnaryExpr;
-    
-  template <typename> class IntVariableDefExpr;
+template <typename> class IntVariableDefExpr;
 
-  template <typename> class ConstantExpr;  
-  typedef ConstantExpr<std::string> ConstantStringExpr;  
-  typedef ConstantExpr<int16_t> ConstantInt16Expr;
-  typedef ConstantExpr<float> ConstantSingleExpr;
-  typedef ConstantExpr<double> ConstantDoubleExpr;
-  
-  class BIFExpr;
-  class CallExpr;
-  
-  class Visitor
-  {
-    public:
-      Visitor(SourceFileExprList & tree);
+template <typename> class ConstantExpr;  
+typedef ConstantExpr<std::string> ConstantStringExpr;  
+typedef ConstantExpr<int16_t> ConstantInt16Expr;
+typedef ConstantExpr<float> ConstantSingleExpr;
+typedef ConstantExpr<double> ConstantDoubleExpr;
 
-      virtual ~Visitor() { }
+class BIFExpr;
+class CallExpr;
 
-      // generate code
-      virtual bool Generate(AbstractDispatcher & dispatcher) = 0;
+#endif
 
-      // visit functions
-      DECLARE_EXPR_VISIT_FUNCTIONS();
-      DECLARE_COMMON_EXPR_VISIT_FUNCTIONS();
-      
-      SourceFileExprList & m_tree;
-    };
-  
-  class AbstractDispatcher
-  {
-    public:
-      virtual bool Generate(CodegenCXX & generator) = 0;  
-      virtual bool Generate(CodegenLLVM & generator) = 0;  
-    };
-
-  class Dispatcher : public AbstractDispatcher
-  {
-    public:
-      virtual bool Generate(CodegenCXX & generator) override = 0;  
-      virtual bool Generate(CodegenLLVM & generator) override = 0;  
-  };
+#define DECLARE_GENERATOR() \
+  virtual bool Dispatch(CodeGenerator & generator);
 
 //////////////////////////////////////////////////////////////////
 //
@@ -122,10 +56,7 @@ class Expr
     virtual ~Expr()
     { }
 
-    virtual bool Generate(AST::Visitor & visitor)
-    { return true; }
-
-    IMPLEMENT_EXPR_VISITOR();
+    virtual bool Dispatch(CodeGenerator & generator);
   };
 
 struct ExprList : public std::vector<Expr *> 
@@ -137,8 +68,6 @@ struct ExprList : public std::vector<Expr *>
   }
 
   virtual ~ExprList() { }
-  
-  IMPLEMENT_EXPR_VISITOR();
 };
 
 struct SourceFileExprList : public ExprList 
@@ -148,10 +77,7 @@ struct SourceFileExprList : public ExprList
 
   virtual ~SourceFileExprList() { }
 
-  bool Generate(AST::Visitor & visitor)
-  { return true; }
-  
-  IMPLEMENT_EXPR_VISITOR();
+  DECLARE_GENERATOR()
 };
 
 
@@ -172,8 +98,6 @@ struct LineMarkerExpr : public Expr
     { 
     }
 
-  IMPLEMENT_EXPR_VISITOR();
-
   unsigned m_lineNumber;
   std::string m_marker;
   std::string m_line;
@@ -193,8 +117,6 @@ class BaseVariableDefExpr : public Expr
     {       
     }
 
-    IMPLEMENT_EXPR_VISITOR();
-
     Variable m_variable;
     bool m_global;
 };
@@ -213,8 +135,6 @@ class VariableDefExpr : public BaseVariableDefExpr
     {       
     }
 
-    IMPLEMENT_EXPR_VISITOR();
-
     int m_dim;
 };
 
@@ -229,8 +149,6 @@ class VariableRefExpr : public BaseVariableDefExpr
       : BaseVariableDefExpr(variable, global)
       , m_args(args)
       { }
-
-    IMPLEMENT_EXPR_VISITOR();
 
     int GetDim() const
     { return (m_args == nullptr) ? 0 : m_args->size(); }
@@ -248,8 +166,6 @@ class ArrayDimExpr : public VariableRefExpr
     ArrayDimExpr(const Variable & variable, AST::ExprList * args, bool global)
       : VariableRefExpr(variable, args, global)
       { }
-
-    IMPLEMENT_EXPR_VISITOR();
 };
 
 //////////////////////////////////////////////////////////////////
@@ -267,8 +183,6 @@ class BinaryExpr : public Expr
     , m_rhs(rhs) 
     {
     }  
-    
-    IMPLEMENT_EXPR_VISITOR();
     
     char m_op;
     Expr * m_lhs;
@@ -292,8 +206,6 @@ class ConstantExpr : public NumberExpr
     { }
 
     Type m_value;
-
-    IMPLEMENT_EXPR_VISITOR();
 };
 
 typedef ConstantExpr<std::string> ConstantStringExpr;
@@ -312,8 +224,6 @@ class UnaryExpr : public Expr
       , m_operand(std::move(operand))
     { }
 
-    IMPLEMENT_EXPR_VISITOR();
-
     char m_op;
     std::unique_ptr<Expr> m_operand;
 };
@@ -331,8 +241,6 @@ class BIFExpr : public Expr
       , m_args(args)
     { }
 
-    IMPLEMENT_EXPR_VISITOR();
-    
     std::string m_name;
     ExprList * m_args = nullptr;
 };
@@ -349,8 +257,6 @@ class GotoExpr : public Expr
       : m_marker(marker)
     {       
     }
-
-    IMPLEMENT_EXPR_VISITOR();
 
     std::string m_marker;
 };
@@ -372,8 +278,6 @@ class CallExpr : public Expr
       , m_args(std::move(args))
     { }
 
-    IMPLEMENT_EXPR_VISITOR();
-
     std::string m_callee;
     std::vector<std::unique_ptr<Expr>> m_args;
 };
@@ -388,8 +292,6 @@ class Call1Expr : public CallExpr
     {
       m_args.push_back(std::unique_ptr<Expr>(arg));
     }
-
-    IMPLEMENT_EXPR_VISITOR();
 };
 
 } // namespace AST

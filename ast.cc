@@ -3,10 +3,22 @@
 using namespace std;
 
 #include "ast.h"
+#include "codegen.h"
 
 using namespace AST;
 
 AST::LineMarkerExpr * g_currentSourceFileMarker = nullptr; 
+
+
+bool AST::Expr::Dispatch(CodeGenerator & generator)
+{ 
+  return generator.VisitorError(typeid(*this).name()); 
+}
+
+bool AST::SourceFileExprList::Dispatch(CodeGenerator & generator)
+{ return generator.Generate(*this); }
+
+#if 0
 
 static bool VisitError(Expr & expr)
 {
@@ -14,30 +26,9 @@ static bool VisitError(Expr & expr)
   return true;
 }
 
-////////////////////////////////////////////////////////
-//
-// default visit functions
-//
-
-AST::Visitor::Visitor(AST::SourceFileExprList & tree)
-  : m_tree(tree)
-{
-}
-
-#if 0
-
 bool AST::Visitor::Visit(Expr & expr)
 {
   return VisitError(expr);
-}
-
-bool AST::Visitor::Visit(SourceFileExprList & expr)
-{
-  for (auto & r : expr) {
-    if (r != nullptr)
-      r->Generate(*this);
-  }
-  return true;
 }
 
 

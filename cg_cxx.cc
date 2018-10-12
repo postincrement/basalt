@@ -5,105 +5,21 @@ using namespace std;
 #include "ast.h"
 
 using namespace AST;
-
-static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type)
-{ 
-  return new ValueDefBase(name, type); 
-}
-    
-////////////////////////////////////////////////////////
-//
-// CXX visit functions
-//
-
-static bool CXXError(const std::string & str)
-{
-  cout << "error: unimplemented C++ function for type " << str << endl;
-  return true;
-}
-
-static bool CXXError(Expr & expr)
-{
-  return CXXError(typeid(expr).name());
-}
-
-////////////////////////////////////////////////////////
-
-static std::string DeclareVariable(VarDefExprBase & varDef)
-{
-  const AST::VariableDefExpr & expr = *varDef.m_expr;
-  std::stringstream strm;
-
-  cout << "declare global " << expr.m_variable.m_name << endl;
-  const Variable & var = expr.m_variable;
-
-  std::string type;
-  std::string initExpr = " = ";
-
-  switch (var.m_type) {
-    case Variable::eString:
-      type = "char *";
-      initExpr += "0L";
-      break;
-    case Variable::eInt16:
-      type = "int16_t";
-      initExpr += "0";
-      break;
-    case Variable::eSingle:
-      type = "float";
-      initExpr += "0";
-      break;
-    case Variable::eDouble:
-      type = "double";
-      initExpr += "0";
-      break;
-    default:  
-      InternalError("unsupported global variable type " << var.m_type); 
-  }
-
-  if (expr.m_dim != 0) {
-    initExpr = "";
-    type += " *"; 
-  }
-  strm << type << " " << var.m_normalizedName << initExpr << ";" << endl;
-  if (expr.m_dim != 0) {
-    strm << "int " << var.m_normalizedName << "_dim[" << expr.m_dim << "];\n";
-  }
-
-  return strm.str();
-}
-
+ 
 ////////////////////////////////////////////////////////
 
 CodegenCXX::CodegenCXX(const std::string & genType, const std::string & fn, SourceFileExprList & tree)
-  : CodeGeneratorBase(genType, fn, tree)
+  : CodeGenerator(genType, fn, tree)
 {  
 }
 
 bool CodegenCXX::Open(int argc, const char ** argv)
 {
-  if (!CodeGeneratorBase::Open())
+  if (!CodeGenerator::Open())
     return false;
 
   return true;
 } 
-
-void CodegenCXX::Output(ostream & strm)
-{
-  if (m_prefixStream.str().length() > 0)
-    strm << m_prefixStream.str() << "\n";
-
-  if (m_constStringStrm.str().length() > 0)
-    strm << m_constStringStrm.str() << "\n";
-
-  if (m_externFuncStrm.str().length() > 0)
-    strm << m_externFuncStrm.str() << "\n";
-
-  if (m_globalVarsStrm.str().length() > 0)  
-    strm << m_globalVarsStrm.str() << "\n";
-
-  strm << m_codeStrm.str();
-}
 
 bool CodegenCXX::Close(const std::string & outputFilename)
 {
@@ -159,7 +75,41 @@ bool CodegenCXX::Close(const std::string & outputFilename)
   return true;
 } 
 
-///////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+
+void CodegenCXX::Output(ostream & strm)
+{
+  if (m_prefixStream.str().length() > 0)
+    strm << m_prefixStream.str() << "\n";
+
+  if (m_constStringStrm.str().length() > 0)
+    strm << m_constStringStrm.str() << "\n";
+
+  if (m_externFuncStrm.str().length() > 0)
+    strm << m_externFuncStrm.str() << "\n";
+
+  if (m_globalVarsStrm.str().length() > 0)  
+    strm << m_globalVarsStrm.str() << "\n";
+
+  strm << m_codeStrm.str();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
+{
+  if (m_needCleanup) {
+    LeaveScope();
+    m_needCleanup = false;
+  }
+  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
+  std::string indent = scope->GetIndent();
+  m_codeStrm << "\n" 
+             << "#line " << expr.m_lineNumber << "\n"
+             << indent << "// " << expr.m_line << "\n";
+}
+
+////////////////////////////////////////////////////////
 
 std::string CodegenCXX::DeclareFunction(const FunctionDef & func)
 {
@@ -182,7 +132,120 @@ std::string CodegenCXX::DeclareFunction(const FunctionDef & func)
   return strm.str();  
 }
 
-//////////////////////////////////////////////////////////////////////////
+std::string CodegenCXX::DeclareVariable(VarDefExprBase & varDef)
+{
+  const AST::VariableDefExpr & expr = *varDef.m_expr;
+  std::stringstream strm;
+
+  cout << "declare global " << expr.m_variable.m_name << endl;
+  const Variable & var = expr.m_variable;
+
+  std::string type;
+  std::string initExpr = " = ";
+
+  switch (var.m_type) {
+    case Variable::eString:
+      type = "char *";
+      initExpr += "0L";
+      break;
+    case Variable::eInt16:
+      type = "int16_t";
+      initExpr += "0";
+      break;
+    case Variable::eSingle:
+      type = "float";
+      initExpr += "0";
+      break;
+    case Variable::eDouble:
+      type = "double";
+      initExpr += "0";
+      break;
+    default:  
+      InternalError("unsupported global variable type " << var.m_type); 
+  }
+
+  if (expr.m_dim != 0) {
+    initExpr = "";
+    type += " *"; 
+  }
+  strm << type << " " << var.m_normalizedName << initExpr << ";" << endl;
+  if (expr.m_dim != 0) {
+    strm << "int " << var.m_normalizedName << "_dim[" << expr.m_dim << "];\n";
+  }
+
+  return strm.str();
+}
+
+////////////////////////////////////////////////////////
+//
+// CXX scope functions
+//
+
+ScopeBase * CodegenCXX::CreateScope(CodeGenerator & codeGen, ScopeBase * parent)
+{ 
+  return new CXXScope(codeGen, parent); 
+}
+
+CXXScope::CXXScope(CodeGenerator & codeGen, ScopeBase * parent)
+  : ScopeBase(parent)
+  , m_owner(static_cast<CodegenCXX *>(&codeGen))
+{ }
+
+void CXXScope::Enter()
+{
+  if (m_scopeLevel != 0) {
+    CXXScope * parent = static_cast<CXXScope *>(m_parent);
+    m_indent = parent->m_indent;
+  }    
+  m_owner->m_codeStrm << m_indent << "{\n";
+  m_indent = m_indent + "  ";
+}
+
+void CXXScope::Leave()
+{
+  if (m_scopeLevel == 0) 
+    m_indent = "";
+  else {
+    CXXScope * parent = static_cast<CXXScope *>(m_parent);
+    m_indent = parent->m_indent;
+  }
+  m_owner->m_codeStrm << m_indent << "}\n";
+}
+
+////////////////////////////////////////////////////////
+//
+// CXX visit functions
+//
+
+bool CodegenCXX::TopLevel(SourceFileExprList & expr)
+{
+  m_codeStrm << "int main(int argc, char *argv[])\n";
+
+  return CodeGenerator::TopLevel(expr);
+}
+
+////////////////////////////////////////////////////////
+
+
+
+#if 0
+
+static bool CXXError(const std::string & str)
+{
+  cout << "error: unimplemented C++ function for type " << str << endl;
+  return true;
+}
+
+static bool CXXError(Expr & expr)
+{
+  return CXXError(typeid(expr).name());
+}
+
+static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type)
+{ 
+  return new ValueDefBase(name, type); 
+}
+   
 
 static std::string CTypeForVarType(Variable::Type type)
 {
@@ -208,22 +271,9 @@ std::string CreateGotoTarget(const std::string & marker)
   return strm.str();
 }
 
-#if 0
-
 bool CodegenCXX::Visit(Expr & expr)
 {
   return CXXError(expr);
-}
-
-bool CodegenCXX::Visit(SourceFileExprList & expr)
-{
-  m_codeStrm << "int main(int argc, char *argv[])\n"
-             ;
-
-  if (!Run(expr))
-    return false;           
-
-  return true;
 }
 
 bool CodegenCXX::Visit(ExprList & expr)
@@ -296,19 +346,6 @@ bool CodegenCXX::Visit(GotoExpr & expr)
 #endif
 
 ///////////////////////////////////////////////////////////////////////
-
-void CodegenCXX::OnLineMarker(const AST::LineMarkerExpr & expr)
-{
-  if (m_needCleanup) {
-    LeaveScope();
-    m_needCleanup = false;
-  }
-  CXXScope * scope = static_cast<CXXScope *>(m_currentScope);
-  std::string indent = scope->GetIndent();
-  m_codeStrm << "\n" 
-             << "#line " << expr.m_lineNumber << "\n"
-             << indent << "// " << expr.m_line << "\n";
-}
 
 #if 0
 void CodegenCXX::AssignString(const std::string & lhs, const std::string & rhs)
@@ -419,38 +456,3 @@ bool CXXScope::OnDeclareVar(const AST::VariableDefExpr & expr)
 #endif
 
 ///////////////////////////////////////////////////////////////////////
-
-ScopeBase * CodegenCXX::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
-{ 
-  return nullptr; //return new CXXScope(codeGen, parent); 
-}
-
-#if 0
-
-CXXScope::CXXScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
-  : ScopeBase(parent)
-  , m_owner(static_cast<CodegenCXX *>(&codeGen))
-{ }
-
-void CXXScope::Enter()
-{
-  if (m_scopeLevel != 0) {
-    CXXScope * parent = static_cast<CXXScope *>(m_parent);
-    m_indent = parent->m_indent;
-  }    
-  m_owner->m_codeStrm << m_indent << "{\n";
-  m_indent = m_indent + "  ";
-}
-
-void CXXScope::Leave()
-{
-  if (m_scopeLevel == 0) 
-    m_indent = "";
-  else {
-    CXXScope * parent = static_cast<CXXScope *>(m_parent);
-    m_indent = parent->m_indent;
-  }
-  m_owner->m_codeStrm << m_indent << "}\n";
-}
-
-#endif

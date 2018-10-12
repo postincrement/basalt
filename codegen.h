@@ -75,79 +75,86 @@ struct ScopeBase
 
 ///////////////////////////////////////////////////////////////////////////
 
-class CodeGeneratorBase : public AST::Visitor
+class CodeGenerator
 {
   public:
-    CodeGeneratorBase(const std::string & genType, const std::string & fn, AST::SourceFileExprList & tree);
-    virtual bool Run(AST::SourceFileExprList & expr);
-		    
-    DECLARE_COMMON_EXPR_VISIT_FUNCTIONS();
-    
+    CodeGenerator(const std::string & genType, const std::string & fn, AST::SourceFileExprList & tree);
+
+    bool VisitorError(const std::string & typeName);
+
+    //  
     // required funcs in descendant generators
-    public:
-      // open/close generator
-      virtual bool Open(int argc, const char ** argv) = 0;
-      virtual bool Close(const std::string & m_outputFilename) = 0;
+    //
 
-      virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) = 0;
+    // open/close generator
+    virtual bool Open(int argc, const char ** argv) = 0;
+    virtual bool Close(const std::string & m_outputFilename) = 0;
 
-      // optional functions
-      virtual bool Open();
+    virtual ScopeBase * CreateScope(CodeGenerator & codeGen, ScopeBase * parent = nullptr) = 0;
 
-      virtual void EnterScope();  
-      virtual void LeaveScope();  
+    // generator functions for each type
+    virtual bool TopLevel(AST::SourceFileExprList & expr);
+    virtual bool Generate(AST::SourceFileExprList & expr);
 
-      virtual void OnLineMarker(const AST::LineMarkerExpr & expr) { }
-      
- #if 0   
-      virtual bool ReferenceVar(AST::VariableDefExpr & expr) = 0;
-      virtual bool ReferenceConstString(const std::string & name, const std::string & val) = 0;
-      virtual void AssignString(const std::string & lhName, const std::string & rhName) = 0;
-      virtual void AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs) = 0;
-      virtual void JoinStrings(const std::string & lhName, const std::string & rhName) = 0;
-      virtual void BinaryOp(const ValueDefBase & lhs, char op, const ValueDefBase & rhs) = 0;
-      virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) = 0;
+    // optional functions
+    virtual bool Open();
+
+    virtual void EnterScope();  
+    virtual void LeaveScope();  
+
+    virtual void OnLineMarker(const AST::LineMarkerExpr & expr) { }
     
-      virtual bool OnDeclareConstString(const AST::ConstantStringExpr & expr, const std::string & name) { return true; } 
-      virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
-      virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) 
-      { return scope.OnDeclareVar(expr); }
+#if 0   
+    virtual bool ReferenceVar(AST::VariableDefExpr & expr) = 0;
+    virtual bool ReferenceConstString(const std::string & name, const std::string & val) = 0;
+    virtual void AssignString(const std::string & lhName, const std::string & rhName) = 0;
+    virtual void AssignVar(const ValueDefBase & lhs, const ValueDefBase & rhs) = 0;
+    virtual void JoinStrings(const std::string & lhName, const std::string & rhName) = 0;
+    virtual void BinaryOp(const ValueDefBase & lhs, char op, const ValueDefBase & rhs) = 0;
+    virtual bool CallFunction(const std::string & returnTypeStr, const std::string & name, const std::vector<std::string> & args) = 0;
+  
+    virtual bool OnDeclareConstString(const AST::ConstantStringExpr & expr, const std::string & name) { return true; } 
+    virtual bool OnDeclareExternalFunc(const FunctionDef & fn) { return true; }
+    virtual bool OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & scope) 
+    { return scope.OnDeclareVar(expr); }
 
 #endif
 
-    // internal functions
-    private:
-      bool CallRuntimeFunction(const std::string & name ...);
+  // internal functions
+  private:
+    bool CallRuntimeFunction(const std::string & name ...);
 #if 0    
-      void DeclareVar(AST::VariableDefExpr & expr);
-      void DeclareConstString(const std::string & str);
-      bool DeclareExternalFunction(const FunctionDef & fn);
-      bool DeclareRuntimeFunction(const std::string & name);
-      bool VCreateFunctionCall(
-        const char * returnTypeStr,
-        const char * name,
-        const char * argsStr_,
-        va_list varg);
+    void DeclareVar(AST::VariableDefExpr & expr);
+    void DeclareConstString(const std::string & str);
+    bool DeclareExternalFunction(const FunctionDef & fn);
+    bool DeclareRuntimeFunction(const std::string & name);
+    bool VCreateFunctionCall(
+      const char * returnTypeStr,
+      const char * name,
+      const char * argsStr_,
+      va_list varg);
 #endif
 
-    // helper functions for descendant classes    
-    protected:    
-      std::string GetTempName(const std::string & prefix);
-      
-    protected:    
-      Filename m_inputFilename;
-      std::string m_genType;
-      ScopeBase * m_globalScope = nullptr;
-      ScopeBase * m_currentScope = nullptr;
-      unsigned m_scopeLevel = 0;
-      std::deque<ValueDefBase *> m_valueStack;    
-      std::set<std::string> m_cleanupList;
+  // helper functions for descendant classes    
+  protected:    
+    std::string GetTempName(const std::string & prefix);
+    
+  protected:    
+    Filename m_inputFilename;
+    std::string m_genType;
+    ScopeBase * m_globalScope = nullptr;
+    ScopeBase * m_currentScope = nullptr;
+    unsigned m_scopeLevel = 0;
+    std::deque<ValueDefBase *> m_valueStack;    
+    std::set<std::string> m_cleanupList;
 
-      std::map<std::string, std::string> m_constStringMap;
-      std::map<std::string, FunctionDef> m_externFunctionMap;
-              
-      unsigned m_tempCounter = 1;
-      AST::LineMarkerExpr * m_currentLineMarkerExpr = nullptr;
+    AST::SourceFileExprList & m_tree;
+
+    std::map<std::string, std::string> m_constStringMap;
+    std::map<std::string, FunctionDef> m_externFunctionMap;
+            
+    unsigned m_tempCounter = 1;
+    AST::LineMarkerExpr * m_currentLineMarkerExpr = nullptr;
 };
 
 #endif // CODEGEN_H_

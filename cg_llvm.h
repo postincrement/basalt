@@ -29,6 +29,8 @@
 
 ///////////////////////////////////////////////////////////////////////////
 
+class CodegenLLVM;
+
 struct LLVMVarDef : public VarDefExprBase 
 {
 /*
@@ -74,28 +76,23 @@ struct LLVMValueDef : public ValueDefBase
 
 struct LLVMScope : public ScopeBase
 {
-  LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr);
+  LLVMScope(CodeGenerator & codeGen, ScopeBase * parent = nullptr);
 
   //virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////
 
-class CodegenLLVM : public CodeGeneratorBase
+class CodegenLLVM : public CodeGenerator
 {
   public:
     CodegenLLVM(const std::string & genType, const std::string & inputFilename, AST::SourceFileExprList & tree); 
 
-    virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
-    { return dispatcher.Generate(*this); }
-
-    DECLARE_EXPR_VISIT_FUNCTIONS();
-        
     // required funcs
     virtual bool Open(int argc, const char ** argv) override;
     virtual bool Close(const std::string & m_outputFilename) override;
 
-    virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) override;
+    virtual ScopeBase * CreateScope(CodeGenerator & codeGen, ScopeBase * parent = nullptr) override;
     
 #if 0     
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;

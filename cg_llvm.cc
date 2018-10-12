@@ -3,31 +3,10 @@
 using namespace std;
 using namespace AST;
 
-static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
-{ 
-  return new LLVMValueDef(name, type, alloc); 
-}
-
-////////////////////////////////////////////////////////
-//
-// LLVM visit functions
-//
-
-static bool LLVMError(const std::string & str)
-{
-  cout << "error: unimplemented LLVM function for type " << str << endl;
-  return true;
-}
-
-static bool LLVMError(Expr & expr)
-{
-  return LLVMError(typeid(expr).name());
-}
-
 //////////////////////////////////////////////////////////////////////////
 
 CodegenLLVM::CodegenLLVM(const std::string & genType, const std::string & inputFilename, SourceFileExprList & tree)
-  : CodeGeneratorBase(genType, inputFilename, tree)
+  : CodeGenerator(genType, inputFilename, tree)
   , m_builder(m_context)
 { 
   m_module.reset(new llvm::Module("basalt", m_context));
@@ -45,7 +24,7 @@ CodegenLLVM::CodegenLLVM(const std::string & genType, const std::string & inputF
 
 bool CodegenLLVM::Open(int argc, const char ** argv)
 {
-  if (!CodeGeneratorBase::Open())
+  if (!CodeGenerator::Open())
     return false;
 
   // create output filename
@@ -98,6 +77,148 @@ bool CodegenLLVM::Open(int argc, const char ** argv)
   return true;
 } 
 
+bool CodegenLLVM::Close(const std::string & outputFilename)
+{
+  llvm::ConstantInt * const_int32_9 = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
+  llvm::ReturnInst::Create(m_context, const_int32_9, m_mainBlock);  
+
+  m_debugBuilder->finalize();
+
+  if (g_dump)
+    m_module->dump();
+    
+  /////////////////////////////////////////////////////////////
+  //
+  //  outputting object file
+  //
+
+  // Initialize the target registry etc.
+  llvm::InitializeAllTargetInfos();
+  llvm::InitializeAllTargets();
+  llvm::InitializeAllTargetMCs();
+  llvm::InitializeAllAsmParsers();
+  llvm::InitializeAllAsmPrinters();  
+
+  std::string Error;
+  std::string targetTripleStr = llvm::sys::getDefaultTargetTriple();
+  auto Target = llvm::TargetRegistry::lookupTarget(targetTripleStr, Error);
+
+  // Print an error and exit if we couldn't find the requested target.
+  // This generally occurs if we've forgotten to initialise the
+  // TargetRegistry or we have a bogus target triple.
+  if (!Target) {
+    cerr << Error << endl;
+    return false;
+  }  
+
+  if (g_compileOnly) 
+    cout << "info: creating '" << m_objectFilename.GetFilename() << "'" << endl;
+
+  auto CPU = "generic";
+  auto Features = "";
+
+  llvm::TargetOptions opt;
+  auto RM = llvm::Reloc::Model();  
+
+  auto TargetMachine = Target->createTargetMachine(targetTripleStr, CPU, Features, opt, RM);  
+
+  m_module->setDataLayout(TargetMachine->createDataLayout());
+  m_module->setTargetTriple(targetTripleStr);  
+
+  std::error_code EC;
+  llvm::raw_fd_ostream dest(m_objectFilename.c_str(), EC, llvm::sys::fs::F_None);
+
+  if (EC) {
+    cerr << "Could not open file: " << EC.message();
+    return false;
+  }  
+
+  llvm::legacy::PassManager pass;
+  auto FileType = llvm::TargetMachine::CGFT_ObjectFile;
+
+  if (TargetMachine->addPassesToEmitFile(pass, dest, FileType)) {
+    cerr << "TargetMachine can't emit a file of this type";
+    return false;
+  }
+
+  pass.run(*m_module);
+
+  dest.flush();  
+
+  if (g_compileOnly) 
+    return true;
+
+  // do the linker thing
+  Filename exeFilename(m_inputFilename.GetDir() + m_inputFilename.GetBasename());
+  cout << "info: creating '" << exeFilename.GetFilename() << "'" << endl;
+  
+  std::stringstream cmd;
+  cmd << "clang " << m_objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
+
+  int result = system(cmd.str().c_str());
+  if (result != 0)
+    cerr << "error: linker failed with command:\n"
+         << cmd.str() << endl;
+
+  return true;
+}
+
+////////////////////////////////////////////////////////
+//
+// LLVM scope functions
+//
+
+
+ScopeBase * CodegenLLVM::CreateScope(CodeGenerator & codeGen, ScopeBase * parent)
+{ 
+  return new LLVMScope(codeGen, parent); 
+}
+
+LLVMScope::LLVMScope(CodeGenerator & codeGen, ScopeBase * parent)
+  : ScopeBase(parent)
+{ }
+
+/*
+bool LLVMScope::OnDeclareVar(const AST::VariableDefExpr & expr)
+{
+  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
+  m_vars.insert(
+    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
+  );
+  return true;
+}
+*/
+
+////////////////////////////////////////////////////////
+//
+// LLVM visit functions
+//
+
+/*
+
+static bool LLVMError(const std::string & str)
+{
+  cout << "error: unimplemented LLVM function for type " << str << endl;
+  return true;
+}
+
+static bool LLVMError(Expr & expr)
+{
+  return LLVMError(typeid(expr).name());
+}
+
+*/
+
+//////////////////////////////////////////////////////////////////////////
+
+#if 0
+
+
+static ValueDefBase * CreateValueDef(const std::string & name, Variable::Type type, llvm::AllocaInst * alloc)
+{ 
+  return new LLVMValueDef(name, type, alloc); 
+}
+
 llvm::FunctionType * CodegenLLVM::CreateFunctionType(const FunctionDef & fn)
 {
   // create function type list
@@ -135,6 +256,7 @@ llvm::FunctionType * CodegenLLVM::CreateFunctionType(const FunctionDef & fn)
 
   return type; 
 }
+#endif
 
 #if 0
 
@@ -238,91 +360,6 @@ void CodegenLLVM::CreateBIFCall(const std::string & name ...)
 }
 #endif
 
-bool CodegenLLVM::Close(const std::string & outputFilename)
-{
-  llvm::ConstantInt * const_int32_9 = llvm::ConstantInt::get(m_context, llvm::APInt(32, llvm::StringRef("0"), 10));
-  llvm::ReturnInst::Create(m_context, const_int32_9, m_mainBlock);  
-
-  m_debugBuilder->finalize();
-
-  if (g_dump)
-    m_module->dump();
-    
-  /////////////////////////////////////////////////////////////
-  //
-  //  outputting object file
-  //
-
-  // Initialize the target registry etc.
-  llvm::InitializeAllTargetInfos();
-  llvm::InitializeAllTargets();
-  llvm::InitializeAllTargetMCs();
-  llvm::InitializeAllAsmParsers();
-  llvm::InitializeAllAsmPrinters();  
-
-  std::string Error;
-  std::string targetTripleStr = llvm::sys::getDefaultTargetTriple();
-  auto Target = llvm::TargetRegistry::lookupTarget(targetTripleStr, Error);
-
-  // Print an error and exit if we couldn't find the requested target.
-  // This generally occurs if we've forgotten to initialise the
-  // TargetRegistry or we have a bogus target triple.
-  if (!Target) {
-    cerr << Error << endl;
-    return false;
-  }  
-
-  if (g_compileOnly) 
-    cout << "info: creating '" << m_objectFilename.GetFilename() << "'" << endl;
-
-  auto CPU = "generic";
-  auto Features = "";
-
-  llvm::TargetOptions opt;
-  auto RM = llvm::Reloc::Model();  
-
-  auto TargetMachine = Target->createTargetMachine(targetTripleStr, CPU, Features, opt, RM);  
-
-  m_module->setDataLayout(TargetMachine->createDataLayout());
-  m_module->setTargetTriple(targetTripleStr);  
-
-  std::error_code EC;
-  llvm::raw_fd_ostream dest(m_objectFilename.c_str(), EC, llvm::sys::fs::F_None);
-
-  if (EC) {
-    cerr << "Could not open file: " << EC.message();
-    return false;
-  }  
-
-  llvm::legacy::PassManager pass;
-  auto FileType = llvm::TargetMachine::CGFT_ObjectFile;
-
-  if (TargetMachine->addPassesToEmitFile(pass, dest, FileType)) {
-    cerr << "TargetMachine can't emit a file of this type";
-    return false;
-  }
-
-  pass.run(*m_module);
-
-  dest.flush();  
-
-  if (g_compileOnly) 
-    return true;
-
-  // do the linker thing
-  Filename exeFilename(m_inputFilename.GetDir() + m_inputFilename.GetBasename());
-  cout << "info: creating '" << exeFilename.GetFilename() << "'" << endl;
-  
-  std::stringstream cmd;
-  cmd << "clang " << m_objectFilename << " -L. -lbasaltrt -o " << exeFilename ;
-
-  int result = system(cmd.str().c_str());
-  if (result != 0)
-    cerr << "error: linker failed with command:\n"
-         << cmd.str() << endl;
-
-  return true;
-}
 
 #if 0
 
@@ -336,10 +373,6 @@ bool CodegenLLVM::Visit(ExprList & expr)
   return LLVMError(typeid(expr).name());
 }
 
-bool CodegenLLVM::Visit(SourceFileExprList & expr)
-{
-  return Run(expr);
-}
 
 bool CodegenLLVM::Visit(UnaryExpr & expr)
 {
@@ -616,24 +649,3 @@ bool CodegenLLVM::OnDeclareVar(const AST::VariableDefExpr & expr, ScopeBase & sc
 
 #endif
   
-ScopeBase * CodegenLLVM::CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
-{ 
-  return nullptr; new LLVMScope(codeGen, parent); 
-}
-
-#if 0
-
-LLVMScope::LLVMScope(CodeGeneratorBase & codeGen, ScopeBase * parent)
-  : ScopeBase(parent)
-{ }
-
-bool LLVMScope::OnDeclareVar(const AST::VariableDefExpr & expr)
-{
-  std::unique_ptr<VarDefExprBase> ptr(new VarDefExprBase(&expr));
-  m_vars.insert(
-    VarDefExprMap::value_type(expr.m_variable.m_normalizedName, std::move(ptr))
-  );
-  return true;
-}
-
-#endif

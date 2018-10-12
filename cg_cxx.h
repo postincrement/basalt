@@ -8,11 +8,13 @@
 
 #include "ast.h"
 
+class CodegenCXX;
+
 ///////////////////////////////////////////////////////////////////////////
-    
+
 struct CXXScope : public ScopeBase
 {
-  CXXScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr);
+  CXXScope(CodeGenerator & codeGen, ScopeBase * parent = nullptr);
 
   virtual void Enter() override;
   virtual void Leave() override;
@@ -20,7 +22,7 @@ struct CXXScope : public ScopeBase
   std::string GetIndent() const
   { return m_indent; }
 
-  virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) override;
+  //virtual bool OnDeclareVar(const AST::VariableDefExpr & expr) override;
 
   CodegenCXX * m_owner;
   std::string m_indent;
@@ -28,23 +30,20 @@ struct CXXScope : public ScopeBase
 
 ///////////////////////////////////////////////////////////////////////////
  
-class CodegenCXX : public CodeGeneratorBase
+class CodegenCXX : public CodeGenerator
 {
   public:
     CodegenCXX(const std::string & genType, const std::string & inputFilename, AST::SourceFileExprList & tree); 
-
-    virtual bool Generate(AST::AbstractDispatcher & dispatcher) override
-    { return dispatcher.Generate(*this); }
-
-    DECLARE_EXPR_VISIT_FUNCTIONS();
 
     // required funcs
     virtual bool Open(int argc, const char ** argv) override;
     virtual bool Close(const std::string & m_outputFilename) override;
 
-    virtual ScopeBase * CreateScope(CodeGeneratorBase & codeGen, ScopeBase * parent = nullptr) override;
+    virtual ScopeBase * CreateScope(CodeGenerator & codeGen, ScopeBase * parent = nullptr) override;
     virtual void OnLineMarker(const AST::LineMarkerExpr & expr) override;
 
+    virtual bool TopLevel(AST::SourceFileExprList & expr) override;
+\
 #if 0
     virtual bool ReferenceVar(AST::VariableDefExpr & expr) override;
     virtual bool ReferenceConstString(const std::string & name, const std::string & val) override;
@@ -67,8 +66,10 @@ class CodegenCXX : public CodeGeneratorBase
     #endif
 
     // new functions
-    std::string DeclareFunction(const FunctionDef & func);
     void Output(std::ostream & strm);
+
+    std::string DeclareFunction(const FunctionDef & func);
+    std::string DeclareVariable(VarDefExprBase & varDef);
     
     std::stringstream m_prefixStream;
     std::stringstream m_constStringStrm;
@@ -82,6 +83,6 @@ class CodegenCXX : public CodeGeneratorBase
       bool m_firstLine = true;
       
       bool m_needCleanup = false;
-  };
+};
   
 #endif // CG_CXX_H_
