@@ -4,11 +4,16 @@ BISON = bison
 
 LINK.cc=c++
 
-CXXFLAGS += -std=c++11 -g `llvm-config --cxxflags` 
-BASALT_LDFLAGS  += -g `llvm-config --ldflags` 
-BASALT_LDLIBS   += `llvm-config --libs --system-libs all` 
+CXXFLAGS        += -std=c++17 -g  
+BASALT_LDFLAGS  += -g  
+BASALT_LDLIBS   +=  
 
-OBJS = basalt.o mbasic.lex.o mbasic.tab.o ast.o common.o codegen.o cg_cxx.o cg_llvm.o 
+OBJS = basalt.o \
+       mbasic.lex.o mbasic.tab.o \
+			 ast.o \
+			 common.o \
+			 codegen.o \
+			 cg_cxx.o
 
 all: basalt libbasaltrt.a
 
