@@ -275,8 +275,6 @@ void Basalt::DisplayHelp()
 
 int Basalt::Main(int argc, char const *argv[])
 {
-  m_interactive = false;
-
   // register language profiles
   g_languageProfileFactory.Register<Basic_8k_LanguageProfile>      ("basic-8k");
   g_languageProfileFactory.Register<Basic_Extended_LanguageProfile>("basic-ext");
@@ -290,30 +288,9 @@ int Basalt::Main(int argc, char const *argv[])
     return 0;
   }
 
-/*
-  // set default code generator if no output file specified 
-  if (g_codeGeneratorName.empty() && g_outputFilename.empty())
-    g_codeGeneratorName = "c";
-*/
-
-  // set default code generator if no output file specified 
+  // set language profile 
   if (g_languageProfileName.empty())
     g_languageProfileName = "basic-8k";
-
-  // see if input filename exists  
-  if (index >= argc) {
-    cerr << "error: no input filename specified" << endl;
-    exit(1);
-  }
-
-/*  
-  // see if the code generator exists
-  if (!g_codegeneratorFactory.Contains(g_codeGeneratorName)) {
-    cerr << "error: code generator " << g_codeGeneratorName << "not known.\n";
-    Usage(g_argDefs, true);
-    exit(1);
-  }
-*/
 
   // see if the language profile exists
   if (!g_languageProfileFactory.Contains(g_languageProfileName)) {
@@ -322,56 +299,58 @@ int Basalt::Main(int argc, char const *argv[])
     exit(1);
   }
 
-  // open input file
-  m_inputFilename = Filename(argv[index]);
-  std::string ext = m_inputFilename.GetExtension();
-  for (auto & r : ext) {
-    r = tolower(r);
-  }
-  if (ext != ".bas") {
-    cerr << "error: unknown input file extension '" << m_inputFilename.GetExtension() << "'" << endl;
-    return -1;
-  }
-
+  // create the language profile
   g_languageProfile = g_languageProfileFactory.CreateInstance(g_languageProfileName);
   if (g_languageProfile == nullptr) {
     cerr << "internal error: cannot instantiate language profile with name '" << g_languageProfileName << "'" << endl;
     return -1;
   }
 
-  m_inputFile.open(m_inputFilename);
-  if (!m_inputFile) {
-    cerr << "error: cannot open input file '" << m_inputFilename << "'" << endl;
-    return -1;
+  // see if using stdin or file as input  
+  if (index == argc) {
+    m_interactive = true;
+    if (g_verbose)
+      cerr << "info: parsing stdin" << endl;
+    m_inputStream = &std::cin;
   }
+  else {
+    m_interactive = false;
+    m_inputStream = &m_inputFile;
+    
+    // open input file
+    m_inputFilename = Filename(argv[index]);
+    std::string ext = m_inputFilename.GetExtension();
+    for (auto & r : ext) {
+      r = tolower(r);
+    }
+    if (ext != ".bas") {
+      cerr << "error: unknown input file extension '" << m_inputFilename.GetExtension() << "'" << endl;
+      return -1;
+    }
 
-  if (g_verbose)
-    cout << "info: parsing '" << m_inputFilename.GetFilename() << "'" << endl;
+    m_inputFile.open(m_inputFilename);
+    if (!m_inputFile) {
+      cerr << "error: cannot open input file '" << m_inputFilename << "'" << endl;
+      return -1;
+    }
+
+    if (g_verbose)
+      cerr << "info: parsing '" << m_inputFilename.GetFilename() << "'" << endl;
+  }
 
   m_lineOffs = 2;
   MBASIC_parse();
+
+  if (g_verbose) {
+    cerr << "info: parsing finished" << endl;
+    AST::g_program.PrintOn(cout);
+  }
 
   if (g_errorCount > 0) {
     cout << "error: " << g_errorCount << " errors - compile stopped" << endl;
     return -1;
   }
 
-/*
-  CodeGenerator * generator = 
-      g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_codeGeneratorName, m_inputFilename, g_expressions);
-
-  if (generator == nullptr) {
-    cerr << "internal error: cannot instantiate generator with name '" << g_codeGeneratorName << "'" << endl;
-    return -1;
-  }
-
-  if (
-      !generator->Open(argc, argv) ||
-      !generator->TopLevel(g_expressions) ||
-      !generator->Close(g_outputFilename)
-     )
-     return -1;
-*/
   return 0;
 }
 
@@ -466,21 +445,19 @@ Variable::Type Basic_Disk_LanguageProfile::GetDefaultNumericType()
 char Basalt::ReadNextChar()
 {
   if (m_lineOffs > m_line.length()) {
-    if (m_interactive)
-      return 0;
-    if (!getline(m_inputFile, m_line))
+    if (!getline(*m_inputStream, m_line))
       return 0;
     m_lineOffs = 0;
   }
 
   if (m_lineOffs == m_line.length()) {
+    m_line.clear();
     m_lineOffs++;
     return '\n';
   }
 
   return m_line[m_lineOffs++];
 }
-
 
 void Basalt::OnError(const std::string & msg)
 {
@@ -496,10 +473,10 @@ void Basalt::OnWarning(const std::string & msg)
 
 void Basalt::DisplayError(const std::string & msg, const std::string & type)
 {
-  cout << m_inputFilename << ":" << g_lineNumber << ":" << m_lineOffs << ": " << type << " - " << msg << endl;
-  cout << m_line << endl;
+  size_t p = std::min(m_lineOffs, m_line.length());
+  cout << m_inputFilename << ":" << g_lineNumber << ":" << p << ": " << type << " - " << msg << endl;
   size_t i;
-  for (i = 0; i < m_lineOffs-2; i++)
+  for (i = 0; i < p; i++)
     cout << " ";
   cout << "^" << endl;
 }

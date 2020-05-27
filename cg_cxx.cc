@@ -1,9 +1,0 @@
-#include <typeinfo>
-
-using namespace std;
-
-#include "ast.h"
-
-using namespace AST;
-
-///////////////////////////////////////////////////////////////////////

@@ -16,6 +16,10 @@ using namespace std;
 
 extern void MBASIC_SetRemMode();
 
+static void AddExpr(AST::Expr * expr)
+{
+}
+
 %}
 
 %union {
@@ -24,8 +28,8 @@ extern void MBASIC_SetRemMode();
   int           ival;
   std::string * sval;
 
-  void *        expr;
-  void *        exprlist;
+  AST::Expr *     expr;
+  AST::ExprList * exprlist;
 
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
@@ -90,23 +94,26 @@ extern void MBASIC_SetRemMode();
 // other lexemes
 %token <sval>   IDENTIFIER QUOTED_STRING DEF_INTEGER
 %token <sval>   INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
-%token <ival>   INTEGER 
+%token <ival>   INTEGER  
 %token <dfloat> DOUBLE 
 %token <sfloat> SINGLE
 
 // rules
-%type <exprlist>    MBASIC_file line opt_statement_list statement_list statement
+%type <exprlist>    line opt_statement_list statement_list
+ 
+%type <expr>        statement
 
-%type <exprlist>    DIM_statement dim_var_list
+%type <expr>    DIM_statement dim_var_list
 
-%type <exprlist>    LET_statement assign_expression 
+%type <expr>    LET_statement assign_expression 
 
-%type <exprlist>    FOR_statement
+%type <expr>    FOR_statement
 
-%type <exprlist>    GOTO_statement
+%type <expr>    GOTO_statement
 
-%type <exprlist>    PRINT_statement print_expression_list 
-%type <expr>        print_expression
+%type <expr>     PRINT_statement 
+%type <exprlist> print_expression_list 
+%type <expr>     print_expression
 
 %type <expr>        WIDTH_statement
 
@@ -117,18 +124,14 @@ extern void MBASIC_SetRemMode();
 %type <expr>        expression const_expr value array_or_func_arg 
 //%type <varref>      var_ref
 //%type <varval>      var_name
-//%type <ival>        integer
+%type <ival>        integer
 //%type <exprlist>    array_or_func_spec array_or_func_args 
 
 %%
 
-MBASIC_file:  line              
-                {
-                }
-              | MBASIC_file line
-                {
-                } 
-              ;
+file:     /* empty */
+          | file line
+          ;
 
 /*********************************************************F
 
@@ -138,44 +141,60 @@ MBASIC_file:  line
 
 line:     opt_line_number
             {
+              if ($1 != nullptr) {
+                AST::g_program.Append(new AST::LineNumber(*$1));
+                delete $1;
+              }
             }
           opt_statement_list eol
             {
+              AST::g_program.Append($3);
             }
           ;
 
 opt_line_number: /* empty */
-                    { }
+                    { 
+                      $$ = nullptr;
+                    }
                  | line_number
-                    { }
+                    { 
+                      $$ = $1;
+                    }
                  ;
 
-line_number:    integer
+line_number:    DEF_INTEGER
                     {
+                      stringstream strm;
+                      strm << *($1);
+                      $$ = new std::string(strm.str());
                     }
                  ; 
 
 integer:    INTEGER
               {
-              }
-            | DEF_INTEGER
-              {
+                $$ = $1;
               }
             ;                 
 
 opt_statement_list : /* empty */
                       {
+                        $$ = nullptr;
                       }
                    | statement_list
                       {
+                        $$ = $1;
                       }
                    ;
 
 statement_list : statement
                   {
+                    $$ = new AST::ExprList();
+                    $$->Append($1);
                   }   
                | statement_list ':' statement
                   {
+                    $1->Append($3);
+                    $$ = $1;
                   }   
                ;
 
@@ -452,6 +471,7 @@ PRINT_statement:  print_keyword
                     }  
                   print_expression_list
                     {
+                      $$ = new AST::Print($5);
                     }
                   ;
 
@@ -467,20 +487,28 @@ opt_USING:      /* empty */
 
 print_expression_list: /* empty */
                           {
+                            $$ = nullptr;
                           }  
                        | print_expression_list print_expression
                           {
+                            if ($1 == nullptr)
+                              $1 = new AST::ExprList();
+                            $1->Append($2);
+                            $$ = $1;
                           }
                        ;
 
 print_expression:      expression
                           {
+                            $$ = $1;
                           }
                        | ',' 
                           {
+                            $$ = new AST::PrintComma();
                           }
                        | ';'
                           {
+                            $$ = new AST::PrintSemiColon();
                           }
                        ;                           
 
@@ -764,17 +792,22 @@ array_or_func_arg:  expression
 
 const_expr: INTEGER
               {
+                $$ = nullptr;
               }
             | DOUBLE
               {
+                $$ = nullptr;
               }
             | SINGLE
               {
+                $$ = nullptr;
               }
             | DEF_INTEGER  
               {
+                $$ = nullptr;
               }
             | QUOTED_STRING
               {
+                $$ = new AST::String($1);
               }
             ;

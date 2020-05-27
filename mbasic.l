@@ -253,7 +253,7 @@
 
 "<>"   { return NOT_EQUAL; }
 
-<<EOF>>     return EOF_TOKEN;      
+<<EOF>> { return 0; } //EOF_TOKEN; }
 
 ":"   { return yytext[0]; }
 

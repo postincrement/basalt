@@ -11,9 +11,7 @@ BASALT_LDLIBS   +=
 OBJS = basalt.o \
        mbasic.lex.o mbasic.tab.o \
 			 ast.o \
-			 common.o \
-			 codegen.o \
-			 cg_cxx.o
+			 common.o
 
 all: basalt libbasaltrt.a
 

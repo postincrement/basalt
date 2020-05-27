@@ -41,6 +41,7 @@ class Basalt
     std::string m_progname;
     size_t m_lineOffs;
     std::string m_line;
+    std::istream * m_inputStream = nullptr;
     std::ifstream m_inputFile;
     Filename m_inputFilename;    
 };
