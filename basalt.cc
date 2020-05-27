@@ -4,6 +4,7 @@
 using namespace std;
 
 #include <unistd.h>
+#include <string.h>
 
 #include "basalt.h"
 
@@ -14,9 +15,6 @@ int g_errorCount   = 0;
 int g_warningCount = 0;
 
 LanguageProfile * g_languageProfile = nullptr;
-AST::SourceFileExprList  g_expressions;
-std::set<std::string> g_stringConstants;
-std::set<std::string> g_gotoTargets;
 
 Basalt g_application;
 
@@ -42,7 +40,6 @@ ArgDef g_argDefs[] = {
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
-static Factory<CodeGenerator, const std::string &, const std::string, AST::SourceFileExprList &> g_codegeneratorFactory;
 static Factory<LanguageProfile> g_languageProfileFactory;
 
 const char * g_runtimeDefPrefix = "basalt_";
@@ -211,10 +208,13 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
 void Basalt::Usage(const ArgDef * defs, bool showKeys)
 {
   if (showKeys) {
+    std::vector<std::string> keys;
+/*
     cout << "where generator is one of:\n";
-    std::vector<std::string> keys = g_codegeneratorFactory.GetList();
+    keys = g_codegeneratorFactory.GetList();
     for (auto & r : keys)
       cout << "  " << r << "\n";
+*/      
     cout << "where profile is one of:";
     keys = g_languageProfileFactory.GetList();
     for (auto & r : keys)
@@ -277,13 +277,6 @@ int Basalt::Main(int argc, char const *argv[])
 {
   m_interactive = false;
 
-  // register code generators
-  g_codegeneratorFactory.Register<CodegenCXX>   ("c");
-  g_codegeneratorFactory.Register<CodegenCXX>   ("cc");
-  g_codegeneratorFactory.Register<CodegenCXX>   ("cpp");
-  g_codegeneratorFactory.Register<CodegenCXX>   ("cxx");
-  g_codegeneratorFactory.Register<CodegenLLVM>  ("llvm");
-
   // register language profiles
   g_languageProfileFactory.Register<Basic_8k_LanguageProfile>      ("basic-8k");
   g_languageProfileFactory.Register<Basic_Extended_LanguageProfile>("basic-ext");
@@ -297,9 +290,11 @@ int Basalt::Main(int argc, char const *argv[])
     return 0;
   }
 
+/*
   // set default code generator if no output file specified 
   if (g_codeGeneratorName.empty() && g_outputFilename.empty())
     g_codeGeneratorName = "c";
+*/
 
   // set default code generator if no output file specified 
   if (g_languageProfileName.empty())
@@ -310,13 +305,15 @@ int Basalt::Main(int argc, char const *argv[])
     cerr << "error: no input filename specified" << endl;
     exit(1);
   }
-  
+
+/*  
   // see if the code generator exists
   if (!g_codegeneratorFactory.Contains(g_codeGeneratorName)) {
     cerr << "error: code generator " << g_codeGeneratorName << "not known.\n";
     Usage(g_argDefs, true);
     exit(1);
   }
+*/
 
   // see if the language profile exists
   if (!g_languageProfileFactory.Contains(g_languageProfileName)) {
@@ -359,6 +356,7 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
+/*
   CodeGenerator * generator = 
       g_codegeneratorFactory.CreateInstance(g_codeGeneratorName, g_codeGeneratorName, m_inputFilename, g_expressions);
 
@@ -373,7 +371,7 @@ int Basalt::Main(int argc, char const *argv[])
       !generator->Close(g_outputFilename)
      )
      return -1;
-
+*/
   return 0;
 }
 
