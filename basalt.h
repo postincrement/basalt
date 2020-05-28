@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "ast.h"
+#include "codegen.h"
 #include "common.h"
 
 
@@ -41,9 +42,13 @@ class Basalt
     std::string m_progname;
     size_t m_lineOffs;
     std::string m_line;
+
     std::istream * m_inputStream = nullptr;
     std::ifstream m_inputFile;
-    Filename m_inputFilename;    
+    Filename m_inputFilename; 
+    std::string m_printableInputFilename;
+
+    Filename m_outputFilename;
 };
 
 
