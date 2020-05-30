@@ -9,10 +9,11 @@
 #include <deque>
 #include <sstream>
 
+#include <stdint.h>
+
 #include "common.h"
 
 class CodeGenerator;
-class C_CodeGenerator;
 
 namespace AST {
 
@@ -21,13 +22,14 @@ namespace AST {
 class Node
 {
   public:
-    Node();
-    virtual ~Node();
-    virtual void PrintOn(std::ostream & strm) const = 0;
+    Node()
+    {}
 
-    virtual void C_Generate(C_CodeGenerator & gen);
-    virtual void C_Print(C_CodeGenerator & gen);
-    virtual std::string C_Evaluate() const;
+    virtual ~Node()
+    {}
+
+    virtual int Generate(CodeGenerator & gen);
+    virtual int Print(CodeGenerator & gen);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -37,7 +39,6 @@ class NodeList : public Node
   public:
     virtual void Append(Node * node);    
     virtual void Append(NodeList * nodeList);
-    virtual void PrintOn(std::ostream & strm) const;
 
     std::vector<std::unique_ptr<Node>> m_list;
 };
@@ -50,8 +51,14 @@ class SourceLine : public Node
 {
   public:
     SourceLine(int lineNumber, const std::string & line);
-    virtual void PrintOn(std::ostream & strm) const;
-    virtual void C_Generate(C_CodeGenerator & gen);
+
+    virtual int Generate(CodeGenerator & gen);
+
+    int GetLineNumber() const
+    { return m_lineNumber; }
+
+    std::string GetLine() const
+    { return m_line; }
 
   protected:
     int m_lineNumber;  
@@ -64,9 +71,7 @@ class LineNumber : public Node
 {
   public:
     LineNumber(const std::string & ref);
-    virtual void PrintOn(std::ostream & strm) const;
-
-    virtual void C_Generate(C_CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen);
 
   protected:
     std::string m_ref;  
@@ -74,20 +79,10 @@ class LineNumber : public Node
 
 ////////////////////////////////////////////////////////////////////////////
 
-enum class VarType {
-  eNone,
-  eDefault,
-  eInteger,
-  eSingle,
-  eDouble,
-  eString
-};
-
 class Expr : public Node
 {
   public:
     Expr(VarType type = VarType::eNone);
-    virtual void PrintOn(std::ostream & strm) const;
     VarType GetType() const;
 
   protected:
@@ -96,19 +91,7 @@ class Expr : public Node
 
 ////////////////////////////////////////////////////////////////////////////
 
-class ExprList : public Expr
-{
-  public:
-    virtual void Append(Expr * expr);    
-    virtual void Append(ExprList * exprList);
-    virtual void PrintOn(std::ostream & strm) const;
-    virtual size_t Length() const;
-
-    virtual void C_Generate(C_CodeGenerator & gen);
-
-  protected:
-    std::vector<std::unique_ptr<Expr>> m_list;
-};
+typedef NodeList ExprList;
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -116,24 +99,21 @@ class Print : public ExprList
 {
   public:
     Print(ExprList * exprList = nullptr);
-    virtual void PrintOn(std::ostream & strm) const;
-    virtual void C_Generate(C_CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen);
 };
 
 class PrintComma : public Expr
 {
   public:
     PrintComma() = default;
-    virtual void PrintOn(std::ostream & strm) const;
-
-    virtual void C_Print(C_CodeGenerator & gen);
+    virtual int Print(CodeGenerator & gen);
 };
 
 class PrintSemiColon : public Expr
 {
   public:
     PrintSemiColon() = default;
-    virtual void PrintOn(std::ostream & strm) const;
+    virtual int Print(CodeGenerator & gen);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -143,7 +123,6 @@ class String : public Expr
   public:
     String() = default;
     String(const std::string * str);
-    virtual void PrintOn(std::ostream & strm) const;
 
   protected:
     std::string m_val;
@@ -157,10 +136,8 @@ class Assign : public Expr
 {
   public:
     Assign(VarRef * lhs, Expr * rhs);
-    virtual void PrintOn(std::ostream & strm) const;
-    virtual void C_Generate(C_CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen);
 
-  protected:
     AST::VarRef * m_lhs;
     Expr * m_rhs;
 };
@@ -171,7 +148,6 @@ class VarRef : public Expr
 {
   public:
     VarRef(VarType type, const std::string & m_id);
-    virtual void PrintOn(std::ostream & strm) const;
 
     std::string GetName() const;
 
@@ -179,57 +155,34 @@ class VarRef : public Expr
     std::string m_id;
 };
 
-class DefaultValue : public Expr
+////////////////////////////////////////////////////////////////////////////
+
+template<VarType t, typename N>
+class Constant : public Expr
 {
   public:
-    DefaultValue(const std::string & str);
-    virtual void PrintOn(std::ostream & strm) const;
-  protected:
-    std::string m_value;  
-};
+    Constant(const N & v)
+      : Expr(t)
+      , m_value(v)
+    { }  
 
-class StringValue : public Expr
-{
-  public:
-    StringValue(const std::string & str);
-    virtual void PrintOn(std::ostream & strm) const;
+    static AST::Expr * Create(const std::string & str);
 
-    virtual void C_Print(C_CodeGenerator & gen);
-  protected:
-    std::string m_value;  
-};
+    virtual int Generate(CodeGenerator & gen);
+    virtual int Print(CodeGenerator & gen);
 
-class IntegerValue : public Expr
-{
-  public:
-    IntegerValue(int value);
-    virtual void PrintOn(std::ostream & strm) const;
-
-    int GetValue() const;
-    virtual std::string C_Evaluate() const;
+    N GetValue() const
+    { return m_value; }
 
   protected:
-    int m_value;  
+    N m_value;
 };
 
-class SingleValue : public Expr
-{
-  public:
-    SingleValue(double value);
-    virtual void PrintOn(std::ostream & strm) const;
-  protected:
-    double m_value;  
-};
-
-class DoubleValue : public Expr
-{
-  public:
-    DoubleValue(double value);
-    virtual void PrintOn(std::ostream & strm) const;
-  protected:
-    double m_value;  
-};
-
+using StringConstant = Constant<VarType::eString, std::string>;
+using Int16Constant  = AST::Constant<VarType::eInt16,  int16_t>;
+using Int32Constant  = Constant<VarType::eInt32,  int32_t>;
+using SingleConstant = Constant<VarType::eSingle, float>;
+using DoubleConstant = Constant<VarType::eDouble, double>;
 
 ////////////////////////////////////////////////////////////////////////////
 

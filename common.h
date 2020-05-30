@@ -90,6 +90,8 @@ class Factory
     WorkerListType m_workers;
 };
 
+#if 0
+
 //////////////////////////////////////////////////////////////////
 
 typedef std::vector<unsigned> UnsignedList;
@@ -118,62 +120,54 @@ struct Variable
 
 //////////////////////////////////////////////////////////////////
 
+#endif
+
+enum class VarType {
+  eNone,
+  eInt16,
+  eInt32,
+  eSingle,
+  eDouble,
+  eString
+};
+
 struct LanguageProfile
 {
-  virtual bool NormalizeVariableName(Variable & var, int dim) = 0;
-  virtual Variable::Type GetDefaultNumericType() = 0;
+  //virtual bool NormalizeVariableName( & var, int dim) = 0;
+  virtual VarType GetIntegerType() = 0;
+  virtual VarType GetDefaultNumericType() = 0;
   int m_normalizedVarLen;
 };
 
 struct BasicLanguageProfile : public LanguageProfile
 {
   BasicLanguageProfile(int normVarLen);
-  virtual bool NormalizeVariableName(Variable & var, int dim) override;
+  //virtual bool NormalizeVariableName(Variable & var, int dim) override;
 };
 
 struct Basic_8k_LanguageProfile : public BasicLanguageProfile
 {
   Basic_8k_LanguageProfile();
-  virtual Variable::Type GetDefaultNumericType();
+  virtual VarType GetIntegerType();
+  virtual VarType GetDefaultNumericType();
 };
 
 struct Basic_Extended_LanguageProfile : public BasicLanguageProfile
 {
   Basic_Extended_LanguageProfile();
-  virtual Variable::Type GetDefaultNumericType();
+  virtual VarType GetIntegerType();
+  virtual VarType GetDefaultNumericType();
 };
 
 struct Basic_Disk_LanguageProfile : public BasicLanguageProfile
 {
   Basic_Disk_LanguageProfile();
-  virtual Variable::Type GetDefaultNumericType();
+  virtual VarType GetIntegerType();
+  virtual VarType GetDefaultNumericType();
 };
 
 //////////////////////////////////////////////////////////////////
 
-struct RuntimeFunctionDef
-{
-  const char * m_returnType;
-  const char * m_name;
-  const char * m_args;
-};
-
-struct FunctionDef
-{
-  FunctionDef();
-  FunctionDef(const std::string & name);
-  FunctionDef(const RuntimeFunctionDef & def);
-
-  std::string m_returnType;
-  std::string m_name;
-  std::vector<std::string> m_args;
-};
-
-extern const char * g_runtimeDefPrefix;
-
-//////////////////////////////////////////////////////////////////
-
-extern struct RuntimeFunctionDef g_runtimeDefs[];
 extern LanguageProfile * g_languageProfile;
 
 #endif // COMMON_H_

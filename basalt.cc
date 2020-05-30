@@ -8,7 +8,7 @@ using namespace std;
 
 #include "basalt.h"
 
-//#include "codegen.h"
+#include "c_codegen.h"
 
 int g_lineNumber   = 1;
 int g_errorCount   = 0;
@@ -54,12 +54,6 @@ void OptionError(const ArgDef * def)
   }
 }
 
-void InternalErrorFunc(const char * fn, unsigned ln, const std::string & str)
-{
-  cerr << "error: internal error " << fn << "(" << ln << ") - " << str << endl;
-  exit(1);
-}
-
 void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str)
 {
   cerr << "warning: error " << fn << "(" << ln << ") - " << str << endl;
@@ -77,28 +71,6 @@ void WarningFunc(WarningCode code, const std::string & str)
   std::stringstream strm;
   strm << "warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
   cerr << strm.str();
-}
-
-FunctionDef::FunctionDef()
-{
-}
-
-FunctionDef::FunctionDef(const std::string & name)
-  : m_returnType("void")
-  , m_name(name)
-{
-}
-
-FunctionDef::FunctionDef(const RuntimeFunctionDef & def)
-  : m_name(def.m_name)
-{
-  if (def.m_returnType != nullptr)
-    m_returnType = def.m_returnType;
-
-  if (def.m_args != nullptr) {    
-    std::string argStr(def.m_args);
-    Tokenize(m_args, argStr, ',');
-  }  
 }
 
 void Basalt::DecodeOpt(ArgDef * def, int & index, int argc, const char **argv)
@@ -331,7 +303,6 @@ int Basalt::Main(int argc, char const *argv[])
 
   if (g_verbose) {
     cerr << "info: parsing finished" << endl;
-    AST::g_program.PrintOn(cout);
   }
 
   if (g_errorCount > 0) {
@@ -359,12 +330,12 @@ BasicLanguageProfile::BasicLanguageProfile(int normVarLen)
   m_normalizedVarLen = normVarLen;
 }
 
+#if 0  
+  
 bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
 {
   std::string rawName = var.m_name;
 
-#if 0  
-  
   // take out unprintables
   for (auto & r : rawName)
     if (!isalnum(r) && (r != '_'))
@@ -395,12 +366,12 @@ bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
   if (dim > 0)
     strm << "_array_" << dim;
 
-#endif
-
   var.m_normalizedName = rawName;
 
   return true;
 }
+
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -409,9 +380,14 @@ Basic_8k_LanguageProfile::Basic_8k_LanguageProfile()
 {
 }
 
-Variable::Type Basic_8k_LanguageProfile::GetDefaultNumericType()
+VarType Basic_8k_LanguageProfile::GetDefaultNumericType()
 {
-  return Variable::Type::eSingle;
+  return VarType::eSingle;
+}
+
+VarType Basic_8k_LanguageProfile::GetIntegerType()
+{
+  return VarType::eInt16;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -421,9 +397,14 @@ Basic_Extended_LanguageProfile::Basic_Extended_LanguageProfile()
 {
 }
 
-Variable::Type Basic_Extended_LanguageProfile::GetDefaultNumericType()
+VarType Basic_Extended_LanguageProfile::GetDefaultNumericType()
 {
-  return Variable::Type::eInt16;
+  return VarType::eInt16;
+}
+
+VarType Basic_Extended_LanguageProfile::GetIntegerType()
+{
+  return VarType::eInt16;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -433,9 +414,14 @@ Basic_Disk_LanguageProfile::Basic_Disk_LanguageProfile()
 {  
 }
 
-Variable::Type Basic_Disk_LanguageProfile::GetDefaultNumericType()
+VarType Basic_Disk_LanguageProfile::GetDefaultNumericType()
 {
-  return Variable::Type::eInt16;
+  return VarType::eInt16;
+}
+
+VarType Basic_Disk_LanguageProfile::GetIntegerType()
+{
+  return VarType::eInt16;
 }
 
 ////////////////////////////////////////////////////////////////////////

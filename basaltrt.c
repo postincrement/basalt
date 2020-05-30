@@ -21,7 +21,16 @@ int basalt_print_string(const char * str)
   return 0;
 }
 
-int basalt_print_integer(uint16_t value)
+int basalt_print_int16(uint16_t value)
+{
+  char buffer[10];
+  int len = sprintf(buffer, "%i", value);
+  write(STDOUT_FD, buffer, len);
+  g_outputColumn += len;
+  return 0;
+}
+
+int basalt_print_int32(uint32_t value)
 {
   char buffer[10];
   int len = sprintf(buffer, "%i", value);

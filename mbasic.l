@@ -232,7 +232,7 @@
     
 [0-9][0-9]* {
       MBASIC_lval.sval = new std::string(yytext);
-      return DEF_INTEGER;
+      return DEF_NUMERIC;
 		}
 
 [a-zA-Z][a-zA-Z0-9\.]* {

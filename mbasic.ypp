@@ -16,8 +16,20 @@ using namespace std;
 
 extern void MBASIC_SetRemMode();
 
-static void AddExpr(AST::Expr * expr)
+static AST::Expr * CreateConstant(VarType type, const std::string & val)
 {
+  switch (type) {
+    case VarType::eInt16:
+      return AST::Int16Constant::Create(val);
+    case VarType::eInt32:
+      return AST::Int32Constant::Create(val);
+    case VarType::eSingle:
+      return AST::SingleConstant::Create(val);
+    case VarType::eDouble:
+      return AST::DoubleConstant::Create(val);
+    case VarType::eString:
+      return AST::StringConstant::Create(val);
+  }
 }
 
 %}
@@ -28,6 +40,7 @@ static void AddExpr(AST::Expr * expr)
   int           ival;
   std::string * sval;
 
+  AST::Node *     node;
   AST::Expr *     expr;
   AST::ExprList * exprlist;
 
@@ -84,7 +97,7 @@ static void AddExpr(AST::Expr * expr)
 %token WIDTH_TOKEN
 
 // other lexemes
-%token <sval>   IDENTIFIER QUOTED_STRING DEF_INTEGER
+%token <sval>   IDENTIFIER QUOTED_STRING DEF_NUMERIC
 %token <sval>   INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
 %token <ival>   INTEGER  
 %token <dfloat> DOUBLE 
@@ -93,7 +106,7 @@ static void AddExpr(AST::Expr * expr)
 // rules
 %type <exprlist>    line opt_statement_list statement_list
  
-%type <expr>        statement
+%type <node>    statement
 
 %type <expr>    DIM_statement dim_var_list
 
@@ -103,7 +116,7 @@ static void AddExpr(AST::Expr * expr)
 
 %type <expr>    GOTO_statement
 
-%type <expr>     PRINT_statement 
+%type <node>     PRINT_statement 
 %type <exprlist> print_expression_list 
 %type <expr>     print_expression
 
@@ -160,11 +173,10 @@ opt_line_number: /* empty */
                     }
                  ;
 
-line_number:    DEF_INTEGER
+line_number:    DEF_NUMERIC
                     {
-                      stringstream strm;
-                      strm << *($1);
-                      $$ = new std::string(strm.str());
+                      $$ = new std::string(*$1);
+                      delete $1;
                     }
                  ; 
 
@@ -751,23 +763,28 @@ var_ref : var_name
 
 var_name: IDENTIFIER
             {
-              $$ = new AST::VarRef(AST::VarType::eDefault, *$1);
+              $$ = new AST::VarRef(g_languageProfile->GetDefaultNumericType(), *$1);
+              delete $1;
             }
           | INTEGER_VARNAME
             {
-              $$ = new AST::VarRef(AST::VarType::eInteger, *$1);
+              $$ = new AST::VarRef(g_languageProfile->GetIntegerType(), *$1);
+              delete $1;
             }
           | STRING_VARNAME
             {
-              $$ = new AST::VarRef(AST::VarType::eString, *$1);
+              $$ = new AST::VarRef(VarType::eString, *$1);
+              delete $1;
             }
           | SINGLE_VARNAME
             {
-              $$ = new AST::VarRef(AST::VarType::eSingle, *$1);
+              $$ = new AST::VarRef(VarType::eSingle, *$1);
+              delete $1;
             }
           | DOUBLE_VARNAME
             {
-              $$ = new AST::VarRef(AST::VarType::eDouble, *$1);
+              $$ = new AST::VarRef(VarType::eDouble, *$1);
+              delete $1;
             }
           ;
 
@@ -797,26 +814,28 @@ array_or_func_arg:  expression
 
 const_expr: INTEGER
               {
-                $$ = new AST::IntegerValue($1);
+                stringstream strm;
+                strm << $1;
+                $$ = CreateConstant(g_languageProfile->GetIntegerType(), strm.str());
+              }
+            | DEF_NUMERIC  
+              {
+                $$ = CreateConstant(g_languageProfile->GetDefaultNumericType(), *$1);
+                delete $1;
               }
             | DOUBLE
               {
-                $$ = new AST::DoubleValue($1->m_value);
+                $$ = new AST::DoubleConstant($1->m_value);
                 delete $1;
               }
             | SINGLE
               {
-                $$ = new AST::SingleValue($1->m_value);
-                delete $1;
-              }
-            | DEF_INTEGER  
-              {
-                $$ = new AST::DefaultValue(*$1);
+                $$ = new AST::SingleConstant($1->m_value);
                 delete $1;
               }
             | QUOTED_STRING
               {
-                $$ = new AST::StringValue(*$1);
+                $$ = new AST::StringConstant(&(*$1)[0]);
                 delete $1;
               }
             ;

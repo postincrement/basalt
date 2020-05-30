@@ -15,49 +15,35 @@ class CodeGenerator
                   AST::NodeList & program);
 
     bool Run();
+    virtual bool Body() = 0;
+
+    virtual int Generate(const AST::Node & node) { }
+    virtual int Generate(const AST::NodeList & expr) { }
+    virtual int Generate(const AST::SourceLine & expr) { }
+    virtual int Generate(const AST::LineNumber & expr) { }
+    virtual int Generate(const AST::Print & expr) { }
+    virtual int Generate(const AST::StringConstant & expr) { }
+    virtual int Generate(const AST::Int16Constant & expr) { }
+    virtual int Generate(const AST::Int32Constant & expr) { }
+    virtual int Generate(const AST::SingleConstant & expr) { }
+    virtual int Generate(const AST::DoubleConstant & expr) { }
+    virtual int Generate(const AST::Assign & expr) { }
+
+    virtual int Print(const AST::Node & node) { }
+    virtual int Print(const AST::StringConstant & expr) { }
+    virtual int Print(const AST::Int16Constant & expr) { }
+    virtual int Print(const AST::Int32Constant & expr) { }
+    virtual int Print(const AST::SingleConstant & expr) { }
+    virtual int Print(const AST::DoubleConstant & expr) { }
+    virtual int Print(const AST::PrintComma & expr) { }
 
     std::string m_inputFilename;
     std::ostream * m_outputStream;
-
-    virtual void Prologue();
-    virtual void Epilogue();
-    virtual void Dispatch(AST::Node * node) = 0;
 
   protected:
     std::string m_outputFilename; 
     AST::NodeList & m_program;
     std::ofstream m_outputFile;
-};
-
-
-class C_CodeGenerator : public CodeGenerator
-{
-  public:
-    C_CodeGenerator(const std::string & inputFilename, 
-                    const std::string & outputFilename, 
-                    AST::NodeList & program);
-    virtual void Dispatch(AST::Node * node);
-    virtual void Prologue();
-    virtual void Epilogue();
-
-    std::stringstream m_body;
-
-    struct CVarDef {
-      AST::VarType m_type;
-      std::string m_cname;
-      std::string m_ctype;
-      std::string m_initializer;
-    };
-
-    bool DeclareGlobalVar(
-      const AST::VarRef & var, 
-      C_CodeGenerator::CVarDef & cvar
-    );
-
-  protected:
-    typedef std::map<std::string, CVarDef> GlobalVarMap;
-    std::set<std::string> m_cnames;
-    GlobalVarMap m_globalVars;  
 };
 
 #endif // CODEGEN_H_

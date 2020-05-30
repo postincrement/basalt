@@ -3,6 +3,7 @@
 using namespace std;
 
 #include "ast.h"
+#include "codegen.h"
 
 using namespace AST;
 
@@ -10,13 +11,15 @@ AST::NodeList AST::g_program;
 
 /////////////////////////////////////////
 
-Node::Node()
-{}
+int AST::Node::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
 
-Node::~Node()
-{}
-
-/////////////////////////////////////////
+int AST::Node::Print(CodeGenerator & gen)
+{ 
+  return gen.Print(*this);
+}
 
 void AST::NodeList::Append(Node * node)
 {
@@ -34,13 +37,6 @@ void AST::NodeList::Append(NodeList * nodeList)
   }
 }
 
-void AST::NodeList::PrintOn(ostream & strm) const
-{
-  for (auto & r : m_list) {
-    r->PrintOn(strm);
-  }
-}
-
 /////////////////////////////////////////
 
 SourceLine::SourceLine(int lineNumber, const std::string & line)
@@ -54,9 +50,9 @@ SourceLine::SourceLine(int lineNumber, const std::string & line)
   m_line = m_line.substr(0, len);
 }
 
-void SourceLine::PrintOn(std::ostream & strm) const
+int SourceLine::Generate(CodeGenerator & gen)
 {
-  strm << "# " << m_lineNumber << " \"" << m_line << "\"" << endl;
+  return gen.Generate(*this);
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -65,9 +61,9 @@ LineNumber::LineNumber(const std::string & ref)
   : m_ref(ref)
 {}
 
-void LineNumber::PrintOn(std::ostream & strm) const
+int LineNumber::Generate(CodeGenerator & gen)
 {
-//  strm << "# " << m_ref << endl;
+  return gen.Generate(*this);
 }
 
 /////////////////////////////////////////
@@ -82,86 +78,26 @@ VarType AST::Expr::GetType() const
   return m_type;
 }
 
-void Expr::PrintOn(std::ostream & strm) const
-{
-  if (m_type == VarType::eNone)
-    return;
-
-  strm << "(";
-  switch (m_type) {
-    case VarType::eNone:
-      break;
-    case VarType::eDefault:
-      strm << "default";
-      break;
-    case VarType::eInteger:
-      strm << "integer";
-      break;
-    case VarType::eSingle:
-      strm << "single";
-      break;
-    case VarType::eDouble:
-      strm << "double";
-      break;
-    case VarType::eString:
-      strm << "string";
-      break;
-  }
-  strm << ")"; 
-}
 /////////////////////////////////////////
 
-void AST::ExprList::Append(Expr * expr)
-{
-  if (expr != nullptr) {
-    m_list.push_back(std::unique_ptr<Expr>(expr));
-  }
-}
-
-void AST::ExprList::Append(ExprList * exprList)
-{
-  if (exprList != nullptr) {
-    for (auto & r : exprList->m_list) {
-      Append(r.release());
-    }
-  }
-}
-
-void AST::ExprList::PrintOn(ostream & strm) const
-{
-  for (auto & r : m_list) {
-    r->PrintOn(strm);
-    strm << endl;
-  }
-}
-
-size_t AST::ExprList::Length() const
-{
-  return m_list.size();
-}
-
-/////////////////////////////////////////
-
-AST::Print::Print(ExprList * list)
+Print::Print(ExprList * list)
 {
   Append(list);
 }
 
-void AST::Print::PrintOn(ostream & strm) const
+int Print::Generate(CodeGenerator & gen)
 {
-  strm << "PRINT {" << endl;
-  ExprList::PrintOn(strm);
-  strm << "}" << endl;
+  return gen.Generate(*this);
 }
 
-void PrintComma::PrintOn(std::ostream & strm) const
+int PrintComma::Print(CodeGenerator & gen)
 {
-  strm << "comma";
-};
+  return gen.Print(*this);
+}
 
-void PrintSemiColon::PrintOn(std::ostream & strm) const
+int PrintSemiColon::Print(CodeGenerator & gen)
 {
-  strm << "semicolon";
+  return gen.Print(*this);
 }
 
 /////////////////////////////////////////
@@ -172,11 +108,6 @@ String::String(const std::string * str)
     m_val = *str;
 }
 
-void String::PrintOn(std::ostream & strm) const
-{
-  strm << "string '" << m_val << "'" << endl;
-}
-
 /////////////////////////////////////////
 
 Assign::Assign(AST::VarRef * lhs, Expr * rhs)
@@ -185,21 +116,9 @@ Assign::Assign(AST::VarRef * lhs, Expr * rhs)
 {
 }
 
-void Assign::PrintOn(std::ostream & strm) const
+int Assign::Generate(CodeGenerator & gen)
 {
-  strm << "ASSIGN ";
-  if (m_lhs == nullptr)
-    strm << "(null)";
-  else
-    m_lhs->PrintOn(strm);
-    
-  strm << " = ";
-
-  if (m_rhs == nullptr)
-    strm << "(null)";
-  else
-    m_rhs->PrintOn(strm);
-  strm << endl;  
+  return gen.Generate(*this);
 }
 
 /////////////////////////////////////////
@@ -215,72 +134,84 @@ std::string VarRef::GetName() const
   return m_id;
 }
 
-void VarRef::PrintOn(std::ostream & strm) const
+/////////////////////////////////////////
+
+template<>
+AST::Expr * AST::StringConstant::Create(const std::string & str)
 {
-  strm << "'" << m_id << "'";
-  Expr::PrintOn(strm);
+  return new StringConstant(str.c_str());
 }
+
+template<>
+int AST::StringConstant::Generate(CodeGenerator & gen)
+{ return gen.Generate(*this); }
+
+template<>
+int AST::StringConstant::Print(CodeGenerator & gen)
+{ return gen.Print(*this); }
 
 /////////////////////////////////////////
 
-DefaultValue::DefaultValue(const std::string & str)
-  : Expr(VarType::eDefault)
-  , m_value(str)
-{}
-
-void DefaultValue::DefaultValue::PrintOn(std::ostream & strm) const
+template<>
+AST::Expr * AST::Int16Constant::Create(const std::string & str)
 {
-  Expr::PrintOn(strm);
-  strm << m_value;
+  int16_t v = atoi(str.c_str());
+  cout << "'" << str << "' = " << v << endl; 
+  return new Int16Constant(atoi(str.c_str()));
 }
 
-StringValue::StringValue(const std::string & str)
-  : Expr(VarType::eString)
-  , m_value(str)
-{}
+template<>
+int AST::Int16Constant::Generate(CodeGenerator & gen)
+{ return gen.Generate(*this); }
 
-void StringValue::PrintOn(std::ostream & strm) const
+template<>
+int AST::Int16Constant::Print(CodeGenerator & gen)
+{ return gen.Print(*this); }
+
+/////////////////////////////////////////
+
+template<>
+AST::Expr * AST::Int32Constant::Create(const std::string & str)
 {
-  Expr::PrintOn(strm);
-  strm << m_value;
+  return new Int32Constant(atoi(str.c_str()));
 }
 
-IntegerValue::IntegerValue(int value)
-  : Expr(VarType::eInteger)
-  , m_value(value)
+template<>
+int AST::Int32Constant::Generate(CodeGenerator & gen)
+{ return gen.Generate(*this); }
+
+template<>
+int AST::Int32Constant::Print(CodeGenerator & gen)
+{ return gen.Print(*this); }
+
+/////////////////////////////////////////
+
+template<>
+AST::Expr * AST::SingleConstant::Create(const std::string & str)
 {
-  cout << "integer created with value " << m_value << endl;
+  return new SingleConstant(atof(str.c_str()));
 }
 
-void IntegerValue::PrintOn(std::ostream & strm) const
+template<>
+int AST::SingleConstant::Generate(CodeGenerator & gen)
+{ return gen.Generate(*this); }
+
+template<>
+int AST::SingleConstant::Print(CodeGenerator & gen)
+{ return gen.Print(*this); }
+
+/////////////////////////////////////////
+
+template<>
+AST::Expr * AST::DoubleConstant::Create(const std::string & str)
 {
-  Expr::PrintOn(strm);
-  strm << m_value;
+  return new DoubleConstant(atof(str.c_str()));
 }
+template<>
+int AST::DoubleConstant::Generate(CodeGenerator & gen)
+{ return gen.Generate(*this); }
 
-int IntegerValue::GetValue() const
-{
-  return m_value;
-}
+template<>
+int AST::DoubleConstant::Print(CodeGenerator & gen)
+{ return gen.Print(*this); }
 
-SingleValue::SingleValue(double value)
-  : Expr(VarType::eSingle)
-  , m_value(value)
-{}
-
-void SingleValue::PrintOn(std::ostream & strm) const
-{
-  Expr::PrintOn(strm);
-  strm << m_value;
-}
-
-DoubleValue::DoubleValue(double value)
-  : Expr(VarType::eDouble)
-  , m_value(value)
-{}
-
-void DoubleValue::PrintOn(std::ostream & strm) const
-{
-  Expr::PrintOn(strm);
-  strm << m_value;
-}

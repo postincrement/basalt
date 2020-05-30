@@ -4,6 +4,7 @@
 using namespace std;
 
 #include "codegen.h"
+#include "c_codegen.h"
 
 CodeGenerator::CodeGenerator(const std::string & inputFilename, 
                              const std::string & outputFilename,
@@ -27,19 +28,9 @@ bool CodeGenerator::Run()
     }
     m_outputStream = &m_outputFile;
   }
-  Prologue();
-  for (auto & r : m_program.m_list) {
-    Dispatch(r.get());
-  }
-  Epilogue();
+  Body();
   return true;
 }
-
-void CodeGenerator::Prologue()
-{}
-
-void CodeGenerator::Epilogue()
-{}
 
 ////////////////////////////////////////////////////////////
 
@@ -50,21 +41,30 @@ C_CodeGenerator::C_CodeGenerator (const std::string & inputFilename,
 {
 }
 
-void C_CodeGenerator::Prologue()
+bool C_CodeGenerator::Body()
 {
+  PushClosure();
+  for (auto & r : m_program.m_list) {
+    r->Generate(*this);
+  }
+
   *m_outputStream
            << "/* Generator by basalt */\n"
            << "#include <stdlib.h>\n"
            << "#include <stdint.h>\n"
+           << "\n"
            << "extern int basalt_init();\n"
-           << "extern int basalt_print_string(const char *);\n"
            << "extern int basalt_print_tab();\n"
            << "extern int basalt_print_newline();\n"
+           << "extern int basalt_print_string(const char *);\n"
+           << "extern int basalt_print_int16(int);\n"
+           << "extern int basalt_print_int32(int);\n"
+           << "extern int basalt_print_single(float);\n"
+           << "extern int basalt_print_double(double);\n"
+           << "\n"
            ;
-}
 
-void C_CodeGenerator::Epilogue()
-{
+  *m_outputStream << "/* Vars */\n";  
   for (auto & r : m_globalVars) {
     *m_outputStream << r.second.m_ctype 
                     << " "
@@ -74,79 +74,149 @@ void C_CodeGenerator::Epilogue()
                     << "; /* " << r.first << " */\n"
                     ;
   }
+  *m_outputStream << "\n";
 
   *m_outputStream 
            << "int main(int argc, char * argv[])\n"
            << "{\n"
            << "  basalt_init();\n" 
-           << m_body.str()
+           << Top().Output().str()
            << "  exit(0);\n"
            << "}\n"
            ;
 }
-void C_CodeGenerator::Dispatch(AST::Node * node)
+
+int C_CodeGenerator::Generate(const AST::Node & expr)
 {
-  node->C_Generate(*this);
+  const std::type_info & r = typeid(expr);
+  cerr << "warning: unimplemented Generate for " << r.name() << "\n";
 }
 
-void AST::ExprList::C_Generate(C_CodeGenerator & gen)
+int C_CodeGenerator::Print(const AST::Node & expr)
 {
-  for (auto & r : m_list)
-    r->C_Generate(gen);
+  const std::type_info & r = typeid(expr);
+  cerr << "warning: unimplemented Print for " << r.name() << "\n";
 }
 
-void AST::Node::C_Generate(C_CodeGenerator & gen)
+int C_CodeGenerator::Generate(const AST::NodeList & expr)
 {
-  const std::type_info & r = typeid(*this);
-  cerr << "warning: unimplemented C_Generate for " << r.name() << "\n";
+  Closure & us = Top();
+  for (auto & r : expr.m_list) {
+    PushClosure();
+    r->Generate(*this);
+    us.Output() << TopOutput().str();
+    PopClosure();
+  }
+  return 0;
 }
 
-void AST::Node::C_Print(C_CodeGenerator & gen)
+int C_CodeGenerator::Generate(const AST::SourceLine & expr)
 {
-  const std::type_info & r = typeid(*this);
-  cerr << "warning: unimplemented C_Print for " << r.name() << "\n";
+  TopOutput()  
+        << "\n"
+        << "#line " << expr.GetLineNumber() 
+        << " \"" << m_inputFilename << "\"\n"
+        << "  /* " << expr.GetLine() << " */\n";
+  return 0;
 }
 
-std::string AST::Node::C_Evaluate() const
-{
-  const std::type_info & r = typeid(*this);
-  cerr << "warning: unimplemented C_Evaluate for " << r.name() << "\n";
-  return "";
-}
-
-
-////////////////////////////////////////////////////////////////
-
-void AST::SourceLine::C_Generate(C_CodeGenerator & gen)
-{
-  gen.m_body  
-        << "#line " << m_lineNumber << " \"" << gen.m_inputFilename << "\"\n"
-        << "  /* " << m_line << " */\n";
-}
-
-void AST::LineNumber::C_Generate(C_CodeGenerator & gen)
+int C_CodeGenerator::Generate(const AST::LineNumber & expr)
 {
   // empty
+  return 0;
 }
 
 ////////////////////////////////////////////////////////////////
 
-void AST::Print::C_Generate(C_CodeGenerator & gen)
+int C_CodeGenerator::Generate(const AST::Print & expr)
 {
-  for (auto & r : m_list) {
-    r->C_Print(gen);
+  Closure & us = Top();
+  for (auto & r : expr.m_list) {
+    PushClosure();
+    r->Print(*this);
+    us.Output() << TopOutput().str();
+    PopClosure();
   }
-  gen.m_body << "  basalt_print_newline();\n";
+  us.Output() << "  basalt_print_newline();\n";
+  return 0;
 }
 
-void AST::StringValue::C_Print(C_CodeGenerator & gen)
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::StringConstant & expr)
 {
-  gen.m_body << "  basalt_print_string(\"" << m_value << "\");\n";
+  TopOutput() << "strdup(\"" << expr.GetValue() << "\")";
+  return 0;
 }
 
-void AST::PrintComma::C_Print(C_CodeGenerator & gen)
+int C_CodeGenerator::Print(const AST::StringConstant & expr)
 {
-  gen.m_body << "  basalt_print_tab();\n";
+  TopOutput() << "  basalt_print_string(\"" << expr.GetValue() << "\");\n";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::Int16Constant & expr)
+{
+  TopOutput() << expr.GetValue();
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::Int16Constant & expr)
+{
+  TopOutput() << "  basalt_print_int16(" << expr.GetValue() << ");\n";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::Int32Constant & expr)
+{
+  TopOutput() << expr.GetValue();
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::Int32Constant & expr)
+{
+  TopOutput() << "  basalt_print_int32(" << expr.GetValue() << ");\n";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::SingleConstant & expr)
+{
+  TopOutput() << expr.GetValue();
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::SingleConstant & expr)
+{
+  TopOutput() << "  basalt_print_single(" << expr.GetValue() << ");\n";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::DoubleConstant & expr)
+{
+  TopOutput() << expr.GetValue();
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
+{
+  TopOutput() << "  basalt_print_double(" << expr.GetValue() << ");\n";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Print(const AST::PrintComma & expr)
+{
+  TopOutput() << "  basalt_print_tab();\n";
+  return 0;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -167,32 +237,33 @@ static bool CreateCVar(const AST::VarRef & var,
   strm << "_";  
 
   cvar.m_type = var.GetType();
-  if (cvar.m_type == AST::VarType::eDefault)
-    cvar.m_type = AST::VarType::eInteger;
-
   switch (cvar.m_type) {
-    case AST::VarType::eNone:
-    case AST::VarType::eDefault:
+    case VarType::eNone:
       return false;
-    case AST::VarType::eInteger:
-      strm << "int";
+    case VarType::eInt16:
+      strm << "int16";
       cvar.m_ctype = "int16_t";
       cvar.m_initializer = "0";
       break;
-    case AST::VarType::eSingle:
+    case VarType::eInt32:
+      strm << "int32";
+      cvar.m_ctype = "int16_t";
+      cvar.m_initializer = "0";
+      break;
+    case VarType::eSingle:
       strm << "single";
       cvar.m_ctype = "float";
       cvar.m_initializer = "0";
       break;
-    case AST::VarType::eDouble:
+    case VarType::eDouble:
       strm << "double";
       cvar.m_ctype = "double";
       cvar.m_initializer = "0";
       break;
-    case AST::VarType::eString:
+    case VarType::eString:
       strm << "string";
       cvar.m_ctype = "char *";
-      cvar.m_initializer = "\"\"";
+      cvar.m_initializer = "0";
       break;
   }
 
@@ -227,27 +298,18 @@ bool C_CodeGenerator::DeclareGlobalVar(const AST::VarRef & var,
   return true;
 }
 
-std::string AST::IntegerValue::C_Evaluate() const
+int C_CodeGenerator::Generate(const AST::Assign & expr)
 {
-  std::stringstream strm;
-  strm << m_value;
-  return strm.str();
-}
+  Closure & us = Top();
 
-void AST::Assign::C_Generate(C_CodeGenerator & gen)
-{
   C_CodeGenerator::CVarDef cvar;
-  if (!gen.DeclareGlobalVar(*m_lhs, cvar))
-    return;
+  if (!DeclareGlobalVar(*expr.m_lhs, cvar))
+    return -1;
 
-  std::stringstream value;
-  //value << cvar.m_initializer;
-  value << m_rhs->C_Evaluate();
+  PushClosure();
+  expr.m_rhs->Generate(*this);
+  us.Output() << "  " << cvar.m_cname << " = " << TopOutput().str() << ";" << endl;
+  PopClosure();
 
-  if (value.str().empty()) {
-    cerr << "warning: could not evaluate assigment of " << m_lhs->GetName() << endl;
-    value << cvar.m_initializer;
-  }
-
-  gen.m_body << "  " << cvar.m_cname << " = " << value.str() << ";" << endl; 
+  return 0;
 }
