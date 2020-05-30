@@ -122,6 +122,7 @@ struct Variable
 
 #endif
 
+// if changed, change g_varTypeInfo in c_codegen.cc
 enum class VarType {
   eNone,
   eInt16,

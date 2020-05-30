@@ -148,6 +148,8 @@ class VarRef : public Expr
 {
   public:
     VarRef(VarType type, const std::string & m_id);
+    virtual int Generate(CodeGenerator & gen);
+    virtual int Print(CodeGenerator & gen);
 
     std::string GetName() const;
 

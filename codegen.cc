@@ -6,6 +6,24 @@ using namespace std;
 #include "codegen.h"
 #include "c_codegen.h"
 
+
+struct CTypeInfoRec {
+  const char * m_ctype; 
+  const char * m_initializer;
+  const char * m_printFn;
+  const char * m_suffix;
+};
+
+// must be indexed by VarType
+static CTypeInfoRec g_varTypeInfo[] = {
+  { 0 },                        // none
+  { "int16_t",      "0", "basalt_print_int16",  "int16"  },     // eInt16
+  { "int32_t",      "0", "basalt_print_int32",  "int32"  },     // eInt32
+  { "float",        "0", "basalt_print_single", "single" },    // eSingle
+  { "double",       "0", "basalt_print_double", "double" },    // eDouble
+  { "const char *", "0", "basalt_print_string", "string" }     // eString
+};
+
 CodeGenerator::CodeGenerator(const std::string & inputFilename, 
                              const std::string & outputFilename,
                                   AST::NodeList & program)
@@ -52,6 +70,7 @@ bool C_CodeGenerator::Body()
            << "/* Generator by basalt */\n"
            << "#include <stdlib.h>\n"
            << "#include <stdint.h>\n"
+           << "#include <string.h>\n"
            << "\n"
            << "extern int basalt_init();\n"
            << "extern int basalt_print_tab();\n"
@@ -66,11 +85,12 @@ bool C_CodeGenerator::Body()
 
   *m_outputStream << "/* Vars */\n";  
   for (auto & r : m_globalVars) {
-    *m_outputStream << r.second.m_ctype 
+    CTypeInfoRec & info = g_varTypeInfo[(int)r.second.m_type];
+    *m_outputStream << info.m_ctype
                     << " "
                     << r.second.m_cname
                     << " = "
-                    << r.second.m_initializer
+                    << info.m_initializer
                     << "; /* " << r.first << " */\n"
                     ;
   }
@@ -219,6 +239,11 @@ int C_CodeGenerator::Print(const AST::PrintComma & expr)
   return 0;
 }
 
+int C_CodeGenerator::Print(const AST::PrintSemiColon & expr)
+{
+  return 0;
+}
+
 ////////////////////////////////////////////////////////////////
 
 static bool CreateCVar(const AST::VarRef & var, 
@@ -235,39 +260,9 @@ static bool CreateCVar(const AST::VarRef & var,
   if (tag != 0)
     strm << "_" << tag;
   strm << "_";  
-
-  cvar.m_type = var.GetType();
-  switch (cvar.m_type) {
-    case VarType::eNone:
-      return false;
-    case VarType::eInt16:
-      strm << "int16";
-      cvar.m_ctype = "int16_t";
-      cvar.m_initializer = "0";
-      break;
-    case VarType::eInt32:
-      strm << "int32";
-      cvar.m_ctype = "int16_t";
-      cvar.m_initializer = "0";
-      break;
-    case VarType::eSingle:
-      strm << "single";
-      cvar.m_ctype = "float";
-      cvar.m_initializer = "0";
-      break;
-    case VarType::eDouble:
-      strm << "double";
-      cvar.m_ctype = "double";
-      cvar.m_initializer = "0";
-      break;
-    case VarType::eString:
-      strm << "string";
-      cvar.m_ctype = "char *";
-      cvar.m_initializer = "0";
-      break;
-  }
-
+  strm << g_varTypeInfo[(int)var.GetType()].m_suffix;
   cvar.m_cname = strm.str();
+  cvar.m_type  = var.GetType();
 
   return true;
 } 
@@ -311,5 +306,24 @@ int C_CodeGenerator::Generate(const AST::Assign & expr)
   us.Output() << "  " << cvar.m_cname << " = " << TopOutput().str() << ";" << endl;
   PopClosure();
 
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::VarRef & expr)
+{
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::VarRef & expr)
+{
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    return -1;
+  }
+  CVarDef & cvar = m_globalVars[expr.GetName()];
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
+  TopOutput() << "  " << funcName << "(" << cvar.m_cname << ");\n";  
   return 0;
 }

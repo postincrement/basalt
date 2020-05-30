@@ -10,35 +10,36 @@ class C_CodeGenerator : public CodeGenerator
                     const std::string & outputFilename, 
                     AST::NodeList & program);
 
-    virtual bool Body();
+    virtual bool Body() override;
 
-    virtual int Generate(const AST::Node & node);
-    virtual int Generate(const AST::NodeList & expr);
-    virtual int Generate(const AST::SourceLine & expr);
-    virtual int Generate(const AST::LineNumber & expr);
-    virtual int Generate(const AST::Print & expr);
-    virtual int Generate(const AST::StringConstant & expr);
-    virtual int Generate(const AST::Int16Constant & expr);
-    virtual int Generate(const AST::Int32Constant & expr);
-    virtual int Generate(const AST::SingleConstant & expr);
-    virtual int Generate(const AST::DoubleConstant & expr);
-    virtual int Generate(const AST::Assign & expr);
+    virtual int Generate(const AST::Node & node) override;
+    virtual int Generate(const AST::NodeList & expr) override;
+    virtual int Generate(const AST::SourceLine & expr) override;
+    virtual int Generate(const AST::LineNumber & expr) override;
+    virtual int Generate(const AST::Print & expr) override;
+    virtual int Generate(const AST::StringConstant & expr) override;
+    virtual int Generate(const AST::Int16Constant & expr) override;
+    virtual int Generate(const AST::Int32Constant & expr) override;
+    virtual int Generate(const AST::SingleConstant & expr) override;
+    virtual int Generate(const AST::DoubleConstant & expr) override;
+    virtual int Generate(const AST::Assign & expr) override;
+    virtual int Generate(const AST::VarRef & expr) override;
 
-    virtual int Print(const AST::Node & node);
-    virtual int Print(const AST::StringConstant & expr);
-    virtual int Print(const AST::Int16Constant & expr);
-    virtual int Print(const AST::Int32Constant & expr);
-    virtual int Print(const AST::SingleConstant & expr);
-    virtual int Print(const AST::DoubleConstant & expr);
-    virtual int Print(const AST::PrintComma & expr);
+    virtual int Print(const AST::Node & node) override;
+    virtual int Print(const AST::StringConstant & expr) override;
+    virtual int Print(const AST::Int16Constant & expr) override;
+    virtual int Print(const AST::Int32Constant & expr) override;
+    virtual int Print(const AST::SingleConstant & expr) override;
+    virtual int Print(const AST::DoubleConstant & expr) override;
+    virtual int Print(const AST::PrintComma & expr) override;
+    virtual int Print(const AST::PrintSemiColon & expr) override;
+    virtual int Print(const AST::VarRef & expr) override;
 
     std::stringstream m_body;
 
     struct CVarDef {
       VarType m_type;
       std::string m_cname;
-      std::string m_ctype;
-      std::string m_initializer;
     };
 
     bool DeclareGlobalVar(

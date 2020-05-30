@@ -134,6 +134,16 @@ std::string VarRef::GetName() const
   return m_id;
 }
 
+int VarRef::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int VarRef::Print(CodeGenerator & gen)
+{
+  return gen.Print(*this);
+}
+
 /////////////////////////////////////////
 
 template<>
