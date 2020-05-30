@@ -27,6 +27,7 @@ class Node
 
     virtual void C_Generate(C_CodeGenerator & gen);
     virtual void C_Print(C_CodeGenerator & gen);
+    virtual std::string C_Evaluate() const;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -65,6 +66,8 @@ class LineNumber : public Node
     LineNumber(const std::string & ref);
     virtual void PrintOn(std::ostream & strm) const;
 
+    virtual void C_Generate(C_CodeGenerator & gen);
+
   protected:
     std::string m_ref;  
 };
@@ -85,6 +88,8 @@ class Expr : public Node
   public:
     Expr(VarType type = VarType::eNone);
     virtual void PrintOn(std::ostream & strm) const;
+    VarType GetType() const;
+
   protected:
     VarType m_type;
 };
@@ -98,6 +103,9 @@ class ExprList : public Expr
     virtual void Append(ExprList * exprList);
     virtual void PrintOn(std::ostream & strm) const;
     virtual size_t Length() const;
+
+    virtual void C_Generate(C_CodeGenerator & gen);
+
   protected:
     std::vector<std::unique_ptr<Expr>> m_list;
 };
@@ -110,8 +118,6 @@ class Print : public ExprList
     Print(ExprList * exprList = nullptr);
     virtual void PrintOn(std::ostream & strm) const;
     virtual void C_Generate(C_CodeGenerator & gen);
-
-  protected:
 };
 
 class PrintComma : public Expr
@@ -145,13 +151,17 @@ class String : public Expr
 
 ////////////////////////////////////////////////////////////////////////////
 
+class VarRef;
+
 class Assign : public Expr
 {
   public:
-    Assign(Expr * lhs, Expr * rhs);
+    Assign(VarRef * lhs, Expr * rhs);
     virtual void PrintOn(std::ostream & strm) const;
+    virtual void C_Generate(C_CodeGenerator & gen);
+
   protected:
-    Expr * m_lhs;
+    AST::VarRef * m_lhs;
     Expr * m_rhs;
 };
 
@@ -162,6 +172,9 @@ class VarRef : public Expr
   public:
     VarRef(VarType type, const std::string & m_id);
     virtual void PrintOn(std::ostream & strm) const;
+
+    std::string GetName() const;
+
   protected:
     std::string m_id;
 };
@@ -191,6 +204,10 @@ class IntegerValue : public Expr
   public:
     IntegerValue(int value);
     virtual void PrintOn(std::ostream & strm) const;
+
+    int GetValue() const;
+    virtual std::string C_Evaluate() const;
+
   protected:
     int m_value;  
 };

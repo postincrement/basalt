@@ -72,9 +72,14 @@ void LineNumber::PrintOn(std::ostream & strm) const
 
 /////////////////////////////////////////
 
-AST::Expr::Expr(VarType type)
+Expr::Expr(VarType type)
   : m_type(type)
 {
+}
+
+VarType AST::Expr::GetType() const
+{
+  return m_type;
 }
 
 void Expr::PrintOn(std::ostream & strm) const
@@ -174,7 +179,7 @@ void String::PrintOn(std::ostream & strm) const
 
 /////////////////////////////////////////
 
-Assign::Assign(Expr * lhs, Expr * rhs)
+Assign::Assign(AST::VarRef * lhs, Expr * rhs)
   : m_lhs(lhs)
   , m_rhs(rhs)
 {
@@ -203,6 +208,11 @@ VarRef::VarRef(VarType type, const std::string & id)
   : Expr(type)
   , m_id(id)
 {
+}
+
+std::string VarRef::GetName() const
+{
+  return m_id;
 }
 
 void VarRef::PrintOn(std::ostream & strm) const
@@ -238,12 +248,19 @@ void StringValue::PrintOn(std::ostream & strm) const
 IntegerValue::IntegerValue(int value)
   : Expr(VarType::eInteger)
   , m_value(value)
-{}
+{
+  cout << "integer created with value " << m_value << endl;
+}
 
 void IntegerValue::PrintOn(std::ostream & strm) const
 {
   Expr::PrintOn(strm);
   strm << m_value;
+}
+
+int IntegerValue::GetValue() const
+{
+  return m_value;
 }
 
 SingleValue::SingleValue(double value)

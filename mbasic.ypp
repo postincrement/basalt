@@ -35,16 +35,6 @@ static void AddExpr(AST::Expr * expr)
   DoubleFloat * dfloat;
 
   AST::VarRef * varref;
-
-/*
-  UnsignedList * ulist;
-  Variable             * varval;
-  AST::VariableDefExpr * vardef;
-  AST::VariableRefExpr * varref;
-
-  AST::Expr     * expr;
-  AST::ExprList * exprlist;
-*/  
 }
 
 %token EOL_TOKEN

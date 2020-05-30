@@ -58,7 +58,7 @@ int basalt_print_tab()
   return 0;
 }
 
-int basalt_print_eol()
+int basalt_print_newline()
 {
   write(STDOUT_FD, "\n", 1);
   g_outputColumn = 0;
