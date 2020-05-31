@@ -52,7 +52,7 @@ class SourceLine : public Node
   public:
     SourceLine(int lineNumber, const std::string & line);
 
-    virtual int Generate(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) override;
 
     int GetLineNumber() const
     { return m_lineNumber; }
@@ -71,7 +71,7 @@ class LineNumber : public Node
 {
   public:
     LineNumber(const std::string & ref);
-    virtual int Generate(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) override;
 
   protected:
     std::string m_ref;  
@@ -99,21 +99,21 @@ class Print : public ExprList
 {
   public:
     Print(ExprList * exprList = nullptr);
-    virtual int Generate(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) override;
 };
 
 class PrintComma : public Expr
 {
   public:
     PrintComma() = default;
-    virtual int Print(CodeGenerator & gen);
+    virtual int Print(CodeGenerator & gen) override;
 };
 
 class PrintSemiColon : public Expr
 {
   public:
     PrintSemiColon() = default;
-    virtual int Print(CodeGenerator & gen);
+    virtual int Print(CodeGenerator & gen) override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -136,7 +136,7 @@ class Assign : public Expr
 {
   public:
     Assign(VarRef * lhs, Expr * rhs);
-    virtual int Generate(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) override;
 
     AST::VarRef * m_lhs;
     Expr * m_rhs;
@@ -144,12 +144,93 @@ class Assign : public Expr
 
 ////////////////////////////////////////////////////////////////////////////
 
+class BinaryOperation : public Expr
+{
+  public:
+    BinaryOperation(Expr * lhs, Expr * rhs)
+      : m_lhs(lhs)
+      , m_rhs(rhs)
+    { }
+
+    virtual int Generate(CodeGenerator & gen) = 0;
+
+    Expr * m_lhs;
+    Expr * m_rhs;
+};
+
+class Addition : public BinaryOperation
+{
+  public:
+    Addition(Expr * lhs, Expr * rhs)
+      : BinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) override;
+};
+
+class Subtraction : public BinaryOperation
+{
+  public:
+    Subtraction(Expr * lhs, Expr * rhs)
+      : BinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) override;
+};
+
+class Multiplication : public BinaryOperation
+{
+  public:
+    Multiplication(Expr * lhs, Expr * rhs)
+      : BinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) override;
+};
+
+class Division : public BinaryOperation
+{
+  public:
+    Division(Expr * lhs, Expr * rhs)
+      : BinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) override;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class UnaryOperation : public Expr
+{
+  public:
+    UnaryOperation(Expr * expr)
+      : m_expr(expr)
+    { }
+
+    virtual int Generate(CodeGenerator & gen) = 0;
+
+    Expr * m_expr;
+};
+
+class Negation : public UnaryOperation
+{
+  public:
+    Negation(Expr * expr)
+      : UnaryOperation(expr)
+    { }
+
+    virtual int Generate(CodeGenerator & gen);
+};
+
+
+////////////////////////////////////////////////////////////////////////////
+
 class VarRef : public Expr
 {
   public:
     VarRef(VarType type, const std::string & m_id);
-    virtual int Generate(CodeGenerator & gen);
-    virtual int Print(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) override;
+    virtual int Print(CodeGenerator & gen) override;
 
     std::string GetName() const;
 
@@ -170,8 +251,8 @@ class Constant : public Expr
 
     static AST::Expr * Create(const std::string & str);
 
-    virtual int Generate(CodeGenerator & gen);
-    virtual int Print(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) override;
+    virtual int Print(CodeGenerator & gen) override;
 
     N GetValue() const
     { return m_value; }
@@ -186,7 +267,7 @@ using Int32Constant  = Constant<VarType::eInt32,  int32_t>;
 using SingleConstant = Constant<VarType::eSingle, float>;
 using DoubleConstant = Constant<VarType::eDouble, double>;
 
-////////////////////////////////////////////////////////////////////////////
+
 
 } // namespace AST
 

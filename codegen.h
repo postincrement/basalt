@@ -29,6 +29,11 @@ class CodeGenerator
     virtual int Generate(const AST::DoubleConstant & expr) { }
     virtual int Generate(const AST::Assign & expr) { }
     virtual int Generate(const AST::VarRef & expr) { }
+    virtual int Generate(const AST::Addition & expr) { }
+    virtual int Generate(const AST::Subtraction & expr) { };
+    virtual int Generate(const AST::Multiplication & expr) { };
+    virtual int Generate(const AST::Division & expr) { };
+    virtual int Generate(const AST::Negation & expr) { };
 
     virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }

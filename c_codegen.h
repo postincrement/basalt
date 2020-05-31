@@ -24,6 +24,11 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::DoubleConstant & expr) override;
     virtual int Generate(const AST::Assign & expr) override;
     virtual int Generate(const AST::VarRef & expr) override;
+    virtual int Generate(const AST::Addition & expr) override;
+    virtual int Generate(const AST::Subtraction & expr) override;
+    virtual int Generate(const AST::Multiplication & expr) override;
+    virtual int Generate(const AST::Division & expr) override;
+    virtual int Generate(const AST::Negation & expr) override;
 
     virtual int Print(const AST::Node & node) override;
     virtual int Print(const AST::StringConstant & expr) override;
@@ -79,6 +84,9 @@ class C_CodeGenerator : public CodeGenerator
     std::deque<Closure> m_stack;
 
   protected:
+    int BinaryOperator(const std::string & op, const AST::BinaryOperation & expr);
+    int UnaryOperator(const std::string & op, const AST::UnaryOperation & expr);
+
     typedef std::map<std::string, CVarDef> GlobalVarMap;
     std::set<std::string> m_cnames;
     GlobalVarMap m_globalVars;  

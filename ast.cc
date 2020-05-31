@@ -123,6 +123,33 @@ int Assign::Generate(CodeGenerator & gen)
 
 /////////////////////////////////////////
 
+int Addition::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int Subtraction::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int Multiplication::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int Division::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int Negation::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+/////////////////////////////////////////
+
 VarRef::VarRef(VarType type, const std::string & id)
   : Expr(type)
   , m_id(id)

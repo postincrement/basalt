@@ -293,6 +293,8 @@ bool C_CodeGenerator::DeclareGlobalVar(const AST::VarRef & var,
   return true;
 }
 
+////////////////////////////////////////////////////////////////
+
 int C_CodeGenerator::Generate(const AST::Assign & expr)
 {
   Closure & us = Top();
@@ -301,18 +303,101 @@ int C_CodeGenerator::Generate(const AST::Assign & expr)
   if (!DeclareGlobalVar(*expr.m_lhs, cvar))
     return -1;
 
-  PushClosure();
-  expr.m_rhs->Generate(*this);
-  us.Output() << "  " << cvar.m_cname << " = " << TopOutput().str() << ";" << endl;
-  PopClosure();
+  if (expr.m_rhs == nullptr) {
+    us.Output() << "#warning \"missing rhs\"\n";
+  }
+  else {
+    PushClosure();
+    expr.m_rhs->Generate(*this);
+    us.Output() << "  " << cvar.m_cname << " = " << TopOutput().str() << ";" << endl;
+    PopClosure();
+  }
 
   return 0;
 }
 
 ////////////////////////////////////////////////////////////////
 
+int C_CodeGenerator::BinaryOperator(const std::string & op, const AST::BinaryOperation & expr)
+{
+  Closure & us = Top();
+
+  if (expr.m_lhs == nullptr) {
+    us.Output() << "#warning \"missing lhs\"\n";
+  }
+  else if (expr.m_rhs == nullptr) {
+    us.Output() << "#warning \"missing rhs\"\n";
+  }
+  else {
+    PushClosure();
+    expr.m_lhs->Generate(*this);
+    std::string lhs = TopOutput().str();
+    PopClosure();
+    PushClosure();
+    expr.m_rhs->Generate(*this);
+    std::string rhs = TopOutput().str();
+    PopClosure();
+    us.Output() << "(" << lhs << " " << op << " " << rhs << ")";
+  }
+
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::Addition & expr)
+{
+  return BinaryOperator("+", expr);
+}
+
+int C_CodeGenerator::Generate(const AST::Subtraction & expr)
+{
+  return BinaryOperator("-", expr);
+}
+
+int C_CodeGenerator::Generate(const AST::Multiplication & expr)
+{
+  return BinaryOperator("*", expr);
+}
+
+int C_CodeGenerator::Generate(const AST::Division & expr)
+{
+  return BinaryOperator("/", expr);
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::UnaryOperator(const std::string & op, const AST::UnaryOperation & expr)
+{
+  Closure & us = Top();
+
+  if (expr.m_expr == nullptr) {
+    us.Output() << "#warning \"missing lhs\"\n";
+  }
+  else {
+    PushClosure();
+    expr.m_expr->Generate(*this);
+    std::string code = TopOutput().str();
+    PopClosure();
+    us.Output() << "(" << op << " " << code << ")";
+  }
+
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::Negation & expr)
+{
+  return UnaryOperator("-", expr);
+}
+
+////////////////////////////////////////////////////////////////
+
 int C_CodeGenerator::Generate(const AST::VarRef & expr)
 {
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    return -1;
+  }
+  CVarDef & cvar = m_globalVars[expr.GetName()];
+  TopOutput() << cvar.m_cname;  
   return 0;
 }
 
