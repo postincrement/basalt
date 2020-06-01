@@ -8,6 +8,7 @@ using namespace std;
 using namespace AST;
 
 AST::NodeList AST::g_program;
+AST::VarList AST::g_globalVars;
 
 /////////////////////////////////////////
 
@@ -150,15 +151,58 @@ int Negation::Generate(CodeGenerator & gen)
 
 /////////////////////////////////////////
 
-VarRef::VarRef(VarType type, const std::string & id)
+VarRef::VarRef(VarType type, const std::string & varName)
   : Expr(type)
-  , m_id(id)
 {
-}
+  // extract suffix, if any
+  int len = varName.length();
+  std::string name = varName;
+  std::string suffix;
+  if (len > 1) {
+    char last = varName[len-1];
+    char * expectedSuffix = nullptr;
+    VarType strType = VarType::eNone;
+    if (last == BASIC_STRING_SUFFIX[0]) {
+      strType = VarType::eString;
+    }
+    else if (last == BASIC_INT_SUFFIX[0]) {
+      strType = g_languageProfile->GetIntegerType();
+    }   
+    else if (last == BASIC_SINGLE_SUFFIX[0]) {
+      strType = VarType::eSingle;
+    }   
+    else if (last == BASIC_DOUBLE_SUFFIX[0]) {
+      strType = VarType::eDouble;
+    }
+    else
+      strType = VarType::eNone;
 
-std::string VarRef::GetName() const
-{
-  return m_id;
+    if (strType != VarType::eNone) {
+      name = varName.substr(0, len-1);
+    }   
+
+    if (type == VarType::eNone) {
+      if (strType == VarType::eNone) {
+        cerr << "internal error: cannot identify type of '" << varName << "'" << endl;
+        exit(-1);
+      }
+      type = strType;
+    }
+    else if (strType != VarType::eNone) {
+      if (strType != type) {
+        cerr << "internal error: parser mismatch for type of '" << varName << "'" << endl;
+        exit(-1);
+      }
+      type = strType;
+    }
+
+    suffix = g_basicVarSuffixes[(int)type];
+  }
+
+  m_originalName = name + suffix;
+
+  int varNameLen = g_languageProfile->GetVarNameLen();
+  m_name = name.substr(0, varNameLen) + suffix;
 }
 
 int VarRef::Generate(CodeGenerator & gen)

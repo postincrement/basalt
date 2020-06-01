@@ -47,7 +47,7 @@ class C_CodeGenerator : public CodeGenerator
       std::string m_cname;
     };
 
-    bool DeclareGlobalVar(
+    bool LookupGlobalVar(
       const AST::VarRef & var, 
       C_CodeGenerator::CVarDef & cvar
     );

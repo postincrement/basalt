@@ -1,4 +1,7 @@
 5 rem This is a test
+6 averylongvername = 23
+7 averylongvername2 = 24
+
 10 print "hello" , "world"
 20 print "hello" ; "world"
 30 print "hello, world"
@@ -22,6 +25,6 @@
 100 m = m + 1   : print "m "; m 
 101 n = m - 10  : print "n "; n
 102 o = m * 23  : print "o "; o
-103 p = m / 9   : print "p "; p
-104 q = -m      : print "q" ; q 
+103 p = m4 / 9  : print "p "; p
+104 q = -m      : print "q" ; q
 110 z = m * 4 + n + o / p * m : print "z " z

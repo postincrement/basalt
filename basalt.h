@@ -59,13 +59,29 @@ extern void MBASIC_error(const char * msg);
 extern int MBASIC_debug;
 extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+enum ErrorCode 
+{
+  eError_Unknown                 = 0x8000
+};
+
 extern void InternalErrorFunc(const char * fn, unsigned ln, const std::string & str);
 #define InternalError(expr) \
 do { std::stringstream strm; strm << expr; InternalErrorFunc(__FILE__, __LINE__, strm.str()); } while (0)
 
-extern void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str);
-#define InternalWarning(expr) \
-do { std::stringstream strm; strm << expr; InternalWarningFunc(__FILE__, __LINE__, strm.str()); } while (0)
+extern void SourceErrorFunc(ErrorCode code, unsigned line, const std::string & marker, const std::string & str);
+#define SourceError(code, expr) \
+do { std::stringstream strm; strm << expr; \
+     if (m_currentLineMarkerExpr == nullptr) \
+       SourceErrorFunc(code, 0, "unknown", strm.str()); \
+     else \
+       SourceErrorFunc(code, m_currentLineMarkerExpr->m_lineNumber, m_currentLineMarkerExpr->m_marker, strm.str()); \
+    } while (0)
+
+extern void ErrorFunc(ErrorCode code, const std::string & str);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 enum WarningCode {
 
@@ -75,28 +91,19 @@ enum WarningCode {
   eWarning_Syntax                 = 0x1000, 
   eWarning_PrintUsingQuestionMark = eWarning_Syntax,
   eWarning_RemUsingQuote,
-  eWarning_MixedExpression,
-  eWarning_CannotEvaluate,
-  eWarning_CannotAssignString,
-  eWarning_UnsupportedStringOp,
-  
-  // LLVM code generation warning
-  eWarning_LLVM                  = 0x2000, 
-  eWarning_UnknownLLVMBIF        = eWarning_LLVM,
-
-  // CXX code generation warning
-  eWarning_CXX                   = 0x3000, 
-  eWarning_UnknownCXXBIF         = eWarning_CXX
+  eWarning_VarDefinedButNotUsed,
+  eWarning_VarIsSynonym,
 };
 
-extern void SourceWarningFunc(WarningCode code, unsigned line, const std::string & marker, const std::string & str);
-#define SourceWarning(code, expr) \
+extern void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str);
+#define InternalWarning(expr) \
+do { std::stringstream strm; strm << expr; InternalWarningFunc(__FILE__, __LINE__, strm.str()); } while (0)
+
+extern void SourceWarningFunc(WarningCode code, unsigned line, const std::string & str); 
+#define SourceWarning(code, line, expr) \
 do { std::stringstream strm; strm << expr; \
-     if (m_currentLineMarkerExpr == nullptr) \
-       SourceWarningFunc(code, 0, "unknown", strm.str()); \
-     else \
-       SourceWarningFunc(code, m_currentLineMarkerExpr->m_lineNumber, m_currentLineMarkerExpr->m_marker, strm.str()); \
-    } while (0)
+  SourceWarningFunc(code, line, strm.str()); \
+} while (0)
 
 extern void WarningFunc(WarningCode code, const std::string & str);
 #define Warning(code, expr) \

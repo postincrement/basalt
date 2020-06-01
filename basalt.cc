@@ -59,7 +59,7 @@ void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str)
   cerr << "warning: error " << fn << "(" << ln << ") - " << str << endl;
 }
 
-void SourceWarningFunc(WarningCode code, unsigned line, const std::string & marker, const std::string & str)
+void SourceWarningFunc(WarningCode code, unsigned line, const std::string & str)
 {
   std::stringstream strm;
   strm << "line " << line << ": warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
@@ -325,11 +325,6 @@ int Basalt::Main(int argc, char const *argv[])
 
 ////////////////////////////////////////////////////////////////////////
 
-BasicLanguageProfile::BasicLanguageProfile(int normVarLen)
-{
-  m_normalizedVarLen = normVarLen;
-}
-
 #if 0  
   
 bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
@@ -376,7 +371,7 @@ bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
 ////////////////////////////////////////////////////////////////////////
 
 Basic_8k_LanguageProfile::Basic_8k_LanguageProfile()
- : BasicLanguageProfile(2)
+ : LanguageProfile(2)
 {
 }
 
@@ -393,7 +388,7 @@ VarType Basic_8k_LanguageProfile::GetIntegerType()
 ////////////////////////////////////////////////////////////////////////
 
 Basic_Extended_LanguageProfile::Basic_Extended_LanguageProfile()
-  : BasicLanguageProfile(40)
+  : LanguageProfile(40)
 {
 }
 
@@ -410,7 +405,7 @@ VarType Basic_Extended_LanguageProfile::GetIntegerType()
 ////////////////////////////////////////////////////////////////////////
 
 Basic_Disk_LanguageProfile::Basic_Disk_LanguageProfile()
-  : BasicLanguageProfile(40)
+  : LanguageProfile(40)
 {  
 }
 
@@ -432,6 +427,10 @@ char Basalt::ReadNextChar()
     if (!getline(*m_inputStream, m_line))
       return 0;
     m_lineOffs = 0;
+    if (m_line.length() > 0) {
+      if (m_line[m_line.length()-1] == '\r')
+        m_line = m_line.substr(0, m_line.length()-1);
+    }
   }
 
   if (m_lineOffs == m_line.length()) {

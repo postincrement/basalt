@@ -3,6 +3,7 @@
 
 using namespace std;
 
+#include "basalt.h"
 #include "codegen.h"
 #include "c_codegen.h"
 
@@ -35,6 +36,10 @@ CodeGenerator::CodeGenerator(const std::string & inputFilename,
 
 bool CodeGenerator::Run()
 {
+  // check stuff
+  CheckVars();
+
+  // generate output
   if (m_outputFilename == "-") {
     m_outputStream = &std::cout;
   }
@@ -50,6 +55,19 @@ bool CodeGenerator::Run()
   return true;
 }
 
+bool CodeGenerator::CheckVars()
+{
+  for (auto & r : AST::g_globalVars) {
+    AST::VarInfo & info = r.second;
+    if ((info.m_lhsLine != 0) && (info.m_rhsLine == 0)) {
+      SourceWarning(eWarning_VarDefinedButNotUsed, info.m_lhsLine, r.first);
+    }
+  }
+
+  return true;
+}
+
+
 ////////////////////////////////////////////////////////////
 
 C_CodeGenerator::C_CodeGenerator (const std::string & inputFilename, 
@@ -59,8 +77,48 @@ C_CodeGenerator::C_CodeGenerator (const std::string & inputFilename,
 {
 }
 
+static bool CreateCVar(const std::string & name,
+                       const AST::VarInfo & var, 
+                       C_CodeGenerator::CVarDef & cvar,
+                       int tag)
+{
+  stringstream strm;
+
+  strm << "USER_";
+  for (auto r : name) {
+    if (isalnum(r))
+      strm << r;
+  }
+  if (tag != 0)
+    strm << "_" << tag;
+  strm << "_";  
+  strm << g_varTypeInfo[(int)var.m_type].m_suffix;
+  cvar.m_cname = strm.str();
+  cvar.m_type  = var.m_type;
+
+  return true;
+} 
+
 bool C_CodeGenerator::Body()
 {
+  for (auto & r : AST::g_globalVars) {
+    AST::VarInfo & info = r.second;
+    int tag = 0;
+    CVarDef cvar;
+    for (;;) {
+      if (!CreateCVar(r.first, info, cvar, tag)) {
+        cerr << "internal error: cannot map var to C type" << endl;
+        return false;
+      }
+      if (m_cnames.count(cvar.m_cname) == 0)
+        break;
+      ++tag;  
+    }
+    m_globalVars[r.first] = cvar;
+    m_cnames.insert(cvar.m_cname);
+  }
+
+
   PushClosure();
   for (auto & r : m_program.m_list) {
     r->Generate(*this);
@@ -246,50 +304,14 @@ int C_CodeGenerator::Print(const AST::PrintSemiColon & expr)
 
 ////////////////////////////////////////////////////////////////
 
-static bool CreateCVar(const AST::VarRef & var, 
-                      C_CodeGenerator::CVarDef & cvar,
-                      int tag)
-{
-  stringstream strm;
-
-  strm << "USER_";
-  for (auto r : var.GetName()) {
-    if (isalnum(r))
-      strm << r;
-  }
-  if (tag != 0)
-    strm << "_" << tag;
-  strm << "_";  
-  strm << g_varTypeInfo[(int)var.GetType()].m_suffix;
-  cvar.m_cname = strm.str();
-  cvar.m_type  = var.GetType();
-
-  return true;
-} 
-
-bool C_CodeGenerator::DeclareGlobalVar(const AST::VarRef & var, 
+bool C_CodeGenerator::LookupGlobalVar(const AST::VarRef & var, 
                                 C_CodeGenerator::CVarDef & cvar)
 {
   std::string name = var.GetName();
+  if (m_globalVars.count(name) == 0)
+    return false;
 
-  if (m_globalVars.count(name) != 0) {
-    cvar = m_globalVars[name];
-  }
-  else {
-    int tag = 0;
-    for (;;) {
-      if (!CreateCVar(var, cvar, tag)) {
-        cerr << "internal error: cannot map var to C type" << endl;
-        return false;
-      }
-      if (m_cnames.count(cvar.m_cname) == 0)
-        break;
-      ++tag;  
-    }
-    m_globalVars[name] = cvar;
-    m_cnames.insert(cvar.m_cname);
-  }
-
+  cvar = m_globalVars[name];
   return true;
 }
 
@@ -300,7 +322,7 @@ int C_CodeGenerator::Generate(const AST::Assign & expr)
   Closure & us = Top();
 
   C_CodeGenerator::CVarDef cvar;
-  if (!DeclareGlobalVar(*expr.m_lhs, cvar))
+  if (!LookupGlobalVar(*expr.m_lhs, cvar))
     return -1;
 
   if (expr.m_rhs == nullptr) {

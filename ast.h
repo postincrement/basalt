@@ -232,10 +232,19 @@ class VarRef : public Expr
     virtual int Generate(CodeGenerator & gen) override;
     virtual int Print(CodeGenerator & gen) override;
 
-    std::string GetName() const;
+    std::string GetName() const
+    {
+      return m_name;
+    }
+
+    std::string GetOriginalName() const
+    {
+      return m_originalName;
+    }
 
   protected:
-    std::string m_id;
+    std::string m_name;
+    std::string m_originalName;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -267,7 +276,17 @@ using Int32Constant  = Constant<VarType::eInt32,  int32_t>;
 using SingleConstant = Constant<VarType::eSingle, float>;
 using DoubleConstant = Constant<VarType::eDouble, double>;
 
+struct VarInfo {
+  VarType m_type;
+  std::string m_originalName;
+  bool     m_lhs = false;
+  unsigned m_lhsLine = 0;
+  bool     m_rhs = false;
+  unsigned m_rhsLine = 0;
+};
 
+typedef std::map<std::string, VarInfo> VarList;
+extern VarList g_globalVars;
 
 } // namespace AST
 

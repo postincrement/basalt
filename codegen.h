@@ -49,6 +49,8 @@ class CodeGenerator
     std::ostream * m_outputStream;
 
   protected:
+    bool CheckVars();
+
     std::string m_outputFilename; 
     AST::NodeList & m_program;
     std::ofstream m_outputFile;

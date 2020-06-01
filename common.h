@@ -6,6 +6,10 @@
 #include <map>
 #include <memory>
 
+#define BASIC_STRING_SUFFIX  "$"
+#define BASIC_INT_SUFFIX     "%"
+#define BASIC_SINGLE_SUFFIX  "!"
+#define BASIC_DOUBLE_SUFFIX  "#"
 
 namespace std {
   template<typename T, typename... Args>
@@ -123,6 +127,7 @@ struct Variable
 #endif
 
 // if changed, change g_varTypeInfo in c_codegen.cc
+// and g_basicVarSuffixes below
 enum class VarType {
   eNone,
   eInt16,
@@ -132,39 +137,41 @@ enum class VarType {
   eString
 };
 
+extern const char * g_basicVarSuffixes[];
+
 struct LanguageProfile
 {
-  //virtual bool NormalizeVariableName( & var, int dim) = 0;
+  LanguageProfile(int normVarLen)
+    : m_normalizedVarLen(normVarLen)
+  { }  
+
   virtual VarType GetIntegerType() = 0;
   virtual VarType GetDefaultNumericType() = 0;
+  virtual int GetVarNameLen()
+  { return m_normalizedVarLen;  }
+
   int m_normalizedVarLen;
 };
 
-struct BasicLanguageProfile : public LanguageProfile
-{
-  BasicLanguageProfile(int normVarLen);
-  //virtual bool NormalizeVariableName(Variable & var, int dim) override;
-};
-
-struct Basic_8k_LanguageProfile : public BasicLanguageProfile
+struct Basic_8k_LanguageProfile : public LanguageProfile
 {
   Basic_8k_LanguageProfile();
-  virtual VarType GetIntegerType();
-  virtual VarType GetDefaultNumericType();
+  virtual VarType GetIntegerType() override;
+  virtual VarType GetDefaultNumericType() override;
 };
 
-struct Basic_Extended_LanguageProfile : public BasicLanguageProfile
+struct Basic_Extended_LanguageProfile : public LanguageProfile
 {
   Basic_Extended_LanguageProfile();
-  virtual VarType GetIntegerType();
-  virtual VarType GetDefaultNumericType();
+  virtual VarType GetIntegerType() override;
+  virtual VarType GetDefaultNumericType() override;
 };
 
-struct Basic_Disk_LanguageProfile : public BasicLanguageProfile
+struct Basic_Disk_LanguageProfile : public LanguageProfile
 {
   Basic_Disk_LanguageProfile();
-  virtual VarType GetIntegerType();
-  virtual VarType GetDefaultNumericType();
+  virtual VarType GetIntegerType() override;
+  virtual VarType GetDefaultNumericType() override;
 };
 
 //////////////////////////////////////////////////////////////////
