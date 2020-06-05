@@ -28,53 +28,45 @@ class Node
     virtual ~Node()
     {}
 
-    virtual int Generate(CodeGenerator & gen);
-    virtual int Print(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) const;
+    virtual int Print(CodeGenerator & gen) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////
 
+template <class N>
 class NodeList : public Node
 {
   public:
-    virtual void Append(Node * node);    
-    virtual void Append(NodeList * nodeList);
+    virtual void Append(N * node)
+    {
+      if (node != nullptr) {
+        m_list.push_back(std::unique_ptr<N>(node));
+      }
+    }
 
-    std::vector<std::unique_ptr<Node>> m_list;
-};
+    virtual void Append(NodeList * nodeList)
+    {
+      if (nodeList != nullptr) {
+        for (auto & r : nodeList->m_list) {
+          Append(r.release());
+        }
+      }
+    }
 
-extern NodeList g_program;
+    virtual int Generate(CodeGenerator & gen) const
+    {
+      for (auto & r : m_list)
+        r->Generate(gen);
+    }
 
-////////////////////////////////////////////////////////////////////////////
+    virtual int Print(CodeGenerator & gen) const
+    {
+      for (auto & r : m_list)
+        r->Print(gen);
+    }
 
-class SourceLine : public Node
-{
-  public:
-    SourceLine(int lineNumber, const std::string & line);
-
-    virtual int Generate(CodeGenerator & gen) override;
-
-    int GetLineNumber() const
-    { return m_lineNumber; }
-
-    std::string GetLine() const
-    { return m_line; }
-
-  protected:
-    int m_lineNumber;  
-    std::string m_line;  
-};
-
-////////////////////////////////////////////////////////////////////////////
-
-class LineNumber : public Node
-{
-  public:
-    LineNumber(const std::string & ref);
-    virtual int Generate(CodeGenerator & gen) override;
-
-  protected:
-    std::string m_ref;  
+    std::vector<std::unique_ptr<N>> m_list;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -89,31 +81,29 @@ class Expr : public Node
     VarType m_type;
 };
 
-////////////////////////////////////////////////////////////////////////////
-
-typedef NodeList ExprList;
+using ExprList = NodeList<Expr>;
 
 ////////////////////////////////////////////////////////////////////////////
 
-class Print : public ExprList
+class Print : public NodeList<Expr>
 {
   public:
-    Print(ExprList * exprList = nullptr);
-    virtual int Generate(CodeGenerator & gen) override;
+    Print(NodeList<Expr> * exprList = nullptr);
+    virtual int Generate(CodeGenerator & gen) const override;
 };
 
 class PrintComma : public Expr
 {
   public:
     PrintComma() = default;
-    virtual int Print(CodeGenerator & gen) override;
+    virtual int Print(CodeGenerator & gen) const override;
 };
 
 class PrintSemiColon : public Expr
 {
   public:
     PrintSemiColon() = default;
-    virtual int Print(CodeGenerator & gen) override;
+    virtual int Print(CodeGenerator & gen) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -136,7 +126,7 @@ class Assign : public Expr
 {
   public:
     Assign(VarRef * lhs, Expr * rhs);
-    virtual int Generate(CodeGenerator & gen) override;
+    virtual int Generate(CodeGenerator & gen) const override;
 
     AST::VarRef * m_lhs;
     Expr * m_rhs;
@@ -144,7 +134,13 @@ class Assign : public Expr
 
 ////////////////////////////////////////////////////////////////////////////
 
-class BinaryOperation : public Expr
+class Operator : public Expr
+{
+  public:
+    virtual bool Validate(std::string & msg) = 0;
+};
+
+class BinaryOperation : public Operator
 {
   public:
     BinaryOperation(Expr * lhs, Expr * rhs)
@@ -152,7 +148,9 @@ class BinaryOperation : public Expr
       , m_rhs(rhs)
     { }
 
-    virtual int Generate(CodeGenerator & gen) = 0;
+    virtual bool Validate(std::string & msg);
+
+    virtual int Generate(CodeGenerator & gen) const = 0;
 
     Expr * m_lhs;
     Expr * m_rhs;
@@ -165,7 +163,7 @@ class Addition : public BinaryOperation
       : BinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) override;
+    virtual int Generate(CodeGenerator & gen) const override;
 };
 
 class Subtraction : public BinaryOperation
@@ -175,7 +173,7 @@ class Subtraction : public BinaryOperation
       : BinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) override;
+    virtual int Generate(CodeGenerator & gen) const override;
 };
 
 class Multiplication : public BinaryOperation
@@ -185,7 +183,7 @@ class Multiplication : public BinaryOperation
       : BinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) override;
+    virtual int Generate(CodeGenerator & gen) const override;
 };
 
 class Division : public BinaryOperation
@@ -195,19 +193,22 @@ class Division : public BinaryOperation
       : BinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) override;
+    virtual int Generate(CodeGenerator & gen) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
 
-class UnaryOperation : public Expr
+class UnaryOperation : public Operator
 {
   public:
     UnaryOperation(Expr * expr)
       : m_expr(expr)
     { }
 
-    virtual int Generate(CodeGenerator & gen) = 0;
+    virtual bool Validate(std::string & msg)
+    { return true; }
+
+    virtual int Generate(CodeGenerator & gen) const = 0;
 
     Expr * m_expr;
 };
@@ -219,9 +220,18 @@ class Negation : public UnaryOperation
       : UnaryOperation(expr)
     { }
 
-    virtual int Generate(CodeGenerator & gen);
+    virtual int Generate(CodeGenerator & gen) const override;
 };
 
+class Power : public UnaryOperation
+{
+  public:
+    Power(Expr * expr)
+      : UnaryOperation(expr)
+    { }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -229,8 +239,8 @@ class VarRef : public Expr
 {
   public:
     VarRef(VarType type, const std::string & m_id);
-    virtual int Generate(CodeGenerator & gen) override;
-    virtual int Print(CodeGenerator & gen) override;
+    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Print(CodeGenerator & gen) const override;
 
     std::string GetName() const
     {
@@ -260,8 +270,8 @@ class Constant : public Expr
 
     static AST::Expr * Create(const std::string & str);
 
-    virtual int Generate(CodeGenerator & gen) override;
-    virtual int Print(CodeGenerator & gen) override;
+    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Print(CodeGenerator & gen) const override;
 
     N GetValue() const
     { return m_value; }
@@ -287,6 +297,43 @@ struct VarInfo {
 
 typedef std::map<std::string, VarInfo> VarList;
 extern VarList g_globalVars;
+
+////////////////////////////////////////////////////////////////////////////
+
+using Statement     = NodeList<Expr>;
+using StatementList = NodeList<Statement>;
+
+class SourceLine : public Node
+{
+  public:
+    SourceLine(int sourceLineNumber, 
+              const std::string & m_basicLineNumber,
+              const std::string & line);
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    int GetSourceLineNumber() const
+    { return m_sourceLineNumber; }
+
+    std::string GetBasicLineNumber() const
+    { return m_basicLineNumber; }
+
+    std::string GetLine() const
+    { return m_line; }
+
+    std::unique_ptr<StatementList> m_statements;
+
+  protected:
+    int m_sourceLineNumber = 0;
+    std::string m_basicLineNumber;
+    std::string m_line;  
+};
+
+using Program = NodeList<SourceLine>;
+
+extern Program g_program;
+
+////////////////////////////////////////////////////////////////////////////
 
 } // namespace AST
 

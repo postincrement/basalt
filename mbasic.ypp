@@ -64,9 +64,13 @@ static void UseGlobalVar(AST::VarRef & var, bool left, bool right)
   int           ival;
   std::string * sval;
 
-  AST::Node *     node;
-  AST::Expr *     expr;
-  AST::ExprList * exprlist;
+  AST::Node          * node;
+  AST::Expr          * expr;
+  AST::ExprList      * exprList;
+  AST::SourceLine    * sourceLine;
+  AST::Statement     * statement;
+  AST::StatementList * statementList;
+  AST::Operator      * oper;
 
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
@@ -128,29 +132,23 @@ static void UseGlobalVar(AST::VarRef & var, bool left, bool right)
 %token <sfloat> SINGLE
 
 // rules
-%type <exprlist>    line opt_statement_list statement_list
+%type <sourceLine>    line 
+%type <statementList> opt_statement_list statement_list
  
-%type <node>    statement
+%type <statement>    statement
+%type <statement>    DIM_statement PRINT_statement WIDTH_statement
+%type <statement>    LET_statement FOR_statement GOTO_statement
+%type <exprList>     dim_var_list
+%type <expr>         assign_expression 
 
-%type <expr>    DIM_statement dim_var_list
-
-%type <expr>    LET_statement assign_expression 
-
-%type <expr>    FOR_statement
-
-%type <expr>    GOTO_statement
-
-%type <node>     PRINT_statement 
-%type <exprlist> print_expression_list 
+%type <exprList> print_expression_list 
 %type <expr>     print_expression
 
-%type <expr>        WIDTH_statement
-
-%type <expr>        AND_expression NOT_expression compare_expression ADD_expression
-%type <expr>        MULT_expression NEGATE_expression POWER_expression subexpression
+%type <expr>    AND_expression NOT_expression compare_expression ADD_expression
+%type <expr>    MULT_expression NEGATE_expression POWER_expression
 
 %type <sval>        opt_line_number line_number
-%type <expr>        expression const_expr value array_or_func_arg 
+%type <expr>        expression subexpression const_expr value array_or_func_arg 
 %type <ival>        integer
 
 %type <varref>     var_ref var_name
@@ -169,21 +167,21 @@ file:     /* empty */
 
 line:     opt_line_number 
               {
-                AST::g_program.Append(
-                  new AST::SourceLine(
-                      g_lineNumber, 
-                      g_application.GetCurrentLine())
-                );
+                std::string basicLineNumber;
+                if ($1 != nullptr) {
+                  basicLineNumber = *$1;
+                }
+                $<sourceLine>$ = new AST::SourceLine(
+                      g_lineNumber,
+                      basicLineNumber, 
+                      g_application.GetCurrentLine()
+                      );
               }
-            opt_statement_list eol
+          opt_statement_list eol
             {
-              if ($1 != nullptr) {
-                AST::g_program.Append(
-                  new AST::LineNumber(*$1)
-                );
-                delete $1;
-              }
-              AST::g_program.Append($3);
+              $$ = $<sourceLine>2;
+              $$->m_statements.reset($3);
+              AST::g_program.Append($$);
             }
           ;
 
@@ -222,7 +220,7 @@ opt_statement_list : /* empty */
 
 statement_list : statement
                   {
-                    $$ = new AST::ExprList();
+                    $$ = new AST::StatementList();
                     $$->Append($1);
                   }   
                | statement_list ':' statement
@@ -353,7 +351,8 @@ def_arg_list: IDENTIFIER
 
 DIM_statement:  DIM_TOKEN dim_var_list
                   {
-                    $$ = $2;
+                    $$ = new AST::Statement();
+                    $$->Append($2);
                   }
                 ;
 
@@ -465,7 +464,8 @@ conditional_clause:   line_number
 
 LET_statement:  opt_LET_TOKEN assign_expression
                 {
-                  $$ = $2;
+                  $$ = new AST::Statement();
+                  $$->Append($2);
                 }
                 ;
 
@@ -711,7 +711,7 @@ NEGATE_expression:  '-' POWER_expression
 
 POWER_expression: POWER_expression '^' subexpression
                     {
-                      $$ = nullptr;
+                      $$ = new AST::Power($3);
                     }
                   | subexpression
                       {

@@ -12,15 +12,14 @@ class CodeGenerator
   public:
     CodeGenerator(const std::string & inputFilename, 
                   const std::string & outputFilename, 
-                  AST::NodeList & program);
+                  const AST::Program & program);
 
     bool Run();
     virtual bool Body() = 0;
 
     virtual int Generate(const AST::Node & node) { }
-    virtual int Generate(const AST::NodeList & expr) { }
     virtual int Generate(const AST::SourceLine & expr) { }
-    virtual int Generate(const AST::LineNumber & expr) { }
+    virtual int Generate(const AST::Statement & statement) { }
     virtual int Generate(const AST::Print & expr) { }
     virtual int Generate(const AST::StringConstant & expr) { }
     virtual int Generate(const AST::Int16Constant & expr) { }
@@ -34,6 +33,7 @@ class CodeGenerator
     virtual int Generate(const AST::Multiplication & expr) { };
     virtual int Generate(const AST::Division & expr) { };
     virtual int Generate(const AST::Negation & expr) { };
+    virtual int Generate(const AST::Power & expr) { };
 
     virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }
@@ -52,7 +52,7 @@ class CodeGenerator
     bool CheckVars();
 
     std::string m_outputFilename; 
-    AST::NodeList & m_program;
+    const AST::Program & m_program;
     std::ofstream m_outputFile;
 };
 

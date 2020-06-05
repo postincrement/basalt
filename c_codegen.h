@@ -8,14 +8,13 @@ class C_CodeGenerator : public CodeGenerator
   public:
     C_CodeGenerator(const std::string & inputFilename, 
                     const std::string & outputFilename, 
-                    AST::NodeList & program);
+                    const AST::Program & program);
 
     virtual bool Body() override;
 
     virtual int Generate(const AST::Node & node) override;
-    virtual int Generate(const AST::NodeList & expr) override;
     virtual int Generate(const AST::SourceLine & expr) override;
-    virtual int Generate(const AST::LineNumber & expr) override;
+    virtual int Generate(const AST::Statement & statement) override;
     virtual int Generate(const AST::Print & expr) override;
     virtual int Generate(const AST::StringConstant & expr) override;
     virtual int Generate(const AST::Int16Constant & expr) override;
@@ -29,6 +28,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::Multiplication & expr) override;
     virtual int Generate(const AST::Division & expr) override;
     virtual int Generate(const AST::Negation & expr) override;
+    virtual int Generate(const AST::Power & expr) override;
 
     virtual int Print(const AST::Node & node) override;
     virtual int Print(const AST::StringConstant & expr) override;

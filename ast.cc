@@ -7,41 +7,29 @@ using namespace std;
 
 using namespace AST;
 
-AST::NodeList AST::g_program;
+AST::Program AST::g_program;
 AST::VarList AST::g_globalVars;
 
 /////////////////////////////////////////
 
-int AST::Node::Generate(CodeGenerator & gen)
+int AST::Node::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int AST::Node::Print(CodeGenerator & gen)
+int AST::Node::Print(CodeGenerator & gen) const
 { 
   return gen.Print(*this);
 }
 
-void AST::NodeList::Append(Node * node)
-{
-  if (node != nullptr) {
-    m_list.push_back(std::unique_ptr<Node>(node));
-  }
-}
-
-void AST::NodeList::Append(NodeList * nodeList)
-{
-  if (nodeList != nullptr) {
-    for (auto & r : nodeList->m_list) {
-      Append(r.release());
-    }
-  }
-}
-
 /////////////////////////////////////////
 
-SourceLine::SourceLine(int lineNumber, const std::string & line)
-  : m_lineNumber(lineNumber)
+SourceLine::SourceLine(
+                      int lineNumber,
+      const std::string & basicLineNumber,
+      const std::string & line)
+  : m_sourceLineNumber(lineNumber)
+  , m_basicLineNumber(basicLineNumber)
   , m_line(line)
 {
   size_t len = m_line.length();
@@ -51,23 +39,12 @@ SourceLine::SourceLine(int lineNumber, const std::string & line)
   m_line = m_line.substr(0, len);
 }
 
-int SourceLine::Generate(CodeGenerator & gen)
+int SourceLine::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
 ////////////////////////////////////////////////////////////////////////////
-
-LineNumber::LineNumber(const std::string & ref)
-  : m_ref(ref)
-{}
-
-int LineNumber::Generate(CodeGenerator & gen)
-{
-  return gen.Generate(*this);
-}
-
-/////////////////////////////////////////
 
 Expr::Expr(VarType type)
   : m_type(type)
@@ -86,17 +63,17 @@ Print::Print(ExprList * list)
   Append(list);
 }
 
-int Print::Generate(CodeGenerator & gen)
+int Print::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int PrintComma::Print(CodeGenerator & gen)
+int PrintComma::Print(CodeGenerator & gen) const
 {
   return gen.Print(*this);
 }
 
-int PrintSemiColon::Print(CodeGenerator & gen)
+int PrintSemiColon::Print(CodeGenerator & gen) const
 {
   return gen.Print(*this);
 }
@@ -117,34 +94,65 @@ Assign::Assign(AST::VarRef * lhs, Expr * rhs)
 {
 }
 
-int Assign::Generate(CodeGenerator & gen)
+int Assign::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
 /////////////////////////////////////////
 
-int Addition::Generate(CodeGenerator & gen)
+bool BinaryOperation::Validate(std::string & msg)
+{
+  VarType ltype = m_lhs->GetType();
+  VarType rtype = m_rhs->GetType();
+
+  if (ltype != rtype) {
+    if (ltype == VarType::eString) {
+      msg = "error: rhs must be string type";
+      return false;
+    }
+    if (rtype == VarType::eString) {
+      msg = "error: lhs must be string type";
+      return false;
+    }
+    if (rtype == VarType::eDouble || ltype == VarType::eDouble)
+      m_type = VarType::eDouble;
+    else if (rtype == VarType::eSingle || ltype == VarType::eSingle)
+      m_type = VarType::eSingle;
+    else 
+      m_type = g_languageProfile->GetIntegerType();
+  }
+
+  return true;
+}
+
+
+int Addition::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int Subtraction::Generate(CodeGenerator & gen)
+int Subtraction::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int Multiplication::Generate(CodeGenerator & gen)
+int Multiplication::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int Division::Generate(CodeGenerator & gen)
+int Division::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int Negation::Generate(CodeGenerator & gen)
+int Negation::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int Power::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
@@ -205,12 +213,12 @@ VarRef::VarRef(VarType type, const std::string & varName)
   m_name = name.substr(0, varNameLen) + suffix;
 }
 
-int VarRef::Generate(CodeGenerator & gen)
+int VarRef::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int VarRef::Print(CodeGenerator & gen)
+int VarRef::Print(CodeGenerator & gen) const
 {
   return gen.Print(*this);
 }
@@ -224,11 +232,11 @@ AST::Expr * AST::StringConstant::Create(const std::string & str)
 }
 
 template<>
-int AST::StringConstant::Generate(CodeGenerator & gen)
+int AST::StringConstant::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 template<>
-int AST::StringConstant::Print(CodeGenerator & gen)
+int AST::StringConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -242,11 +250,11 @@ AST::Expr * AST::Int16Constant::Create(const std::string & str)
 }
 
 template<>
-int AST::Int16Constant::Generate(CodeGenerator & gen)
+int AST::Int16Constant::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 template<>
-int AST::Int16Constant::Print(CodeGenerator & gen)
+int AST::Int16Constant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -258,11 +266,11 @@ AST::Expr * AST::Int32Constant::Create(const std::string & str)
 }
 
 template<>
-int AST::Int32Constant::Generate(CodeGenerator & gen)
+int AST::Int32Constant::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 template<>
-int AST::Int32Constant::Print(CodeGenerator & gen)
+int AST::Int32Constant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -274,11 +282,11 @@ AST::Expr * AST::SingleConstant::Create(const std::string & str)
 }
 
 template<>
-int AST::SingleConstant::Generate(CodeGenerator & gen)
+int AST::SingleConstant::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 template<>
-int AST::SingleConstant::Print(CodeGenerator & gen)
+int AST::SingleConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -289,10 +297,10 @@ AST::Expr * AST::DoubleConstant::Create(const std::string & str)
   return new DoubleConstant(atof(str.c_str()));
 }
 template<>
-int AST::DoubleConstant::Generate(CodeGenerator & gen)
+int AST::DoubleConstant::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 template<>
-int AST::DoubleConstant::Print(CodeGenerator & gen)
+int AST::DoubleConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 

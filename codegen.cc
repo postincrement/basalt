@@ -27,7 +27,7 @@ static CTypeInfoRec g_varTypeInfo[] = {
 
 CodeGenerator::CodeGenerator(const std::string & inputFilename, 
                              const std::string & outputFilename,
-                                  AST::NodeList & program)
+                                  const AST::Program & program)
   : m_outputFilename(outputFilename)
   , m_inputFilename(inputFilename)
   , m_program(program)
@@ -72,7 +72,7 @@ bool CodeGenerator::CheckVars()
 
 C_CodeGenerator::C_CodeGenerator (const std::string & inputFilename, 
                                   const std::string & outputFilename,
-                                      AST::NodeList & program)
+                                      const AST::Program & program)
   : CodeGenerator(inputFilename, outputFilename, program)
 {
 }
@@ -118,11 +118,12 @@ bool C_CodeGenerator::Body()
     m_cnames.insert(cvar.m_cname);
   }
 
-
   PushClosure();
   for (auto & r : m_program.m_list) {
     r->Generate(*this);
   }
+
+  cout << "program has " << m_program.m_list.size() << " elements" << endl;
 
   *m_outputStream
            << "/* Generator by basalt */\n"
@@ -176,31 +177,28 @@ int C_CodeGenerator::Print(const AST::Node & expr)
   cerr << "warning: unimplemented Print for " << r.name() << "\n";
 }
 
-int C_CodeGenerator::Generate(const AST::NodeList & expr)
+int C_CodeGenerator::Generate(const AST::SourceLine & line)
+{
+  TopOutput()  
+        << "\n"
+        << "#line " << line.GetSourceLineNumber() 
+        << " \"" << m_inputFilename << "\"\n"
+        << "  /* " << line.GetLine() << " */\n";
+  if (line.m_statements)       
+    line.m_statements->Generate(*this);      
+  return 0;
+}
+
+
+int C_CodeGenerator::Generate(const AST::Statement & statement)
 {
   Closure & us = Top();
-  for (auto & r : expr.m_list) {
+  for (auto & r : statement.m_list) {
     PushClosure();
     r->Generate(*this);
     us.Output() << TopOutput().str();
     PopClosure();
   }
-  return 0;
-}
-
-int C_CodeGenerator::Generate(const AST::SourceLine & expr)
-{
-  TopOutput()  
-        << "\n"
-        << "#line " << expr.GetLineNumber() 
-        << " \"" << m_inputFilename << "\"\n"
-        << "  /* " << expr.GetLine() << " */\n";
-  return 0;
-}
-
-int C_CodeGenerator::Generate(const AST::LineNumber & expr)
-{
-  // empty
   return 0;
 }
 
@@ -351,6 +349,27 @@ int C_CodeGenerator::BinaryOperator(const std::string & op, const AST::BinaryOpe
     us.Output() << "#warning \"missing rhs\"\n";
   }
   else {
+    VarType ltype = expr.m_lhs->GetType() ;
+    VarType rtype = expr.m_rhs->GetType() ;
+    VarType etype = VarType::eNone;
+
+    if (ltype != rtype) {
+      if (ltype == VarType::eString) {
+        cerr << "error: rhs must be string type" << endl;
+      }
+      else if (rtype == VarType::eString) {
+        cerr << "error: lhs must be string type" << endl;
+      }
+      else {
+        if (rtype == VarType::eDouble || ltype == VarType::eDouble)
+          etype = VarType::eDouble;
+        else if (rtype == VarType::eSingle || ltype == VarType::eSingle)
+          etype = VarType::eSingle;
+        else 
+          etype = g_languageProfile->GetIntegerType();
+      }
+    }
+
     PushClosure();
     expr.m_lhs->Generate(*this);
     std::string lhs = TopOutput().str();
@@ -408,6 +427,11 @@ int C_CodeGenerator::UnaryOperator(const std::string & op, const AST::UnaryOpera
 int C_CodeGenerator::Generate(const AST::Negation & expr)
 {
   return UnaryOperator("-", expr);
+}
+
+int C_CodeGenerator::Generate(const AST::Power & expr)
+{
+  return UnaryOperator("^", expr);
 }
 
 ////////////////////////////////////////////////////////////////
