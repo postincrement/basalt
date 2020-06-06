@@ -21,14 +21,15 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::Int32Constant & expr) override;
     virtual int Generate(const AST::SingleConstant & expr) override;
     virtual int Generate(const AST::DoubleConstant & expr) override;
-    virtual int Generate(const AST::Assign & expr) override;
-    virtual int Generate(const AST::VarRef & expr) override;
-    virtual int Generate(const AST::Addition & expr) override;
+    virtual int Generate(const AST::NumericAssign & expr) override;
+    virtual int Generate(const AST::NumericVarRef & expr) override;
+    virtual int Generate(const AST::NumericAddition & expr) override;
     virtual int Generate(const AST::Subtraction & expr) override;
     virtual int Generate(const AST::Multiplication & expr) override;
     virtual int Generate(const AST::Division & expr) override;
     virtual int Generate(const AST::Negation & expr) override;
     virtual int Generate(const AST::Power & expr) override;
+    virtual int Generate(const AST::NumericCast & expr) override;
 
     virtual int Print(const AST::Node & node) override;
     virtual int Print(const AST::StringConstant & expr) override;
@@ -38,7 +39,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Print(const AST::DoubleConstant & expr) override;
     virtual int Print(const AST::PrintComma & expr) override;
     virtual int Print(const AST::PrintSemiColon & expr) override;
-    virtual int Print(const AST::VarRef & expr) override;
+    virtual int Print(const AST::NumericVarRef & expr) override;
 
     std::stringstream m_body;
 
@@ -48,7 +49,7 @@ class C_CodeGenerator : public CodeGenerator
     };
 
     bool LookupGlobalVar(
-      const AST::VarRef & var, 
+      const AST::NumericVarRef & var, 
       C_CodeGenerator::CVarDef & cvar
     );
 
@@ -84,7 +85,12 @@ class C_CodeGenerator : public CodeGenerator
     std::deque<Closure> m_stack;
 
   protected:
-    int BinaryOperator(const std::string & op, const AST::BinaryOperation & expr);
+    int NumericBinaryOperator(const AST::Expr * lhs,
+                       std::string & lhStr,
+                       const AST::Expr * rhs,
+                       std::string & rhStr);
+                       
+    int NumericBinaryOperator(const std::string & op, const AST::NumericBinaryOperation & expr);
     int UnaryOperator(const std::string & op, const AST::UnaryOperation & expr);
 
     typedef std::map<std::string, CVarDef> GlobalVarMap;

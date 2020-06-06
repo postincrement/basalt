@@ -80,54 +80,160 @@ int PrintSemiColon::Print(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-String::String(const std::string * str)
-{
-  if (str != nullptr)
-    m_val = *str;
-}
-
-/////////////////////////////////////////
-
-Assign::Assign(AST::VarRef * lhs, Expr * rhs)
+StringAssign::StringAssign(const AST::StringVarRef * lhs, const StringExpr * rhs)
   : m_lhs(lhs)
   , m_rhs(rhs)
 {
 }
 
-int Assign::Generate(CodeGenerator & gen) const
+int StringAssign::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
+bool StringAssign::Validate()
+{
+  return false;
+}
+
 /////////////////////////////////////////
 
-bool BinaryOperation::Validate(std::string & msg)
+template <>
+StringVarRef::VarRef(VarType type, const std::string & varName)
+{
+}
+
+template <>
+int StringVarRef::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+template <>
+int StringVarRef::Print(CodeGenerator & gen) const
+{
+  return gen.Print(*this);
+}
+
+/////////////////////////////////////////
+
+NumericAssign::NumericAssign(const AST::NumericVarRef * lhs, const NumericExpr * rhs)
+  : m_lhs(lhs)
+  , m_rhs(rhs)
+{
+}
+
+int NumericAssign::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+bool NumericAssign::Validate()
 {
   VarType ltype = m_lhs->GetType();
   VarType rtype = m_rhs->GetType();
 
-  if (ltype != rtype) {
-    if (ltype == VarType::eString) {
-      msg = "error: rhs must be string type";
-      return false;
-    }
-    if (rtype == VarType::eString) {
-      msg = "error: lhs must be string type";
-      return false;
-    }
-    if (rtype == VarType::eDouble || ltype == VarType::eDouble)
-      m_type = VarType::eDouble;
-    else if (rtype == VarType::eSingle || ltype == VarType::eSingle)
-      m_type = VarType::eSingle;
-    else 
-      m_type = g_languageProfile->GetIntegerType();
+  std::string msg;
+
+  if (ltype == rtype) {
+    m_type = ltype;
+    return true;
   }
+
+  cerr << "assign cast required" << endl;
+
+  if (ltype == VarType::eString) {
+    msg = "error: rhs must be string type";
+    return false;
+  }
+
+  if (!m_rhs->IsConstant()) {
+    m_type = ltype;
+  }
+  else {
+    auto const rconst = dynamic_cast<const NumericConstant *>(m_rhs);
+    if (ltype == VarType::eDouble) {
+      double v = rconst->AsDouble();
+      delete m_rhs;
+      m_rhs = new DoubleConstant(v);
+    }
+    else if ((ltype == VarType::eSingle) && (rtype != VarType::eDouble)) {
+      float v = rconst->AsSingle();
+      delete m_rhs;
+      m_rhs = new SingleConstant(v);
+    }
+    else if ((ltype == VarType::eInt32) && (rtype == VarType::eInt16)) {
+      int32_t v = rconst->AsInt32();
+      delete m_rhs;
+      m_rhs = new Int16Constant(v);
+    }
+    if (ltype == m_rhs->GetType()) {
+      m_type = ltype;
+      return true;
+    }
+  }
+
+  m_type = ltype;
+  m_rhs = new AST::NumericCast(ltype, m_rhs);
 
   return true;
 }
 
+/////////////////////////////////////////
 
-int Addition::Generate(CodeGenerator & gen) const
+bool NumericBinaryOperation::Validate()
+{
+  VarType ltype = m_lhs->GetType();
+  VarType rtype = m_rhs->GetType();
+
+  std::string msg;
+
+  if (ltype == rtype) {
+    m_type = ltype;
+    return true;
+  }
+
+  if (ltype == VarType::eString) {
+    msg = "error: rhs must be string type";
+    return false;
+  }
+  if (rtype == VarType::eString) {
+    msg = "error: lhs must be string type";
+    return false;
+  }
+
+  VarType etype = g_languageProfile->GetIntegerType();
+
+  if ((ltype == VarType::eDouble) || (rtype == VarType::eDouble)) {
+    etype = VarType::eDouble;
+  }
+  else if ((ltype == VarType::eSingle) || (rtype == VarType::eSingle)) {
+    etype = VarType::eSingle;
+  }
+
+  if (ltype != etype) {
+    cerr << "binary cast required from " 
+         << (int)etype
+         << " to l "
+         << (int)ltype
+         << endl;
+    m_lhs = new AST::NumericCast(etype, m_lhs);
+  }
+  else if (rtype != etype) {
+    cerr << "binary cast required from " 
+         << (int)etype
+         << " to r "
+         << (int)rtype
+         << endl;
+    m_rhs = new AST::NumericCast(etype, m_rhs);
+  }
+
+  m_type = etype;
+
+  return true;
+}
+
+int NumericAddition::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
@@ -157,10 +263,16 @@ int Power::Generate(CodeGenerator & gen) const
   return gen.Generate(*this);
 }
 
+int NumericCast::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
 /////////////////////////////////////////
 
-VarRef::VarRef(VarType type, const std::string & varName)
-  : Expr(type)
+template <>
+NumericVarRef::VarRef(VarType type, const std::string & varName)
+  : NumericExpr(type)
 {
   // extract suffix, if any
   int len = varName.length();
@@ -211,14 +323,21 @@ VarRef::VarRef(VarType type, const std::string & varName)
 
   int varNameLen = g_languageProfile->GetVarNameLen();
   m_name = name.substr(0, varNameLen) + suffix;
+  m_type = type;
+
+  if ((int)m_type == 0) {
+    cerr << varName << " has type 0" << endl; 
+  }
 }
 
-int VarRef::Generate(CodeGenerator & gen) const
+template <>
+int NumericVarRef::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-int VarRef::Print(CodeGenerator & gen) const
+template <>
+int NumericVarRef::Print(CodeGenerator & gen) const
 {
   return gen.Print(*this);
 }
@@ -226,28 +345,8 @@ int VarRef::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-AST::Expr * AST::StringConstant::Create(const std::string & str)
-{
-  return new StringConstant(str.c_str());
-}
-
-template<>
-int AST::StringConstant::Generate(CodeGenerator & gen) const
-{ return gen.Generate(*this); }
-
-template<>
-int AST::StringConstant::Print(CodeGenerator & gen) const
-{ return gen.Print(*this); }
-
-/////////////////////////////////////////
-
-template<>
-AST::Expr * AST::Int16Constant::Create(const std::string & str)
-{
-  int16_t v = atoi(str.c_str());
-  cout << "'" << str << "' = " << v << endl; 
-  return new Int16Constant(atoi(str.c_str()));
-}
+AST::NumericExpr * AST::Int16Constant::Create(const std::string & str)
+{ return new Int16Constant(atoi(str.c_str())); }
 
 template<>
 int AST::Int16Constant::Generate(CodeGenerator & gen) const
@@ -260,10 +359,8 @@ int AST::Int16Constant::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-AST::Expr * AST::Int32Constant::Create(const std::string & str)
-{
-  return new Int32Constant(atoi(str.c_str()));
-}
+AST::NumericExpr * AST::Int32Constant::Create(const std::string & str)
+{ return new Int32Constant(atoi(str.c_str())); }
 
 template<>
 int AST::Int32Constant::Generate(CodeGenerator & gen) const
@@ -276,10 +373,8 @@ int AST::Int32Constant::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-AST::Expr * AST::SingleConstant::Create(const std::string & str)
-{
-  return new SingleConstant(atof(str.c_str()));
-}
+AST::NumericExpr * AST::SingleConstant::Create(const std::string & str)
+{ return new SingleConstant(atof(str.c_str())); }
 
 template<>
 int AST::SingleConstant::Generate(CodeGenerator & gen) const
@@ -292,10 +387,9 @@ int AST::SingleConstant::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-AST::Expr * AST::DoubleConstant::Create(const std::string & str)
-{
-  return new DoubleConstant(atof(str.c_str()));
-}
+AST::NumericExpr * AST::DoubleConstant::Create(const std::string & str)
+{ return new DoubleConstant(atof(str.c_str())); }
+
 template<>
 int AST::DoubleConstant::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }

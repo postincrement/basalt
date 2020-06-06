@@ -16,7 +16,7 @@ using namespace std;
 
 extern void MBASIC_SetRemMode();
 
-static AST::Expr * CreateConstant(VarType type, const std::string & val)
+static AST::NumericExpr * CreateConstant(VarType type, const std::string & val)
 {
   switch (type) {
     case VarType::eInt16:
@@ -28,11 +28,35 @@ static AST::Expr * CreateConstant(VarType type, const std::string & val)
     case VarType::eDouble:
       return AST::DoubleConstant::Create(val);
     case VarType::eString:
-      return AST::StringConstant::Create(val);
+      return nullptr;
   }
 }
 
-static void UseGlobalVar(AST::VarRef & var, bool left, bool right)
+static void UseNumericGlobalVar(AST::NumericVarRef & var, bool left, bool right)
+{
+  if (AST::g_globalVars.count(var.GetName()) == 0) {
+    AST::VarInfo info;
+    info.m_type         = var.GetType();
+    info.m_originalName = var.GetOriginalName(); 
+    if (left)
+      info.m_lhsLine = g_lineNumber;
+    if (right)   
+      info.m_rhsLine  = g_lineNumber;
+    AST::g_globalVars[var.GetName()] = info;
+  }
+  else {
+    AST::VarInfo & info = AST::g_globalVars[var.GetName()];
+    if (var.GetOriginalName() != info.m_originalName) {
+      SourceWarning(eWarning_VarIsSynonym, g_lineNumber, "'" << var.GetOriginalName() << "' & '" << info.m_originalName << "'");
+    }
+    if (left && (info.m_lhsLine == 0))
+      info.m_lhsLine = g_lineNumber;
+    if (right && (info.m_rhsLine == 0))
+      info.m_rhsLine = g_lineNumber;
+  }
+}
+
+static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 {
   if (AST::g_globalVars.count(var.GetName()) == 0) {
     AST::VarInfo info;
@@ -64,18 +88,22 @@ static void UseGlobalVar(AST::VarRef & var, bool left, bool right)
   int           ival;
   std::string * sval;
 
-  AST::Node          * node;
-  AST::Expr          * expr;
-  AST::ExprList      * exprList;
-  AST::SourceLine    * sourceLine;
-  AST::Statement     * statement;
-  AST::StatementList * statementList;
-  AST::Operator      * oper;
+  AST::Node            * node;
+  AST::Expr            * expr;
+  AST::ExprList        * exprList;
+  AST::SourceLine      * sourceLine;
+  AST::Statement       * statement;
+  AST::StatementList   * statementList;
+  AST::NumericOperator * oper;
+
+  AST::NumericExpr     * numexpr;
+  AST::NumericVarRef   * numvarref;
+
+  AST::StringExpr      * strexpr;
+  AST::StringVarRef    * strvarref;
 
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
-
-  AST::VarRef * varref;
 }
 
 %token EOL_TOKEN
@@ -144,14 +172,18 @@ static void UseGlobalVar(AST::VarRef & var, bool left, bool right)
 %type <exprList> print_expression_list 
 %type <expr>     print_expression
 
-%type <expr>    AND_expression NOT_expression compare_expression ADD_expression
-%type <expr>    MULT_expression NEGATE_expression POWER_expression
-
 %type <sval>        opt_line_number line_number
-%type <expr>        expression subexpression const_expr value array_or_func_arg 
 %type <ival>        integer
 
-%type <varref>     var_ref var_name
+%type <numvarref>  numeric_var_ref numeric_var_name 
+%type <numexpr>    expression subexpression numeric_const_expr 
+%type <numexpr>    numeric_value array_or_func_arg 
+%type <numexpr>    AND_expression NOT_expression compare_expression ADD_expression
+%type <numexpr>    MULT_expression NEGATE_expression POWER_expression
+
+%type <strvarref>  string_var_ref string_var_name
+%type <strexpr>    string_value string_expression string_const_expr 
+%type <strexpr>    string_ADD_expression string_subexpression 
 
 %%
 
@@ -356,10 +388,10 @@ DIM_statement:  DIM_TOKEN dim_var_list
                   }
                 ;
 
-dim_var_list: var_ref
+dim_var_list: numeric_var_ref
                 {
                 }
-              | dim_var_list ',' var_ref 
+              | dim_var_list ',' numeric_var_ref 
                 {
                 }
               ;
@@ -379,7 +411,7 @@ END_statement:  END_TOKEN
 
  *********************************************************/ 
 
-FOR_statement: FOR_TOKEN var_ref '=' expression TO_TOKEN expression opt_STEP_statement
+FOR_statement: FOR_TOKEN numeric_var_ref '=' expression TO_TOKEN expression opt_STEP_statement
                 {
                   $$ = nullptr;
                 }
@@ -389,7 +421,7 @@ NEXT_statement: NEXT_TOKEN opt_varname
                 ;
 
 opt_varname:    /* empty */
-                | var_ref
+                | numeric_var_ref
                 ;                
 
 opt_STEP_statement: /* empty */
@@ -453,7 +485,7 @@ conditional_clause:   line_number
                   | input_var_list ',' input_var
                   ;
 
- input_var:       var_ref
+ input_var:       numeric_var_ref
                   ;       
 
 /********************************************************* 
@@ -473,10 +505,20 @@ opt_LET_TOKEN:  /* empty */
                 | LET_TOKEN
                 ;
 
-assign_expression:  var_ref '=' expression
+assign_expression:  numeric_var_ref '=' expression
                       {
-                        UseGlobalVar(*$1, true, false);
-                        $$ = new AST::Assign($1, $3);
+                        UseNumericGlobalVar(*$1, true, false);
+                        AST::NumericAssign * ass = new AST::NumericAssign($1, $3);
+                        ass->Validate();
+                        $$ = ass;
+                      }
+                    
+                    | string_var_ref '=' string_expression
+                      {
+                        UseStringGlobalVar(*$1, true, false);
+                        AST::StringAssign * ass = new AST::StringAssign($1, $3);
+                        ass->Validate();
+                        $$ = ass;
                       }
                     ;
 
@@ -673,11 +715,15 @@ compare_expression: ADD_expression '=' compare_expression
 
 ADD_expression: MULT_expression '+' ADD_expression
                   { 
-                    $$ = new AST::Addition($1, $3);
+                    AST::NumericAddition * op = new AST::NumericAddition($1, $3);
+                    op->Validate();
+                    $$ = op;
                   }
                 | MULT_expression '-' ADD_expression
                   { 
-                    $$ = new AST::Subtraction($1, $3);;
+                    AST::Subtraction * op = new AST::Subtraction($1, $3);;
+                    op->Validate();
+                    $$ = op;
                   }
                 | MULT_expression
                   {
@@ -687,11 +733,15 @@ ADD_expression: MULT_expression '+' ADD_expression
 
 MULT_expression:  NEGATE_expression '*' MULT_expression
                     { 
-                      $$ = new AST::Multiplication($1, $3);;
+                      AST::Multiplication * op = new AST::Multiplication($1, $3);;
+                      op->Validate();
+                      $$ = op;
                     }
                   | NEGATE_expression '/' MULT_expression
                     { 
-                      $$ = new AST::Division($1, $3);;
+                      AST::Division * op = new AST::Division($1, $3);
+                      op->Validate();
+                      $$ = op;
                     }  
                   | NEGATE_expression
                     {
@@ -723,38 +773,18 @@ subexpression: '(' expression ')'
                   {
                     $$ = $2;
                   }
-                | value
+                | numeric_value
                   {
                     $$ = $1;
                   }
                 ;                          
 
-value:          var_ref
+numeric_value:  numeric_var_ref
                   {
-                    UseGlobalVar(*$1, false, true);
+                    UseNumericGlobalVar(*$1, false, true);
                     $$ = $1;
                   }
-                | CHR_TOKEN '(' expression ')'  
-                  {
-                    $$ = nullptr;
-                  }
                 | INT_TOKEN '(' expression ')'  
-                  {
-                    $$ = nullptr;
-                  }
-                | LEFT_TOKEN '(' expression ',' expression ')'  
-                  {
-                    $$ = nullptr;
-                  }
-                | MID_TOKEN '(' expression ',' expression ',' expression ')'  
-                  {
-                    $$ = nullptr;
-                  }
-                | RIGHT_TOKEN '(' expression ',' expression ')'  
-                  {
-                    $$ = nullptr;
-                  }
-                | STR_TOKEN '(' expression ')'  
                   {
                     $$ = nullptr;
                   }
@@ -766,7 +796,7 @@ value:          var_ref
                   {
                     $$ = nullptr;
                   }
-                | const_expr
+                | numeric_const_expr
                   {
                     $$ = $1;
                   }
@@ -774,45 +804,129 @@ value:          var_ref
 
 /********************************************************* 
 
-var or array ref              
+ string expression              
+
+ *********************************************************/ 
+
+string_expression: string_value
+                      {
+                        $$ = $1;
+                      }
+                    ;
+
+string_expression: string_ADD_expression '=' string_expression
+                      {
+                        $$ = nullptr;
+                      }
+                    | string_ADD_expression NOT_EQUAL string_expression
+                      {
+                        $$ = nullptr;
+                      }
+                    ;  
+                      
+string_ADD_expression: string_subexpression '+' string_ADD_expression
+                        { 
+                          $$ = nullptr;
+                        }
+                       | string_subexpression 
+                        { 
+                          $$ = $1;
+                        }
+                        ;
+
+string_subexpression: '(' string_expression ')'
+                  {
+                    $$ = $2;
+                  }
+                | string_value
+                  {
+                    $$ = $1;
+                  }
+                ;
+
+string_value:   string_var_ref
+                  {
+                    $$ = $1;
+                  }
+
+                | CHR_TOKEN '(' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | LEFT_TOKEN '(' string_expression ',' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | MID_TOKEN '(' string_expression ',' expression ',' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | RIGHT_TOKEN '(' string_expression ',' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }
+                | STR_TOKEN '(' expression ')'  
+                  {
+                    $$ = nullptr;
+                  }                  
+                | string_const_expr
+                  {
+                    $$ = $1;
+                  }
+                ;  
+
+/********************************************************* 
+
+numeric var or numeric array ref              
  
  *********************************************************/
 
-var_ref : var_name
+numeric_var_ref : numeric_var_name
             {
               $$ = $1;
             }
-          | var_name array_or_func_spec
+          | numeric_var_name array_or_func_spec
             {
             }
           ;
 
-var_name: IDENTIFIER
+numeric_var_name: IDENTIFIER
             {
-              $$ = new AST::VarRef(g_languageProfile->GetDefaultNumericType(), *$1);
+              $$ = new AST::NumericVarRef(g_languageProfile->GetDefaultNumericType(), *$1);
               delete $1;
             }
           | INTEGER_VARNAME
             {
-              $$ = new AST::VarRef(g_languageProfile->GetIntegerType(), *$1);
-              delete $1;
-            }
-          | STRING_VARNAME
-            {
-              $$ = new AST::VarRef(VarType::eString, *$1);
+              $$ = new AST::NumericVarRef(g_languageProfile->GetIntegerType(), *$1);
               delete $1;
             }
           | SINGLE_VARNAME
             {
-              $$ = new AST::VarRef(VarType::eSingle, *$1);
+              $$ = new AST::NumericVarRef(VarType::eSingle, *$1);
               delete $1;
             }
           | DOUBLE_VARNAME
             {
-              $$ = new AST::VarRef(VarType::eDouble, *$1);
+              $$ = new AST::NumericVarRef(VarType::eDouble, *$1);
               delete $1;
             }
           ;
+
+string_var_ref : string_var_name
+                  {
+                    $$ = $1;
+                  }
+                | string_var_name array_or_func_spec
+                  {
+                  }
+                ;
+
+string_var_name: STRING_VARNAME
+            {
+              $$ = new AST::StringVarRef(VarType::eString, *$1);
+              delete $1;
+            }
+            ;
 
 array_or_func_spec: '(' array_or_func_args ')'
                       {
@@ -830,6 +944,10 @@ array_or_func_args: array_or_func_arg
 array_or_func_arg:  expression
                       {
                       }
+                    /*| string_expression
+                      {
+                      }
+                    */
                     ;
 
 /********************************************************* 
@@ -838,7 +956,7 @@ array_or_func_arg:  expression
  
  *********************************************************/ 
 
-const_expr: INTEGER
+numeric_const_expr: INTEGER
               {
                 stringstream strm;
                 strm << $1;
@@ -859,9 +977,11 @@ const_expr: INTEGER
                 $$ = new AST::SingleConstant($1->m_value);
                 delete $1;
               }
-            | QUOTED_STRING
+            ;
+
+string_const_expr: QUOTED_STRING
               {
-                $$ = new AST::StringConstant(&(*$1)[0]);
+                $$ = new AST::StringConstant(*$1);
                 delete $1;
               }
             ;

@@ -77,11 +77,30 @@ class Expr : public Node
     Expr(VarType type = VarType::eNone);
     VarType GetType() const;
 
+    virtual bool IsConstant() const
+    { return false; } 
+
   protected:
     VarType m_type;
 };
 
 using ExprList = NodeList<Expr>;
+
+class NumericExpr : public Expr
+{
+  public:
+    NumericExpr(VarType type = VarType::eNone)
+      : Expr(type)
+    {}
+};
+
+class StringExpr : public Expr
+{
+  public:
+    StringExpr()
+      : Expr(VarType::eString)
+    {}
+};
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -108,11 +127,15 @@ class PrintSemiColon : public Expr
 
 ////////////////////////////////////////////////////////////////////////////
 
-class String : public Expr
+class String : public StringExpr
 {
   public:
     String() = default;
-    String(const std::string * str);
+    String(const std::string * str)
+    {
+      if (str != nullptr)
+        m_val = *str;
+    }
 
   protected:
     std::string m_val;
@@ -120,122 +143,8 @@ class String : public Expr
 
 ////////////////////////////////////////////////////////////////////////////
 
-class VarRef;
-
-class Assign : public Expr
-{
-  public:
-    Assign(VarRef * lhs, Expr * rhs);
-    virtual int Generate(CodeGenerator & gen) const override;
-
-    AST::VarRef * m_lhs;
-    Expr * m_rhs;
-};
-
-////////////////////////////////////////////////////////////////////////////
-
-class Operator : public Expr
-{
-  public:
-    virtual bool Validate(std::string & msg) = 0;
-};
-
-class BinaryOperation : public Operator
-{
-  public:
-    BinaryOperation(Expr * lhs, Expr * rhs)
-      : m_lhs(lhs)
-      , m_rhs(rhs)
-    { }
-
-    virtual bool Validate(std::string & msg);
-
-    virtual int Generate(CodeGenerator & gen) const = 0;
-
-    Expr * m_lhs;
-    Expr * m_rhs;
-};
-
-class Addition : public BinaryOperation
-{
-  public:
-    Addition(Expr * lhs, Expr * rhs)
-      : BinaryOperation(lhs, rhs)
-    { }  
-
-    virtual int Generate(CodeGenerator & gen) const override;
-};
-
-class Subtraction : public BinaryOperation
-{
-  public:
-    Subtraction(Expr * lhs, Expr * rhs)
-      : BinaryOperation(lhs, rhs)
-    { }  
-
-    virtual int Generate(CodeGenerator & gen) const override;
-};
-
-class Multiplication : public BinaryOperation
-{
-  public:
-    Multiplication(Expr * lhs, Expr * rhs)
-      : BinaryOperation(lhs, rhs)
-    { }  
-
-    virtual int Generate(CodeGenerator & gen) const override;
-};
-
-class Division : public BinaryOperation
-{
-  public:
-    Division(Expr * lhs, Expr * rhs)
-      : BinaryOperation(lhs, rhs)
-    { }  
-
-    virtual int Generate(CodeGenerator & gen) const override;
-};
-
-////////////////////////////////////////////////////////////////////////////
-
-class UnaryOperation : public Operator
-{
-  public:
-    UnaryOperation(Expr * expr)
-      : m_expr(expr)
-    { }
-
-    virtual bool Validate(std::string & msg)
-    { return true; }
-
-    virtual int Generate(CodeGenerator & gen) const = 0;
-
-    Expr * m_expr;
-};
-
-class Negation : public UnaryOperation
-{
-  public:
-    Negation(Expr * expr)
-      : UnaryOperation(expr)
-    { }
-
-    virtual int Generate(CodeGenerator & gen) const override;
-};
-
-class Power : public UnaryOperation
-{
-  public:
-    Power(Expr * expr)
-      : UnaryOperation(expr)
-    { }
-
-    virtual int Generate(CodeGenerator & gen) const override;
-};
-
-////////////////////////////////////////////////////////////////////////////
-
-class VarRef : public Expr
+template <class Type>
+class VarRef : public Type
 {
   public:
     VarRef(VarType type, const std::string & m_id);
@@ -257,34 +166,214 @@ class VarRef : public Expr
     std::string m_originalName;
 };
 
+using NumericVarRef = VarRef<NumericExpr>;
+using StringVarRef = VarRef<StringExpr>;
+
 ////////////////////////////////////////////////////////////////////////////
 
-template<VarType t, typename N>
-class Constant : public Expr
+class StringAssign : public StringExpr
 {
   public:
-    Constant(const N & v)
-      : Expr(t)
+    StringAssign(const StringVarRef * lhs, const StringExpr * rhs);
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    virtual bool Validate();
+
+    const AST::StringVarRef * m_lhs;
+    const StringExpr * m_rhs;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class NumericAssign : public Expr
+{
+  public:
+    NumericAssign(const NumericVarRef * lhs, const NumericExpr * rhs);
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    virtual bool Validate();
+
+    const AST::NumericVarRef * m_lhs;
+    const NumericExpr * m_rhs;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class NumericCast : public NumericExpr
+{
+  public:
+    NumericCast(VarType type, const NumericExpr * expr)
+      : NumericExpr(type)
+      , m_from(expr)
+    { }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    const AST::NumericExpr * m_from;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class NumericOperator : public NumericExpr
+{
+  public:
+    NumericOperator() = default;
+
+    NumericOperator(VarType t)
+      : NumericExpr(t)
+    {}
+};
+
+class NumericBinaryOperation : public NumericOperator
+{
+  public:
+    NumericBinaryOperation(const NumericExpr * lhs, const NumericExpr * rhs)
+      : m_lhs(lhs)
+      , m_rhs(rhs)
+    { }
+
+    virtual bool Validate();
+
+    virtual int Generate(CodeGenerator & gen) const = 0;
+
+    const NumericExpr * m_lhs;
+    const NumericExpr * m_rhs;
+};
+
+class NumericAddition : public NumericBinaryOperation
+{
+  public:
+    NumericAddition(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+class Subtraction : public NumericBinaryOperation
+{
+  public:
+    Subtraction(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+class Multiplication : public NumericBinaryOperation
+{
+  public:
+    Multiplication(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+class Division : public NumericBinaryOperation
+{
+  public:
+    Division(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(lhs, rhs)
+    { }  
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class UnaryOperation : public NumericOperator
+{
+  public:
+    UnaryOperation(const NumericExpr * expr)
+      : NumericOperator(expr->GetType())
+      , m_expr(expr)
+    { }
+
+    virtual int Generate(CodeGenerator & gen) const = 0;
+
+    const Expr * m_expr;
+};
+
+class Negation : public UnaryOperation
+{
+  public:
+    Negation(NumericExpr * expr)
+      : UnaryOperation(expr)
+    { }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+class Power : public UnaryOperation
+{
+  public:
+    Power(NumericExpr * expr)
+      : UnaryOperation(expr)
+    { }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class Constant: public NumericExpr
+{
+  public:
+    Constant(VarType t)
+      : NumericExpr(t)
+    { }  
+
+    virtual bool IsConstant() const
+    { return true; }
+};
+
+class NumericConstant : public Constant
+{
+  public:
+    NumericConstant(VarType t)
+      : Constant(t)
+    { }  
+
+    virtual double AsDouble() const = 0;
+    virtual float AsSingle() const = 0;
+    virtual int32_t AsInt32() const = 0;
+    virtual int16_t AsInt16() const = 0;
+};
+
+template<VarType t, typename N>
+class ConstantType : public NumericConstant
+{
+  public:
+    ConstantType(const N & v)
+      : NumericConstant(t)
       , m_value(v)
     { }  
 
-    static AST::Expr * Create(const std::string & str);
+    static AST::NumericExpr * Create(const std::string & str);
 
     virtual int Generate(CodeGenerator & gen) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
+    virtual bool IsConstant() const
+    { return true; }
+
     N GetValue() const
     { return m_value; }
+
+    virtual double AsDouble() const override { return m_value; }
+    virtual float AsSingle() const override  { return m_value; }
+    virtual int32_t AsInt32() const override { return m_value; }
+    virtual int16_t AsInt16() const override { return m_value; }
 
   protected:
     N m_value;
 };
 
-using StringConstant = Constant<VarType::eString, std::string>;
-using Int16Constant  = AST::Constant<VarType::eInt16,  int16_t>;
-using Int32Constant  = Constant<VarType::eInt32,  int32_t>;
-using SingleConstant = Constant<VarType::eSingle, float>;
-using DoubleConstant = Constant<VarType::eDouble, double>;
+using Int16Constant  = ConstantType<VarType::eInt16,  int16_t>;
+using Int32Constant  = ConstantType<VarType::eInt32,  int32_t>;
+using SingleConstant = ConstantType<VarType::eSingle, float>;
+using DoubleConstant = ConstantType<VarType::eDouble, double>;
 
 struct VarInfo {
   VarType m_type;
@@ -297,6 +386,41 @@ struct VarInfo {
 
 typedef std::map<std::string, VarInfo> VarList;
 extern VarList g_globalVars;
+
+////////////////////////////////////////////////////////////////////////////
+
+class StringConstant : public StringExpr
+{
+  public:
+    StringConstant(const std::string & str)
+      : m_value(str)
+      {}
+
+    std::string GetValue() const
+    { return m_value; } 
+
+  protected:   
+    std::string m_value;  
+};
+/*
+
+template<>
+AST::Expr * AST::StringConstant::Create(const std::string & str)
+{
+  return new StringConstant(str.c_str());
+}
+
+template<>
+int AST::StringConstant::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+template<>
+int AST::StringConstant::Print(CodeGenerator & gen) const
+{ return gen.Print(*this); }
+*/
+
+/////////////////////////////////////////
+
 
 ////////////////////////////////////////////////////////////////////////////
 

@@ -26,14 +26,15 @@ class CodeGenerator
     virtual int Generate(const AST::Int32Constant & expr) { }
     virtual int Generate(const AST::SingleConstant & expr) { }
     virtual int Generate(const AST::DoubleConstant & expr) { }
-    virtual int Generate(const AST::Assign & expr) { }
-    virtual int Generate(const AST::VarRef & expr) { }
-    virtual int Generate(const AST::Addition & expr) { }
+    virtual int Generate(const AST::NumericAssign & expr) { }
+    virtual int Generate(const AST::NumericVarRef & expr) { }
+    virtual int Generate(const AST::NumericAddition & expr) { }
     virtual int Generate(const AST::Subtraction & expr) { };
     virtual int Generate(const AST::Multiplication & expr) { };
     virtual int Generate(const AST::Division & expr) { };
     virtual int Generate(const AST::Negation & expr) { };
     virtual int Generate(const AST::Power & expr) { };
+    virtual int Generate(const AST::NumericCast & expr) { };
 
     virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }
@@ -43,7 +44,7 @@ class CodeGenerator
     virtual int Print(const AST::DoubleConstant & expr) { }
     virtual int Print(const AST::PrintComma & expr) { }
     virtual int Print(const AST::PrintSemiColon & expr) { }
-    virtual int Print(const AST::VarRef & expr) {  }
+    virtual int Print(const AST::NumericVarRef & expr) {  }
 
     std::string m_inputFilename;
     std::ostream * m_outputStream;
