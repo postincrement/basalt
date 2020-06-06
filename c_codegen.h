@@ -30,6 +30,8 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::Negation & expr) override;
     virtual int Generate(const AST::Power & expr) override;
     virtual int Generate(const AST::NumericCast & expr) override;
+    virtual int Generate(const AST::StringAssign & expr) override;
+    virtual int Generate(const AST::StringVarRef & expr) override;
 
     virtual int Print(const AST::Node & node) override;
     virtual int Print(const AST::StringConstant & expr) override;
@@ -40,6 +42,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Print(const AST::PrintComma & expr) override;
     virtual int Print(const AST::PrintSemiColon & expr) override;
     virtual int Print(const AST::NumericVarRef & expr) override;
+    virtual int Print(const AST::StringVarRef & expr) override;
 
     std::stringstream m_body;
 
@@ -49,7 +52,7 @@ class C_CodeGenerator : public CodeGenerator
     };
 
     bool LookupGlobalVar(
-      const AST::NumericVarRef & var, 
+      const std::string & varName, 
       C_CodeGenerator::CVarDef & cvar
     );
 

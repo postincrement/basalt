@@ -14,7 +14,14 @@ using namespace std;
 
 #define YYDEBUG 1
 
+static unsigned g_lineNumber = 1;
+
 extern void MBASIC_SetRemMode();
+
+void MBASIC_error(const char * msg)
+{
+  g_application.OnError(g_lineNumber, msg);
+}
 
 static AST::NumericExpr * CreateConstant(VarType type, const std::string & val)
 {
@@ -160,7 +167,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %token <sfloat> SINGLE
 
 // rules
-%type <sourceLine>    line 
+//%type <sourceLine>    line 
 %type <statementList> opt_statement_list statement_list
  
 %type <statement>    statement
@@ -204,17 +211,23 @@ line:     opt_line_number
                   basicLineNumber = *$1;
                 }
                 $<sourceLine>$ = new AST::SourceLine(
-                      g_lineNumber,
+                      g_lexLineNumber,
                       basicLineNumber, 
                       g_application.GetCurrentLine()
                       );
+                g_lineNumber = g_lexLineNumber;     
               }
-          opt_statement_list eol
+          opt_statement_list 
             {
-              $$ = $<sourceLine>2;
-              $$->m_statements.reset($3);
-              AST::g_program.Append($$);
+              AST::SourceLine * line = $<sourceLine>2;
+              if ($3 != nullptr)
+                line->m_statements.reset($3);
+              AST::g_program.Append(line);
+              cerr << "line " 
+                   << line->GetSourceLineNumber()
+                   << ": " << line->GetLine() << "\n";      
             }
+          eol
           ;
 
 opt_line_number: /* empty */
@@ -577,6 +590,10 @@ print_expression_list: /* empty */
                        ;
 
 print_expression:      expression
+                          {
+                            $$ = $1;
+                          }
+                       | string_expression   
                           {
                             $$ = $1;
                           }

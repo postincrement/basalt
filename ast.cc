@@ -25,7 +25,7 @@ int AST::Node::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 SourceLine::SourceLine(
-                      int lineNumber,
+                      unsigned lineNumber,
       const std::string & basicLineNumber,
       const std::string & line)
   : m_sourceLineNumber(lineNumber)
@@ -114,6 +114,14 @@ int StringVarRef::Print(CodeGenerator & gen) const
 {
   return gen.Print(*this);
 }
+
+/////////////////////////////////////////
+
+int StringConstant::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+int StringConstant::Print(CodeGenerator & gen) const
+{ return gen.Print(*this); }
 
 /////////////////////////////////////////
 

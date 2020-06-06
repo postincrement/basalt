@@ -219,6 +219,43 @@ int C_CodeGenerator::Generate(const AST::Print & expr)
 
 ////////////////////////////////////////////////////////////////
 
+int C_CodeGenerator::Generate(const AST::StringAssign & expr)
+{
+  Closure & us = Top();
+
+  C_CodeGenerator::CVarDef cvar;
+  if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
+    return -1;
+
+  if (expr.m_rhs == nullptr) {
+    us.Output() << "#warning \"missing rhs\"\n";
+    return -1;
+  }
+
+  PushClosure();
+  expr.m_rhs->Generate(*this);
+  us.Output() << "  " << cvar.m_cname << " = " << TopOutput().str() << ";" << endl;
+  PopClosure();
+
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::StringVarRef & expr)
+{}
+
+int C_CodeGenerator::Print(const AST::StringVarRef & expr)
+{
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    return -1;
+  }
+  CVarDef & cvar = m_globalVars[expr.GetName()];
+  TopOutput() << "  basalt_print_string(" <<  cvar.m_cname << ");\n";  
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
 int C_CodeGenerator::Generate(const AST::StringConstant & expr)
 {
   TopOutput() << "strdup(\"" << expr.GetValue() << "\")";
@@ -302,14 +339,13 @@ int C_CodeGenerator::Print(const AST::PrintSemiColon & expr)
 
 ////////////////////////////////////////////////////////////////
 
-bool C_CodeGenerator::LookupGlobalVar(const AST::NumericVarRef & var, 
-                                C_CodeGenerator::CVarDef & cvar)
+bool C_CodeGenerator::LookupGlobalVar(const std::string & varName, 
+                                      C_CodeGenerator::CVarDef & cvar)
 {
-  std::string name = var.GetName();
-  if (m_globalVars.count(name) == 0)
+  if (m_globalVars.count(varName) == 0)
     return false;
 
-  cvar = m_globalVars[name];
+  cvar = m_globalVars[varName];
   return true;
 }
 
@@ -320,7 +356,7 @@ int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
   Closure & us = Top();
 
   C_CodeGenerator::CVarDef cvar;
-  if (!LookupGlobalVar(*expr.m_lhs, cvar))
+  if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
     return -1;
 
   if (expr.m_rhs == nullptr) {

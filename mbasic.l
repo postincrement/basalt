@@ -9,14 +9,6 @@
 
 #define   YY_INPUT(buf,result,max_size)   MBASIC_yyinput(buf, &result, max_size)
 
-/*
-[_a-zA-Z0-9]+ {
-		  MBASIC_lval.sval = new std::string(yytext);
-		  return IDENTIFIER;
-		}
-*/    
-
-
 %}
 
 %option noyywrap
@@ -242,8 +234,8 @@
 
 [ \t]*  	{}
 
-[\n]	 	{
-			  g_lineNumber++;
+[\n]	{
+			  g_lexLineNumber++;
 			  return EOL_TOKEN;
 			}
 
@@ -289,7 +281,6 @@
 		}
 
 %%
-
 
 void MBASIC_SetRemMode()
 {

@@ -399,28 +399,13 @@ class StringConstant : public StringExpr
     std::string GetValue() const
     { return m_value; } 
 
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    virtual int Print(CodeGenerator & gen) const override;
+
   protected:   
     std::string m_value;  
 };
-/*
-
-template<>
-AST::Expr * AST::StringConstant::Create(const std::string & str)
-{
-  return new StringConstant(str.c_str());
-}
-
-template<>
-int AST::StringConstant::Generate(CodeGenerator & gen) const
-{ return gen.Generate(*this); }
-
-template<>
-int AST::StringConstant::Print(CodeGenerator & gen) const
-{ return gen.Print(*this); }
-*/
-
-/////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -430,13 +415,13 @@ using StatementList = NodeList<Statement>;
 class SourceLine : public Node
 {
   public:
-    SourceLine(int sourceLineNumber, 
+    SourceLine(unsigned sourceLineNumber, 
               const std::string & m_basicLineNumber,
               const std::string & line);
 
     virtual int Generate(CodeGenerator & gen) const override;
 
-    int GetSourceLineNumber() const
+    unsigned GetSourceLineNumber() const
     { return m_sourceLineNumber; }
 
     std::string GetBasicLineNumber() const
@@ -448,7 +433,7 @@ class SourceLine : public Node
     std::unique_ptr<StatementList> m_statements;
 
   protected:
-    int m_sourceLineNumber = 0;
+    unsigned m_sourceLineNumber = 0;
     std::string m_basicLineNumber;
     std::string m_line;  
 };

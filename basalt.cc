@@ -10,7 +10,7 @@ using namespace std;
 
 #include "c_codegen.h"
 
-int g_lineNumber   = 1;
+int g_lexLineNumber   = 1;
 int g_errorCount   = 0;
 int g_warningCount = 0;
 
@@ -442,22 +442,24 @@ char Basalt::ReadNextChar()
   return m_line[m_lineOffs++];
 }
 
-void Basalt::OnError(const std::string & msg)
+void Basalt::OnError(unsigned lineNumber, const std::string & msg)
 {
   g_errorCount++;
-  DisplayError(msg, "error");
+  DisplayError(lineNumber, msg, "error");
 }
 
-void Basalt::OnWarning(const std::string & msg)
+void Basalt::OnWarning(unsigned lineNumber, const std::string & msg)
 {
   g_warningCount++;
-  DisplayError(msg, "error");
+  DisplayError(lineNumber, msg, "error");
 }
 
-void Basalt::DisplayError(const std::string & msg, const std::string & type)
+void Basalt::DisplayError(unsigned lineNumber, const std::string & msg, const std::string & type)
 {
   size_t p = std::min(m_lineOffs, m_line.length());
-  cout << m_printableInputFilename << ":" << g_lineNumber << ":" << p << ": " << type << " - " << msg << endl;
+  cout << m_printableInputFilename << ":" << lineNumber << ":" << p << ": " << type << " - " << msg << "\n"
+       << m_line << "\n";
+
   size_t i;
   for (i = 0; i < p; i++)
     cout << " ";
@@ -476,12 +478,6 @@ void MBASIC_yyinput(char * buf, int * result, int maxSize)
     *result = 1;
   }
 }
-
-void MBASIC_error(const char * msg)
-{
-  g_application.OnError(msg);
-}
-
 
 int main(int argc, char const *argv[])
 {

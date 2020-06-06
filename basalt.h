@@ -30,9 +30,9 @@ class Basalt
     void DisplayHelp();
     char ReadNextChar();
 
-    void OnError(const std::string & msg);
-    void OnWarning(const std::string & msg);
-    void DisplayError(const std::string & msg, const std::string & type);
+    void OnError(unsigned lineNumber, const std::string & msg);
+    void OnWarning(unsigned lineNumber, const std::string & msg);
+    void DisplayError(unsigned lineNumber, const std::string & msg, const std::string & type);
 
     std::string GetCurrentLine() const { return m_line; }
 
@@ -54,8 +54,6 @@ class Basalt
 
 extern int MBASIC_lex();
 extern int MBASIC_parse();
-extern void MBASIC_error(const char * msg);
-//extern FILE * MBASIC_in;
 extern int MBASIC_debug;
 extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
 
@@ -110,7 +108,7 @@ extern void WarningFunc(WarningCode code, const std::string & str);
 do { std::stringstream strm; strm << expr; WarningFunc(code, strm.str()); } while (0)
 
 extern Basalt g_application;
-extern int g_lineNumber;
+extern int g_lexLineNumber;
 extern bool g_compileOnly;
 extern bool g_dump;
 extern bool g_enableDebugging;

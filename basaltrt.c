@@ -15,6 +15,8 @@ int basalt_init()
 
 int basalt_print_string(const char * str)
 {
+  if (str == NULL)
+    return 0;
   int len = strlen(str);
   write(STDOUT_FD, str, len);
   g_outputColumn += len;
