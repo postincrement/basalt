@@ -61,20 +61,18 @@ extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
 
 enum ErrorCode 
 {
-  eError_Unknown                 = 0x8000
+  eError_Unknown                 = 0x8000,
+  eError_GotoDestinationNotFound
 };
 
 extern void InternalErrorFunc(const char * fn, unsigned ln, const std::string & str);
 #define InternalError(expr) \
 do { std::stringstream strm; strm << expr; InternalErrorFunc(__FILE__, __LINE__, strm.str()); } while (0)
 
-extern void SourceErrorFunc(ErrorCode code, unsigned line, const std::string & marker, const std::string & str);
-#define SourceError(code, expr) \
+extern void SourceErrorFunc(ErrorCode code, unsigned line, const std::string & str);
+#define SourceError(code, line, expr) \
 do { std::stringstream strm; strm << expr; \
-     if (m_currentLineMarkerExpr == nullptr) \
-       SourceErrorFunc(code, 0, "unknown", strm.str()); \
-     else \
-       SourceErrorFunc(code, m_currentLineMarkerExpr->m_lineNumber, m_currentLineMarkerExpr->m_marker, strm.str()); \
+       SourceErrorFunc(code, line, strm.str()); \
     } while (0)
 
 extern void ErrorFunc(ErrorCode code, const std::string & str);

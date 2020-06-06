@@ -9,6 +9,8 @@ using namespace AST;
 
 AST::Program AST::g_program;
 AST::VarList AST::g_globalVars;
+AST::LineNumberInfo AST::g_lineNumberInfo;
+AST::GotoList AST::g_gotoInfo;
 
 /////////////////////////////////////////
 
@@ -406,3 +408,7 @@ template<>
 int AST::DoubleConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
+/////////////////////////////////////////
+
+int AST::Goto::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }

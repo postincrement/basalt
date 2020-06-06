@@ -209,6 +209,7 @@ line:     opt_line_number
                 std::string basicLineNumber;
                 if ($1 != nullptr) {
                   basicLineNumber = *$1;
+                  AST::g_lineNumberInfo[basicLineNumber] = g_lexLineNumber;
                 }
                 $<sourceLine>$ = new AST::SourceLine(
                       g_lexLineNumber,
@@ -223,9 +224,9 @@ line:     opt_line_number
               if ($3 != nullptr)
                 line->m_statements.reset($3);
               AST::g_program.Append(line);
-              cerr << "line " 
+              /*cerr << "line " 
                    << line->GetSourceLineNumber()
-                   << ": " << line->GetLine() << "\n";      
+                   << ": " << line->GetLine() << "\n";*/      
             }
           eol
           ;
@@ -461,6 +462,11 @@ RETURN_statement:  RETURN_TOKEN
               
 GOTO_statement: GOTO_TOKEN line_number
                   {
+                    auto & info = AST::g_gotoInfo[*$2];
+                    info.m_count++;
+                    info.m_usedLine.insert(g_lineNumber);
+                    $$ = new AST::Goto(*$2);
+                    delete $2;
                   }
                 ;
 

@@ -8,7 +8,7 @@
 #include <memory>
 #include <deque>
 #include <sstream>
-
+#include <set>
 #include <stdint.h>
 
 #include "common.h"
@@ -439,6 +439,35 @@ class SourceLine : public Node
 };
 
 using Program = NodeList<SourceLine>;
+
+typedef std::map<std::string, unsigned> LineNumberInfo; 
+extern LineNumberInfo g_lineNumberInfo;
+
+////////////////////////////////////////////////////////////////////////////
+
+struct GotoInfo {
+  unsigned m_count = 0;
+  std::set<unsigned> m_usedLine;
+};
+
+typedef std::map<std::string, GotoInfo> GotoList;
+extern GotoList g_gotoInfo;
+
+class Goto : public Statement
+{
+  public:
+    Goto(const std::string & ref)
+      : m_ref(ref)
+    {}
+
+    std::string GetRef() const
+    { return m_ref; } 
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    std::string m_ref;  
+};
 
 extern Program g_program;
 

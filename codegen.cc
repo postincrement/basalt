@@ -57,10 +57,20 @@ bool CodeGenerator::Run()
 
 bool CodeGenerator::CheckVars()
 {
+  // check global vars
   for (auto & r : AST::g_globalVars) {
     AST::VarInfo & info = r.second;
     if ((info.m_lhsLine != 0) && (info.m_rhsLine == 0)) {
       SourceWarning(eWarning_VarDefinedButNotUsed, info.m_lhsLine, r.first);
+    }
+  }
+
+  // check gotos
+  for (auto & r : AST::g_gotoInfo) {
+    const std::string & lineNumber = r.first;
+    if (AST::g_lineNumberInfo.count(lineNumber) == 0) {
+      unsigned line = *r.second.m_usedLine.begin();
+      SourceError(eError_GotoDestinationNotFound, line, lineNumber);
     }
   }
 
@@ -184,6 +194,10 @@ int C_CodeGenerator::Generate(const AST::SourceLine & line)
         << "#line " << line.GetSourceLineNumber() 
         << " \"" << m_inputFilename << "\"\n"
         << "  /* " << line.GetLine() << " */\n";
+  if (AST::g_lineNumberInfo.count(line.GetBasicLineNumber()) > 0) {
+    TopOutput() << "  line_" << line.GetBasicLineNumber() << ":\n";
+  }
+
   if (line.m_statements)       
     line.m_statements->Generate(*this);      
   return 0;
@@ -481,5 +495,13 @@ int C_CodeGenerator::Print(const AST::NumericVarRef & expr)
   CVarDef & cvar = m_globalVars[expr.GetName()];
   std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
   TopOutput() << "  " << funcName << "(" << cvar.m_cname << ");\n";  
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::Goto & expr)
+{
+  TopOutput() << "  goto line_" << expr.GetRef() << ";\n";  
   return 0;
 }

@@ -66,6 +66,14 @@ void SourceWarningFunc(WarningCode code, unsigned line, const std::string & str)
   cerr << strm.str();
 }
 
+void SourceErrorFunc(ErrorCode code, unsigned line, const std::string & str)
+{
+  std::stringstream strm;
+  strm << "line " << line << ": error " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
+  cerr << strm.str();
+}
+
+
 void WarningFunc(WarningCode code, const std::string & str)
 {
   std::stringstream strm;
