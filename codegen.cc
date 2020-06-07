@@ -139,6 +139,7 @@ bool C_CodeGenerator::Body()
            << "/* Generator by basalt */\n"
            << "#include <stdlib.h>\n"
            << "#include <stdint.h>\n"
+           << "#include <math.h>\n"
            << "#include <string.h>\n"
            << "\n"
            << "extern int basalt_init();\n"
@@ -149,6 +150,8 @@ bool C_CodeGenerator::Body()
            << "extern int basalt_print_int32(int);\n"
            << "extern int basalt_print_single(float);\n"
            << "extern int basalt_print_double(double);\n"
+           << "extern int basalt_strlen(const char *);\n"
+           << "extern char * basalt_strdup(const char *);\n"
            << "\n"
            ;
 
@@ -189,11 +192,13 @@ int C_CodeGenerator::Print(const AST::Node & expr)
 
 int C_CodeGenerator::Generate(const AST::SourceLine & line)
 {
-  TopOutput()  
-        << "\n"
-        << "#line " << line.GetSourceLineNumber() 
-        << " \"" << m_inputFilename << "\"\n"
-        << "  /* " << line.GetLine() << " */\n";
+  if (!g_disableLineNumbers) {
+    TopOutput()  
+          << "\n"
+          << "#line " << line.GetSourceLineNumber() 
+          << " \"" << m_inputFilename << "\"\n";
+    }
+  TopOutput() << "  /* " << line.GetLine() << " */\n";
   if (AST::g_lineNumberInfo.count(line.GetBasicLineNumber()) > 0) {
     TopOutput() << "  line_" << line.GetBasicLineNumber() << ":\n";
   }
@@ -242,20 +247,34 @@ int C_CodeGenerator::Generate(const AST::StringAssign & expr)
     return -1;
 
   if (expr.m_rhs == nullptr) {
-    us.Output() << "#warning \"missing rhs\"\n";
+    if (!g_disableWarnings)
+      us.Output() << "#warning \"missing rhs\"\n";
     return -1;
   }
 
   PushClosure();
   expr.m_rhs->Generate(*this);
-  us.Output() << "  " << cvar.m_cname << " = " << TopOutput().str() << ";" << endl;
+  us.Output() << "  " << cvar.m_cname << " = ";
+  if (expr.m_rhs->IsConstant()) 
+    us.Output() << TopOutput().str();
+  else
+    us.Output() << "basalt_strdup(" << TopOutput().str() << ")";
+  us.Output() << ";" << endl;
   PopClosure();
 
   return 0;
 }
 
 int C_CodeGenerator::Generate(const AST::StringVarRef & expr)
-{}
+{
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    return -1;
+  }
+  CVarDef & cvar = m_globalVars[expr.GetName()];
+  TopOutput() << cvar.m_cname;  
+  return 0;  
+}
 
 int C_CodeGenerator::Print(const AST::StringVarRef & expr)
 {
@@ -374,7 +393,8 @@ int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
     return -1;
 
   if (expr.m_rhs == nullptr) {
-    us.Output() << "#warning \"missing rhs\"\n";
+    if (!g_disableWarnings)
+      us.Output() << "#warning \"missing rhs\"\n";
     return -1;
   }
 
@@ -390,6 +410,8 @@ int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
 
 int C_CodeGenerator::NumericBinaryOperator(const std::string & op, const AST::NumericBinaryOperation & expr)
 {
+  if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
+    return -1;
   PushClosure();
   expr.m_lhs->Generate(*this);
   std::string lhs = TopOutput().str();
@@ -505,3 +527,60 @@ int C_CodeGenerator::Generate(const AST::Goto & expr)
   TopOutput() << "  goto line_" << expr.GetRef() << ";\n";  
   return 0;
 }
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::IntFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+    
+  PushClosure();
+  expr.GetArg1()->Generate(*this);
+  std::string str = TopOutput().str();
+  PopClosure();
+  TopOutput() << "(int)(" << str << ")";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::SqrFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+    
+  PushClosure();
+  expr.GetArg1()->Generate(*this);
+  std::string str = TopOutput().str();
+  PopClosure();
+  TopOutput() << "sqrt(" << str << ")";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::LenFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+
+  PushClosure();
+  expr.GetArg1()->Generate(*this);
+  std::string str = TopOutput().str();
+  PopClosure();
+  TopOutput() << "basalt_strlen(" << str << ")";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::TabFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+    
+  TopOutput() << "   ";
+  return 0;
+}
+

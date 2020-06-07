@@ -100,6 +100,8 @@ class StringExpr : public Expr
     StringExpr()
       : Expr(VarType::eString)
     {}
+
+
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -143,11 +145,10 @@ class String : public StringExpr
 
 ////////////////////////////////////////////////////////////////////////////
 
-template <class Type>
-class VarRef : public Type
+class NumericVarRef : public NumericExpr
 {
   public:
-    VarRef(VarType type, const std::string & m_id);
+    NumericVarRef(VarType type, const std::string & m_id);
     virtual int Generate(CodeGenerator & gen) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
@@ -166,8 +167,27 @@ class VarRef : public Type
     std::string m_originalName;
 };
 
-using NumericVarRef = VarRef<NumericExpr>;
-using StringVarRef = VarRef<StringExpr>;
+class StringVarRef : public StringExpr
+{
+  public:
+    StringVarRef(const std::string & m_id);
+    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Print(CodeGenerator & gen) const override;
+
+    std::string GetName() const
+    {
+      return m_name;
+    }
+
+    std::string GetOriginalName() const
+    {
+      return m_originalName;
+    }
+
+  protected:
+    std::string m_name;
+    std::string m_originalName;
+};
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -396,6 +416,9 @@ class StringConstant : public StringExpr
       : m_value(str)
       {}
 
+    virtual bool IsConstant() const
+    { return true; }
+
     std::string GetValue() const
     { return m_value; } 
 
@@ -468,6 +491,77 @@ class Goto : public Statement
   protected:
     std::string m_ref;  
 };
+
+////////////////////////////////////////////////////////////////////////////
+
+class IntFunction : public NumericExpr
+{
+  public:
+    IntFunction(const NumericExpr * arg1)
+      : m_arg1(arg1)
+    {}
+
+    const NumericExpr * GetArg1() const
+    { return m_arg1; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const NumericExpr * m_arg1;
+};
+
+class SqrFunction : public NumericExpr
+{
+  public:
+    SqrFunction(const NumericExpr * arg1)
+      : m_arg1(arg1)
+    {}
+
+    const NumericExpr * GetArg1() const
+    { return m_arg1; }
+
+   virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const NumericExpr * m_arg1;
+};
+
+class LenFunction : public NumericExpr
+{
+  public:
+    LenFunction(const StringExpr * arg1)
+      : m_arg1(arg1)
+    {}
+
+    const StringExpr * GetArg1() const
+    { return m_arg1; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const StringExpr * m_arg1;
+};
+
+
+////////////////////////////////////////////////////////////////////////////
+
+class TabFunction : public StringExpr
+{
+  public:
+    TabFunction(const NumericExpr * arg1)
+      : m_arg1(arg1)
+    {}
+
+    const NumericExpr * GetArg1() const
+    { return m_arg1; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const NumericExpr * m_arg1;
+};
+
+////////////////////////////////////////////////////////////////////////////
 
 extern Program g_program;
 

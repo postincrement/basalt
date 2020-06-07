@@ -125,7 +125,8 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 // functions
 %token CHR_TOKEN
 %token INT_TOKEN
-%token LEFT_TOKEN 
+%token LEFT_TOKEN
+%token LEN_TOKEN 
 %token MID_TOKEN
 %token RIGHT_TOKEN
 %token SQR_TOKEN
@@ -143,6 +144,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %token GOSUB_TOKEN
 %token GOTO_TOKEN
 %token INPUT_TOKEN
+%token LINE_TOKEN
 %token LET_TOKEN
 %token NEXT_TOKEN
 %token OR_TOKEN
@@ -185,12 +187,12 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <numvarref>  numeric_var_ref numeric_var_name 
 %type <numexpr>    expression subexpression numeric_const_expr 
 %type <numexpr>    numeric_value array_or_func_arg 
-%type <numexpr>    AND_expression NOT_expression compare_expression ADD_expression
-%type <numexpr>    MULT_expression NEGATE_expression POWER_expression
+%type <numexpr>    AND_expression NOT_expression numeric_compare_expression ADD_expression
+%type <numexpr>    MULT_expression NEGATE_expression POWER_expression string_compare_expression 
 
 %type <strvarref>  string_var_ref string_var_name
 %type <strexpr>    string_value string_expression string_const_expr 
-%type <strexpr>    string_ADD_expression string_subexpression 
+%type <strexpr>    string_subexpression 
 
 %%
 
@@ -252,6 +254,10 @@ integer:    INTEGER
               {
                 $$ = $1;
               }
+            | DEF_NUMERIC
+              {
+                $$ = 0;
+              }  
             ;                 
 
 opt_statement_list : /* empty */
@@ -315,6 +321,10 @@ statement:     CLEAR_statement
                | LET_statement
                   {
                     $$ = $1;
+                  }
+               | LINE_statement
+                  {
+                    $$ = nullptr;
                   }
                | NEXT_statement
                   {
@@ -398,15 +408,18 @@ def_arg_list: IDENTIFIER
 DIM_statement:  DIM_TOKEN dim_var_list
                   {
                     $$ = new AST::Statement();
-                    $$->Append($2);
+                    if ($2 != nullptr)
+                      $$->Append($2);
                   }
                 ;
 
 dim_var_list: numeric_var_ref
                 {
+                  $$ = nullptr;
                 }
               | dim_var_list ',' numeric_var_ref 
                 {
+                  $$ = nullptr;
                 }
               ;
 
@@ -476,8 +489,12 @@ GOTO_statement: GOTO_TOKEN line_number
 
  *********************************************************/ 
 
-IF_statement: IF_TOKEN expression THEN_TOKEN conditional_clause opt_ELSE_statement
+IF_statement: IF_TOKEN if_expression THEN_TOKEN conditional_clause opt_ELSE_statement
               ;
+
+if_expression:  expression 
+                | string_compare_expression 
+                ;              
 
 opt_ELSE_statement:   /* empty */
                       | ELSE_statement
@@ -496,6 +513,9 @@ conditional_clause:   line_number
 
  *********************************************************/ 
 
+ LINE_statement:  LINE_TOKEN INPUT_statement;
+                  ;
+
  INPUT_statement: INPUT_TOKEN QUOTED_STRING ';' input_var_list
                   | INPUT_TOKEN input_var_list
                   ;
@@ -505,6 +525,7 @@ conditional_clause:   line_number
                   ;
 
  input_var:       numeric_var_ref
+                  | string_var_ref
                   ;       
 
 /********************************************************* 
@@ -579,7 +600,7 @@ print_keyword:   PRINT_TOKEN
                  ;
 
 opt_USING:      /* empty */
-                | USING_TOKEN expression ';'
+                | USING_TOKEN string_expression ';'
                 ;                       
 
 print_expression_list: /* empty */
@@ -657,6 +678,8 @@ STOP_statement: STOP_TOKEN
  *********************************************************/ 
 
 SYSTEM_statement: SYSTEM_TOKEN
+                  {
+                  }
                 ;
 
 /********************************************************* 
@@ -667,8 +690,9 @@ SYSTEM_statement: SYSTEM_TOKEN
 
 WIDTH_statement: WIDTH_TOKEN integer
                   {
+                    $$ = nullptr;
                   }
-               ;
+                  ;
 
 /********************************************************* 
 
@@ -696,37 +720,41 @@ AND_expression: NOT_expression AND_TOKEN AND_expression
                   }
                 ;
 
-NOT_expression: '-' compare_expression
+NOT_expression: '-' numeric_compare_expression
                   {
                     $$ = nullptr;
                   }
-                | compare_expression
+                | numeric_compare_expression
                   {
                     $$ = $1;
                   }
+                | string_compare_expression  
+                  {
+                    $$ = nullptr;
+                  }
                 ;
 
-compare_expression: ADD_expression '=' compare_expression
+numeric_compare_expression: ADD_expression '=' numeric_compare_expression
                       {
                         $$ = nullptr;
                       }
-                    | ADD_expression NOT_EQUAL compare_expression
+                    | ADD_expression NOT_EQUAL numeric_compare_expression
                       {
                         $$ = nullptr;
                       }
-                    | ADD_expression '>' compare_expression
+                    | ADD_expression '>' numeric_compare_expression
                       {
                         $$ = nullptr;
                       }
-                    | ADD_expression GREATERTHANEQUAL compare_expression
+                    | ADD_expression GREATERTHANEQUAL numeric_compare_expression
                       {
                         $$ = nullptr;
                       }
-                    | ADD_expression '<' compare_expression
+                    | ADD_expression '<' numeric_compare_expression
                       {
                         $$ = nullptr;
                       }
-                    | ADD_expression LESSTHANEQUAL compare_expression
+                    | ADD_expression LESSTHANEQUAL numeric_compare_expression
                       {
                         $$ = nullptr;
                       }
@@ -809,15 +837,15 @@ numeric_value:  numeric_var_ref
                   }
                 | INT_TOKEN '(' expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::IntFunction($3);
                   }
                 | SQR_TOKEN '(' expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::SqrFunction($3);
                   }
-                | TAB_TOKEN '(' expression ')'  
+                | LEN_TOKEN '(' string_expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::LenFunction($3);
                   }
                 | numeric_const_expr
                   {
@@ -831,23 +859,17 @@ numeric_value:  numeric_var_ref
 
  *********************************************************/ 
 
-string_expression: string_value
-                      {
-                        $$ = $1;
-                      }
-                    ;
-
-string_expression: string_ADD_expression '=' string_expression
+string_compare_expression: string_expression '=' string_expression
                       {
                         $$ = nullptr;
                       }
-                    | string_ADD_expression NOT_EQUAL string_expression
+                    | string_expression NOT_EQUAL string_expression
                       {
                         $$ = nullptr;
                       }
                     ;  
                       
-string_ADD_expression: string_subexpression '+' string_ADD_expression
+string_expression: string_subexpression '+' string_expression
                         { 
                           $$ = nullptr;
                         }
@@ -855,7 +877,7 @@ string_ADD_expression: string_subexpression '+' string_ADD_expression
                         { 
                           $$ = $1;
                         }
-                        ;
+                      ;
 
 string_subexpression: '(' string_expression ')'
                   {
@@ -871,7 +893,6 @@ string_value:   string_var_ref
                   {
                     $$ = $1;
                   }
-
                 | CHR_TOKEN '(' expression ')'  
                   {
                     $$ = nullptr;
@@ -892,6 +913,10 @@ string_value:   string_var_ref
                   {
                     $$ = nullptr;
                   }                  
+                | TAB_TOKEN '(' expression ')'  
+                  {
+                    $$ = new AST::TabFunction($3);
+                  }
                 | string_const_expr
                   {
                     $$ = $1;
@@ -946,7 +971,7 @@ string_var_ref : string_var_name
 
 string_var_name: STRING_VARNAME
             {
-              $$ = new AST::StringVarRef(VarType::eString, *$1);
+              $$ = new AST::StringVarRef(*$1);
               delete $1;
             }
             ;

@@ -28,3 +28,13 @@
 103 p = m4 / 9  : print "p "; p
 104 q = -m      : print "q" ; q
 110 z = m * 4 + n + o / p * m : print "z " z
+
+200 goto 205
+201 goto 210
+205 goto 201
+210 print "made it!"
+
+300 r$ = a$
+301 r = len(a$)
+
+400 s = sqr(300)

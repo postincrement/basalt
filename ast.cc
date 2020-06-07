@@ -100,18 +100,34 @@ bool StringAssign::Validate()
 
 /////////////////////////////////////////
 
-template <>
-StringVarRef::VarRef(VarType type, const std::string & varName)
+StringVarRef::StringVarRef(const std::string & varName)
 {
+  m_originalName = varName;
+
+  // extract suffix, if any
+  int len = varName.length();
+  std::string name = varName;
+
+  if (len < 2) {
+    cerr << "error: bad string name " << endl;
+  }
+  else {
+    char last = varName[len-1];
+    if (last != BASIC_STRING_SUFFIX[0]) {
+      cerr << "error: string has bad suffix" << endl;
+    }
+    name = name.substr(0, len-1);
+  }
+
+  int varNameLen = g_languageProfile->GetVarNameLen();
+  m_name = name.substr(0, varNameLen) + BASIC_STRING_SUFFIX;
 }
 
-template <>
 int StringVarRef::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-template <>
 int StringVarRef::Print(CodeGenerator & gen) const
 {
   return gen.Print(*this);
@@ -140,6 +156,9 @@ int NumericAssign::Generate(CodeGenerator & gen) const
 
 bool NumericAssign::Validate()
 {
+  if ((m_lhs == nullptr) || (m_rhs == nullptr))
+    return false;
+
   VarType ltype = m_lhs->GetType();
   VarType rtype = m_rhs->GetType();
 
@@ -149,8 +168,6 @@ bool NumericAssign::Validate()
     m_type = ltype;
     return true;
   }
-
-  cerr << "assign cast required" << endl;
 
   if (ltype == VarType::eString) {
     msg = "error: rhs must be string type";
@@ -193,6 +210,9 @@ bool NumericAssign::Validate()
 
 bool NumericBinaryOperation::Validate()
 {
+  if ((m_lhs == nullptr) || (m_rhs == nullptr))
+    return false;
+
   VarType ltype = m_lhs->GetType();
   VarType rtype = m_rhs->GetType();
 
@@ -222,19 +242,9 @@ bool NumericBinaryOperation::Validate()
   }
 
   if (ltype != etype) {
-    cerr << "binary cast required from " 
-         << (int)etype
-         << " to l "
-         << (int)ltype
-         << endl;
     m_lhs = new AST::NumericCast(etype, m_lhs);
   }
   else if (rtype != etype) {
-    cerr << "binary cast required from " 
-         << (int)etype
-         << " to r "
-         << (int)rtype
-         << endl;
     m_rhs = new AST::NumericCast(etype, m_rhs);
   }
 
@@ -278,10 +288,29 @@ int NumericCast::Generate(CodeGenerator & gen) const
   return gen.Generate(*this);
 }
 
+int IntFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int SqrFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int LenFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int TabFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
 /////////////////////////////////////////
 
-template <>
-NumericVarRef::VarRef(VarType type, const std::string & varName)
+NumericVarRef::NumericVarRef(VarType type, const std::string & varName)
   : NumericExpr(type)
 {
   // extract suffix, if any
@@ -340,13 +369,11 @@ NumericVarRef::VarRef(VarType type, const std::string & varName)
   }
 }
 
-template <>
 int NumericVarRef::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
 
-template <>
 int NumericVarRef::Print(CodeGenerator & gen) const
 {
   return gen.Print(*this);

@@ -76,4 +76,16 @@ int basalt_print_newline()
   return 0;
 }
 
+int basalt_strlen(const char * str)
+{
+  if (str == NULL)
+    return 0;
+  return strlen(str);
+}
 
+char * basalt_strdup(const char * str)
+{
+  if (str == NULL)
+    return NULL;
+  return strdup(str);
+}

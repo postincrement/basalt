@@ -73,6 +73,14 @@
           return LEFT_TOKEN;
         }
  
+[Ll][Ee][Nn] {
+          return LEN_TOKEN;
+        }
+
+[Ll][Ii][Nn][Ee] {
+          return LINE_TOKEN;
+        }
+
 [Mm][Ii][Dd]"$"  {
 					return MID_TOKEN;
 				}

@@ -38,7 +38,11 @@ class CodeGenerator
     virtual int Generate(const AST::StringAssign & expr) { }
     virtual int Generate(const AST::StringVarRef & expr) { }
     virtual int Generate(const AST::Goto & expr) { }
-
+    virtual int Generate(const AST::IntFunction & expr) { }
+    virtual int Generate(const AST::SqrFunction & expr) { }
+    virtual int Generate(const AST::LenFunction & expr) { }
+    virtual int Generate(const AST::TabFunction & expr) { }
+    
     virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }
     virtual int Print(const AST::Int16Constant & expr) { }

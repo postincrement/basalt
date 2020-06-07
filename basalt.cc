@@ -26,6 +26,8 @@ std::string g_languageProfileName;
 bool g_dump = false;
 bool g_compileOnly = false;
 bool g_enableDebugging = false;
+bool g_disableWarnings = false;
+bool g_disableLineNumbers = false;
 
 ArgDef g_argDefs[] = {
   { 'c',   "",          "b",  &g_compileOnly,         "compile only" },
@@ -37,6 +39,8 @@ ArgDef g_argDefs[] = {
   { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
   { 'g',   "debug",     "b",  &g_enableDebugging,     "add debugging information to output file"},
   { 'h',   "help",      "",   &g_displayHelp,         "display help message"},
+  { 'W',   "warnings",  "b",  &g_disableWarnings,     "disable warnings"},
+  { 'L',   "linenum",   "b",  &g_disableLineNumbers,  "disable line numbers"},
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 
