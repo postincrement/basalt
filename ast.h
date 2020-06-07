@@ -29,6 +29,7 @@ class Node
     {}
 
     virtual int Generate(CodeGenerator & gen) const;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const;
     virtual int Print(CodeGenerator & gen) const;
 };
 
@@ -149,7 +150,7 @@ class NumericVarRef : public NumericExpr
 {
   public:
     NumericVarRef(VarType type, const std::string & m_id);
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
     std::string GetName() const
@@ -171,7 +172,7 @@ class StringVarRef : public StringExpr
 {
   public:
     StringVarRef(const std::string & m_id);
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
     std::string GetName() const
@@ -227,7 +228,7 @@ class NumericCast : public NumericExpr
       , m_from(expr)
     { }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
     const AST::NumericExpr * m_from;
 };
@@ -254,7 +255,7 @@ class NumericBinaryOperation : public NumericOperator
 
     virtual bool Validate();
 
-    virtual int Generate(CodeGenerator & gen) const = 0;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const = 0;
 
     const NumericExpr * m_lhs;
     const NumericExpr * m_rhs;
@@ -267,7 +268,7 @@ class NumericAddition : public NumericBinaryOperation
       : NumericBinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
 class Subtraction : public NumericBinaryOperation
@@ -277,7 +278,7 @@ class Subtraction : public NumericBinaryOperation
       : NumericBinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
 class Multiplication : public NumericBinaryOperation
@@ -287,7 +288,7 @@ class Multiplication : public NumericBinaryOperation
       : NumericBinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
 class Division : public NumericBinaryOperation
@@ -297,7 +298,7 @@ class Division : public NumericBinaryOperation
       : NumericBinaryOperation(lhs, rhs)
     { }  
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -310,7 +311,7 @@ class UnaryOperation : public NumericOperator
       , m_expr(expr)
     { }
 
-    virtual int Generate(CodeGenerator & gen) const = 0;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const = 0;
 
     const Expr * m_expr;
 };
@@ -322,7 +323,7 @@ class Negation : public UnaryOperation
       : UnaryOperation(expr)
     { }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
 class Power : public UnaryOperation
@@ -332,7 +333,7 @@ class Power : public UnaryOperation
       : UnaryOperation(expr)
     { }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -372,7 +373,7 @@ class ConstantType : public NumericConstant
 
     static AST::NumericExpr * Create(const std::string & str);
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
     virtual bool IsConstant() const
@@ -422,7 +423,7 @@ class StringConstant : public StringExpr
     std::string GetValue() const
     { return m_value; } 
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
     virtual int Print(CodeGenerator & gen) const override;
 
@@ -504,7 +505,7 @@ class IntFunction : public NumericExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -520,7 +521,7 @@ class SqrFunction : public NumericExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-   virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -536,7 +537,7 @@ class LenFunction : public NumericExpr
     const StringExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;
@@ -555,7 +556,7 @@ class TabFunction : public StringExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -571,7 +572,7 @@ class StrFunction : public StringExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -587,7 +588,7 @@ class ChrFunction : public StringExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -607,7 +608,7 @@ class LeftFunction : public StringExpr
     const NumericExpr * GetArg2() const
     { return m_arg2; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;
@@ -632,7 +633,7 @@ class MidFunction : public StringExpr
     const NumericExpr * GetArg3() const
     { return m_arg3; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;
@@ -654,7 +655,7 @@ class RightFunction : public StringExpr
     const NumericExpr * GetArg2() const
     { return m_arg2; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;

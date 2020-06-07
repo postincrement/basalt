@@ -24,6 +24,11 @@ int AST::Node::Print(CodeGenerator & gen) const
   return gen.Print(*this);
 }
 
+int AST::Node::Evaluate(CodeGenerator & gen, std::string & result) const
+{ 
+  return gen.Evaluate(*this, result);
+}
+
 /////////////////////////////////////////
 
 SourceLine::SourceLine(
@@ -123,9 +128,9 @@ StringVarRef::StringVarRef(const std::string & varName)
   m_name = name.substr(0, varNameLen) + BASIC_STRING_SUFFIX;
 }
 
-int StringVarRef::Generate(CodeGenerator & gen) const
+int StringVarRef::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
 int StringVarRef::Print(CodeGenerator & gen) const
@@ -135,8 +140,8 @@ int StringVarRef::Print(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-int StringConstant::Generate(CodeGenerator & gen) const
-{ return gen.Generate(*this); }
+int StringConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
 
 int StringConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
@@ -253,84 +258,84 @@ bool NumericBinaryOperation::Validate()
   return true;
 }
 
-int NumericAddition::Generate(CodeGenerator & gen) const
+int NumericAddition::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int Subtraction::Generate(CodeGenerator & gen) const
+int Subtraction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int Multiplication::Generate(CodeGenerator & gen) const
+int Multiplication::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int Division::Generate(CodeGenerator & gen) const
+int Division::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int Negation::Generate(CodeGenerator & gen) const
+int Negation::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int Power::Generate(CodeGenerator & gen) const
+int Power::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int NumericCast::Generate(CodeGenerator & gen) const
+int NumericCast::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int IntFunction::Generate(CodeGenerator & gen) const
+int IntFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int SqrFunction::Generate(CodeGenerator & gen) const
+int SqrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int LenFunction::Generate(CodeGenerator & gen) const
+int LenFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int TabFunction::Generate(CodeGenerator & gen) const
+int TabFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int LeftFunction::Generate(CodeGenerator & gen) const
+int LeftFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int MidFunction::Generate(CodeGenerator & gen) const
+int MidFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int RightFunction::Generate(CodeGenerator & gen) const
+int RightFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int ChrFunction::Generate(CodeGenerator & gen) const
+int ChrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
-int StrFunction::Generate(CodeGenerator & gen) const
+int StrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
 /////////////////////////////////////////
@@ -394,9 +399,9 @@ NumericVarRef::NumericVarRef(VarType type, const std::string & varName)
   }
 }
 
-int NumericVarRef::Generate(CodeGenerator & gen) const
+int NumericVarRef::Evaluate(CodeGenerator & gen, std::string & result) const
 {
-  return gen.Generate(*this);
+  return gen.Evaluate(*this, result);
 }
 
 int NumericVarRef::Print(CodeGenerator & gen) const
@@ -411,8 +416,8 @@ AST::NumericExpr * AST::Int16Constant::Create(const std::string & str)
 { return new Int16Constant(atoi(str.c_str())); }
 
 template<>
-int AST::Int16Constant::Generate(CodeGenerator & gen) const
-{ return gen.Generate(*this); }
+int AST::Int16Constant::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
 
 template<>
 int AST::Int16Constant::Print(CodeGenerator & gen) const
@@ -425,8 +430,8 @@ AST::NumericExpr * AST::Int32Constant::Create(const std::string & str)
 { return new Int32Constant(atoi(str.c_str())); }
 
 template<>
-int AST::Int32Constant::Generate(CodeGenerator & gen) const
-{ return gen.Generate(*this); }
+int AST::Int32Constant::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
 
 template<>
 int AST::Int32Constant::Print(CodeGenerator & gen) const
@@ -439,8 +444,8 @@ AST::NumericExpr * AST::SingleConstant::Create(const std::string & str)
 { return new SingleConstant(atof(str.c_str())); }
 
 template<>
-int AST::SingleConstant::Generate(CodeGenerator & gen) const
-{ return gen.Generate(*this); }
+int AST::SingleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
 
 template<>
 int AST::SingleConstant::Print(CodeGenerator & gen) const
@@ -453,8 +458,8 @@ AST::NumericExpr * AST::DoubleConstant::Create(const std::string & str)
 { return new DoubleConstant(atof(str.c_str())); }
 
 template<>
-int AST::DoubleConstant::Generate(CodeGenerator & gen) const
-{ return gen.Generate(*this); }
+int AST::DoubleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
 
 template<>
 int AST::DoubleConstant::Print(CodeGenerator & gen) const

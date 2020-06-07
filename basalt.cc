@@ -27,7 +27,7 @@ bool g_dump = false;
 bool g_compileOnly = false;
 bool g_enableDebugging = false;
 bool g_disableWarnings = false;
-bool g_disableLineNumbers = false;
+bool g_enableLineNumbers = false;
 
 ArgDef g_argDefs[] = {
   { 'c',   "",          "b",  &g_compileOnly,         "compile only" },
@@ -40,7 +40,7 @@ ArgDef g_argDefs[] = {
   { 'g',   "debug",     "b",  &g_enableDebugging,     "add debugging information to output file"},
   { 'h',   "help",      "",   &g_displayHelp,         "display help message"},
   { 'W',   "warnings",  "b",  &g_disableWarnings,     "disable warnings"},
-  { 'L',   "linenum",   "b",  &g_disableLineNumbers,  "disable line numbers"},
+  { 'L',   "linenum",   "b",  &g_enableLineNumbers,   "enable line numbers"},
   {  0,    NULL,        NULL, NULL,                    NULL }
 };
 

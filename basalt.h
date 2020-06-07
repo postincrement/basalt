@@ -111,6 +111,6 @@ extern bool g_compileOnly;
 extern bool g_dump;
 extern bool g_enableDebugging;
 extern bool g_disableWarnings;
-extern bool g_disableLineNumbers;
+extern bool g_enableLineNumbers;
 
 #endif // BASALT_H_

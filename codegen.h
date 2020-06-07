@@ -21,32 +21,34 @@ class CodeGenerator
     virtual int Generate(const AST::SourceLine & expr) { }
     virtual int Generate(const AST::Statement & statement) { }
     virtual int Generate(const AST::Print & expr) { }
-    virtual int Generate(const AST::StringConstant & expr) { }
-    virtual int Generate(const AST::Int16Constant & expr) { }
-    virtual int Generate(const AST::Int32Constant & expr) { }
-    virtual int Generate(const AST::SingleConstant & expr) { }
-    virtual int Generate(const AST::DoubleConstant & expr) { }
     virtual int Generate(const AST::NumericAssign & expr) { }
-    virtual int Generate(const AST::NumericVarRef & expr) { }
-    virtual int Generate(const AST::NumericAddition & expr) { }
-    virtual int Generate(const AST::Subtraction & expr) { }
-    virtual int Generate(const AST::Multiplication & expr) { }
-    virtual int Generate(const AST::Division & expr) { }
-    virtual int Generate(const AST::Negation & expr) { }
-    virtual int Generate(const AST::Power & expr) { }
-    virtual int Generate(const AST::NumericCast & expr) { }
     virtual int Generate(const AST::StringAssign & expr) { }
-    virtual int Generate(const AST::StringVarRef & expr) { }
     virtual int Generate(const AST::Goto & expr) { }
-    virtual int Generate(const AST::IntFunction & expr) { }
-    virtual int Generate(const AST::SqrFunction & expr) { }
-    virtual int Generate(const AST::LenFunction & expr) { }
-    virtual int Generate(const AST::TabFunction & expr) { }
-    virtual int Generate(const AST::LeftFunction & expr) { }
-    virtual int Generate(const AST::MidFunction & expr) { }
-    virtual int Generate(const AST::RightFunction & expr) { }
-    virtual int Generate(const AST::ChrFunction & expr) { }
-    virtual int Generate(const AST::StrFunction & expr) { }
+
+    virtual int Evaluate(const AST::Node & expr, std::string & result) { }
+    virtual int Evaluate(const AST::StringConstant & expr, std::string & result) { }
+    virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) { }
+    virtual int Evaluate(const AST::StrFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Int16Constant & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Int32Constant & expr, std::string & result) { }
+    virtual int Evaluate(const AST::SingleConstant & expr, std::string & result) { }
+    virtual int Evaluate(const AST::DoubleConstant & expr, std::string & result) { }
+    virtual int Evaluate(const AST::NumericVarRef & expr, std::string & result) { }
+    virtual int Evaluate(const AST::NumericAddition & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Subtraction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Multiplication & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Division & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Negation & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Power & expr, std::string & result) { }
+    virtual int Evaluate(const AST::NumericCast & expr, std::string & result) { }
+    virtual int Evaluate(const AST::IntFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::SqrFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::LenFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::TabFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::LeftFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::MidFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::RightFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) { }
 
     virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }

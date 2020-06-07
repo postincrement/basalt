@@ -25,7 +25,7 @@
 100 m = m + 1   : print "m "; m 
 101 n = m - 10  : print "n "; n
 102 o = m * 23  : print "o "; o
-103 p = m4 / 9  : print "p "; p
+103 p = o / 9  : print "p "; p
 104 q = -m      : print "q" ; q
 110 z = m * 4 + n + o / p * m : print "z " z
 
