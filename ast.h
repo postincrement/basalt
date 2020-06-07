@@ -499,7 +499,8 @@ class IntFunction : public NumericExpr
 {
   public:
     IntFunction(const NumericExpr * arg1)
-      : m_arg1(arg1)
+      : NumericExpr(g_languageProfile->GetIntegerType())
+      , m_arg1(arg1)
     {}
 
     const NumericExpr * GetArg1() const
@@ -515,8 +516,10 @@ class SqrFunction : public NumericExpr
 {
   public:
     SqrFunction(const NumericExpr * arg1)
-      : m_arg1(arg1)
-    {}
+      : NumericExpr(arg1->GetType())
+      , m_arg1(arg1)
+    {
+    }
 
     const NumericExpr * GetArg1() const
     { return m_arg1; }
@@ -531,7 +534,8 @@ class LenFunction : public NumericExpr
 {
   public:
     LenFunction(const StringExpr * arg1)
-      : m_arg1(arg1)
+      : NumericExpr(g_languageProfile->GetIntegerType())
+      , m_arg1(arg1)
     {}
 
     const StringExpr * GetArg1() const
@@ -550,7 +554,8 @@ class TabFunction : public StringExpr
 {
   public:
     TabFunction(const NumericExpr * arg1)
-      : m_arg1(arg1)
+      : StringExpr()
+      , m_arg1(arg1)
     {}
 
     const NumericExpr * GetArg1() const

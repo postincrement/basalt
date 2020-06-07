@@ -70,31 +70,28 @@ class C_CodeGenerator : public CodeGenerator
 
     class Closure {
       public:
-        Closure(bool open = false)
-          : m_open(open)
+        Closure(int indent)
+          : m_indent(indent)
         { 
-          if (m_open)
-            m_output << "{\n";
-        }
-
-        Closure(const Closure & obj)
-          : m_open(obj.m_open)
-        { 
-          if (m_open)
-            m_output << "{\n";
         }
 
         ~Closure()
         {
-          if (m_open)
-            m_output << "}\n";
         }
+
+        std::string Indent(int n = 0) const
+        {
+          return std::string(m_indent + n, ' ');
+        }
+
+        int GetIndent() const
+        { return m_indent; }
 
         std::stringstream & Output()
         { return m_output; }
 
       protected:
-        bool m_open = false;  
+        int m_indent;
         std::stringstream m_output;
     };
 
@@ -103,20 +100,35 @@ class C_CodeGenerator : public CodeGenerator
       return m_stack[m_stack.size()-1];      
     }
 
-    std::stringstream & TopOutput()
+    std::stringstream & TopOutput(bool indent = true)
     {
+      if (indent)
+        Top().Output() << Top().Indent();
       return Top().Output();
     }
 
-    void PushClosure(bool open = false)
+    void PushClosure()
     {
-      Closure closure(open);
-      m_stack.push_back(closure);
+      int indent = (m_stack.size() < 1) ? 2 : (Top().GetIndent()+2); 
+      m_stack.emplace_back(indent);
+      if (m_stack.size() > 1)
+        TopOutput(false) << Top().Indent(-2) << "{\n";
     }
 
-    void PopClosure()
+    std::string PopClosure()
     {
-      m_stack.pop_back();
+      std::string str;
+      if (m_stack.size() > 1) {
+        TopOutput(false) << Top().Indent(-2) << "}\n";
+      }
+      str = TopOutput(false).str();
+      if (m_stack.size() > 0) {
+        m_stack.pop_back();
+      }
+      if (m_stack.size() > 0) {
+        TopOutput(false) << str;
+      }
+      return str;  
     }
 
     std::deque<Closure> m_stack;
