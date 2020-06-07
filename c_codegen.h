@@ -37,6 +37,11 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::SqrFunction & expr) override;
     virtual int Generate(const AST::LenFunction & expr) override;
     virtual int Generate(const AST::TabFunction & expr) override;
+    virtual int Generate(const AST::LeftFunction & expr) override;
+    virtual int Generate(const AST::MidFunction & expr) override;
+    virtual int Generate(const AST::RightFunction & expr) override;
+    virtual int Generate(const AST::ChrFunction & expr) override;
+    virtual int Generate(const AST::StrFunction & expr) override;
 
     virtual int Print(const AST::Node & node) override;
     virtual int Print(const AST::StringConstant & expr) override;
@@ -63,10 +68,31 @@ class C_CodeGenerator : public CodeGenerator
 
     class Closure {
       public:
+        Closure(bool open = false)
+          : m_open(open)
+        { 
+          if (m_open)
+            m_output << "{\n";
+        }
+
+        Closure(const Closure & obj)
+          : m_open(obj.m_open)
+        { 
+          if (m_open)
+            m_output << "{\n";
+        }
+
+        ~Closure()
+        {
+          if (m_open)
+            m_output << "}\n";
+        }
+
         std::stringstream & Output()
         { return m_output; }
 
-      protected:  
+      protected:
+        bool m_open = false;  
         std::stringstream m_output;
     };
 
@@ -80,9 +106,10 @@ class C_CodeGenerator : public CodeGenerator
       return Top().Output();
     }
 
-    void PushClosure()
+    void PushClosure(bool open = false)
     {
-      m_stack.push_back(Closure());
+      Closure closure(open);
+      m_stack.push_back(closure);
     }
 
     void PopClosure()

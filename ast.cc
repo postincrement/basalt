@@ -308,6 +308,31 @@ int TabFunction::Generate(CodeGenerator & gen) const
   return gen.Generate(*this);
 }
 
+int LeftFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int MidFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int RightFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int ChrFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+int StrFunction::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
 /////////////////////////////////////////
 
 NumericVarRef::NumericVarRef(VarType type, const std::string & varName)

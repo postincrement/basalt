@@ -42,7 +42,12 @@ class CodeGenerator
     virtual int Generate(const AST::SqrFunction & expr) { }
     virtual int Generate(const AST::LenFunction & expr) { }
     virtual int Generate(const AST::TabFunction & expr) { }
-    
+    virtual int Generate(const AST::LeftFunction & expr) { }
+    virtual int Generate(const AST::MidFunction & expr) { }
+    virtual int Generate(const AST::RightFunction & expr) { }
+    virtual int Generate(const AST::ChrFunction & expr) { }
+    virtual int Generate(const AST::StrFunction & expr) { }
+
     virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }
     virtual int Print(const AST::Int16Constant & expr) { }

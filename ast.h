@@ -561,6 +561,106 @@ class TabFunction : public StringExpr
     const NumericExpr * m_arg1;
 };
 
+class StrFunction : public StringExpr
+{
+  public:
+    StrFunction(const NumericExpr * arg1)
+      : m_arg1(arg1)
+    {}
+
+    const NumericExpr * GetArg1() const
+    { return m_arg1; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const NumericExpr * m_arg1;
+};
+
+class ChrFunction : public StringExpr
+{
+  public:
+    ChrFunction(const NumericExpr * arg1)
+      : m_arg1(arg1)
+    {}
+
+    const NumericExpr * GetArg1() const
+    { return m_arg1; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const NumericExpr * m_arg1;
+};
+
+class LeftFunction : public StringExpr
+{
+  public:
+    LeftFunction(const StringExpr * arg1, const NumericExpr * arg2)
+      : m_arg1(arg1)
+      , m_arg2(arg2)
+    {}
+
+    const StringExpr * GetArg1() const
+    { return m_arg1; }
+
+    const NumericExpr * GetArg2() const
+    { return m_arg2; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const StringExpr * m_arg1;
+    const NumericExpr * m_arg2;
+};
+
+class MidFunction : public StringExpr
+{
+  public:
+    MidFunction(const StringExpr * arg1, const NumericExpr * arg2, const NumericExpr * arg3)
+      : m_arg1(arg1)
+      , m_arg2(arg2)
+      , m_arg3(arg3)
+    {}
+
+    const StringExpr * GetArg1() const
+    { return m_arg1; }
+
+    const NumericExpr * GetArg2() const
+    { return m_arg2; }
+
+    const NumericExpr * GetArg3() const
+    { return m_arg3; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const StringExpr * m_arg1;
+    const NumericExpr * m_arg2;
+    const NumericExpr * m_arg3;
+};
+
+class RightFunction : public StringExpr
+{
+  public:
+    RightFunction(const StringExpr * arg1, const NumericExpr * arg2)
+      : m_arg1(arg1)
+      , m_arg2(arg2)
+    {}
+
+    const StringExpr * GetArg1() const
+    { return m_arg1; }
+
+    const NumericExpr * GetArg2() const
+    { return m_arg2; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+  protected:
+    const StringExpr * m_arg1;
+    const NumericExpr * m_arg2;
+};
+
 ////////////////////////////////////////////////////////////////////////////
 
 extern Program g_program;

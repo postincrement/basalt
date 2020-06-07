@@ -1,0 +1,274 @@
+STARTREK.BAS: In function ‘main’:
+STARTREK.BAS:32:2: warning: #warning "missing rhs" [-Wcpp]
+ 330 DIM G(8,8),C(9,2),K(3,3),N(3),Z(8,8),D(8)
+  ^~~~~~~
+STARTREK.BAS:34:43: error: expected expression before ‘)’ token
+ 440 P=10:P0=P:S9=200:S=0:B9=0:K9=0:X$="":X0$=" IS "
+                                           ^
+STARTREK.BAS:36:44: error: expected expression before ‘)’ token
+ 475 DEF FNR(R)=INT(RND(R)*7.98+1.01)
+                                            ^
+STARTREK.BAS:41:2: warning: #warning "missing rhs" [-Wcpp]
+ 670 FOR I=1 TO 8:D(I)=0:NEXT I
+  ^~~~~~~
+STARTREK.BAS:42:2: warning: #warning "missing rhs" [-Wcpp]
+ 710 A1$="NAVSRSLRSPHATORSHEDAMCOMXXX"
+  ^~~~~~~
+STARTREK.BAS:43:2: warning: #warning "missing rhs" [-Wcpp]
+ 820 FOR I=1 TO 8:FOR J=1 TO 8:K3=0:Z(I,J)=0:R1=RND(1)
+  ^~~~~~~
+STARTREK.BAS:70:2: warning: #warning "missing rhs" [-Wcpp]
+ 1560 PRINT TAB(3);CHR$(22);"  COMBAT AREA      CONDITION RED  ";CHR$(22):IF S>200 THEN PRINT:GOTO 1590
+  ^~~~~~~
+STARTREK.BAS:71:44: error: expected expression before ‘)’ token
+ 1580 PRINT TAB(3);CHR$(22);"      SHIELDS DANGEROUSLY LOW     ";CHR$(22):PRINT
+                                            ^
+STARTREK.BAS:75:2: warning: #warning "missing rhs" [-Wcpp]
+ 1720 FOR I=1 TO K3:GOSUB 8590:A$="+K+":Z1=R1:Z2=R2
+  ^~~~~~~
+STARTREK.BAS:75:2: warning: #warning "missing rhs" [-Wcpp]
+ 1720 FOR I=1 TO K3:GOSUB 8590:A$="+K+":Z1=R1:Z2=R2
+  ^~~~~~~
+STARTREK.BAS:76:2: warning: #warning "missing rhs" [-Wcpp]
+ 1780 GOSUB 8670:K(I,1)=R1:K(I,2)=R2:K(I,3)=S9*(.5+RND(1)):NEXT I
+  ^~~~~~~
+STARTREK.BAS:79:2: warning: #warning "missing rhs" [-Wcpp]
+ 1910 FOR I=1 TO S3:GOSUB 8590:A$=" * ":Z1=R1:Z2=R2:GOSUB 8670:NEXT I
+  ^~~~~~~
+STARTREK.BAS:80:2: warning: #warning "missing rhs" [-Wcpp]
+ 1980 GOSUB 6430
+  ^~~~~~~
+STARTREK.BAS:104:2: warning: #warning "missing rhs" [-Wcpp]
+ 2360 PRINT"WARP FACTOR (0-";X$;")";:INPUT W1:PRINT:IF D(1)<0 AND W1>.2 THEN 2470
+  ^~~~~~~
+STARTREK.BAS:111:2: warning: #warning "missing rhs" [-Wcpp]
+ 2500 PRINT"ENGINEERING:  'INSUFFICIENT ENERGY AVAILABLE"
+  ^~~~~~~
+STARTREK.BAS:119:2: warning: #warning "missing rhs" [-Wcpp]
+ 2660 K(I,1)=Z1:K(I,2)=Z2:A$="+K+":GOSUB 8670
+  ^~~~~~~
+STARTREK.BAS:122:2: warning: #warning "missing rhs" [-Wcpp]
+ 2790 D(I)=D(I)+D6:IF D(I)>-.1 AND D(I)<0 THEN D(I)=-.1:GOTO 2880
+  ^~~~~~~
+STARTREK.BAS:133:2: warning: #warning "missing rhs" [-Wcpp]
+ 3110 X1=C(C1,1)+(C(C1+1,1)-C(C1,1))*(C1-INT(C1)):X=S1:Y=S2
+  ^~~~~~~
+STARTREK.BAS:134:2: warning: #warning "missing rhs" [-Wcpp]
+ 3140 X2=C(C1,2)+(C(C1+1,2)-C(C1,2))*(C1-INT(C1)):Q4=Q1:Q5=Q2
+  ^~~~~~~
+STARTREK.BAS:135:2: warning: #warning "missing rhs" [-Wcpp]
+ 3170 FOR I=1 TO N:S1=S1+X1:S2=S2+X2:IF S1<1 OR S1>=9 OR S2<1 OR S2>=9 THEN 3500
+  ^~~~~~~
+STARTREK.BAS:134:96: error: expected expression before ‘)’ token
+ 3140 X2=C(C1,2)+(C(C1+1,2)-C(C1,2))*(C1-INT(C1)):Q4=Q1:Q5=Q2
+                                                                                                ^
+STARTREK.BAS:135:96: error: expected expression before ‘)’ token
+ 3170 FOR I=1 TO N:S1=S1+X1:S2=S2+X2:IF S1<1 OR S1>=9 OR S2<1 OR S2>=9 THEN 3500
+                                                                                                ^
+STARTREK.BAS:137:45: error: expected expression before ‘)’ token
+ 3320 S1=INT(S1-X1):S2=INT(S2-X2):PRINT"WARP ENGINES SHUT DOWN AT ";
+                                             ^
+STARTREK.BAS:138:2: warning: #warning "missing rhs" [-Wcpp]
+ 3350 PRINT"SECTOR";S1;CHR$(8);",";S2;"DUE TO BAD NAVAGATION":GOTO 3370
+  ^~~~~~~
+STARTREK.BAS:139:2: warning: #warning "missing rhs" [-Wcpp]
+ 3360 NEXT I:S1=INT(S1):S2=INT(S2)
+  ^~~~~~~
+STARTREK.BAS:140:2: warning: #warning "missing rhs" [-Wcpp]
+ 3370 A$="<E>":Z1=INT(S1):Z2=INT(S2):GOSUB 8670:GOSUB 3910:T8=1
+  ^~~~~~~
+STARTREK.BAS:141:2: warning: #warning "missing rhs" [-Wcpp]
+ 3430 IF W1<1 THEN T8=.1*INT(10*W1)
+  ^~~~~~~
+STARTREK.BAS:141:2: warning: #warning "missing rhs" [-Wcpp]
+ 3430 IF W1<1 THEN T8=.1*INT(10*W1)
+  ^~~~~~~
+STARTREK.BAS:142:2: warning: #warning "missing rhs" [-Wcpp]
+ 3450 T=T+T8:IF T>T0+T9 THEN 6220
+  ^~~~~~~
+STARTREK.BAS:143:2: warning: #warning "missing rhs" [-Wcpp]
+ 3480 GOTO 1980
+  ^~~~~~~
+STARTREK.BAS:147:2: warning: #warning "missing rhs" [-Wcpp]
+ 3620 X5=0:IF Q1<1 THEN X5=1:Q1=1:S1=1
+  ^~~~~~~
+STARTREK.BAS:148:2: warning: #warning "missing rhs" [-Wcpp]
+ 3670 IF Q1>8 THEN X5=1:Q1=8:S1=8
+  ^~~~~~~
+STARTREK.BAS:149:2: warning: #warning "missing rhs" [-Wcpp]
+ 3710 IF Q2<1 THEN X5=1:Q2=1:S2=1
+  ^~~~~~~
+STARTREK.BAS:146:2: warning: #warning "missing rhs" [-Wcpp]
+ 3590 IF S2=0 THEN Q2=Q2-1:S2=8
+  ^~~~~~~
+STARTREK.BAS:167:2: warning: #warning "missing rhs" [-Wcpp]
+ 4060 FOR I=Q1-1 TO Q1+1:N(1)=-1:N(2)=-2:N(3)=-3:FOR J=Q2-1 TO Q2+1
+  ^~~~~~~
+STARTREK.BAS:183:2: warning: #warning "missing rhs" [-Wcpp]
+ 4480 H=INT((H1/FND(0))*(RND(1)+2)):IF H>.15*K(I,3)THEN 4530
+  ^~~~~~~
+STARTREK.BAS:184:2: warning: #warning "missing rhs" [-Wcpp]
+ 4500 PRINT"SENSORS SHOW NO DAMAGE TO ENEMY AT";K(I,1);CHR$(8);",";K(I,2);CHR$(8);".":GOTO 4670
+  ^~~~~~~
+STARTREK.BAS:193:2: warning: #warning "missing rhs" [-Wcpp]
+ 4760 INPUT"PHOTON TORPEDO COURSE (1-9)";C1:IF C1=9 THEN C1=1
+  ^~~~~~~
+STARTREK.BAS:198:96: error: expected expression before ‘)’ token
+ 4860 X2=C(C1,2)+(C(C1+1,2)-C(C1,2))*(C1-INT(C1)):X=S1:Y=S2
+                                                                                                ^
+STARTREK.BAS:199:96: error: expected expression before ‘)’ token
+ 4910 PRINT"TORPEDO TRACK:"
+                                                                                                ^
+STARTREK.BAS:203:2: warning: #warning "missing rhs" [-Wcpp]
+ 5050 IF Z3<>0 THEN 4920
+  ^~~~~~~
+STARTREK.BAS:204:2: warning: #warning "missing rhs" [-Wcpp]
+ 5060 A$="+K+":Z1=X:Z2=Y:GOSUB 8830:IF Z3=0 THEN 5210
+  ^~~~~~~
+STARTREK.BAS:206:2: warning: #warning "missing rhs" [-Wcpp]
+ 5150 FOR I=1 TO 3:IF X3=K(I,1)AND Y3=K(I,2)THEN 5190
+  ^~~~~~~
+STARTREK.BAS:205:2: warning: #warning "missing rhs" [-Wcpp]
+ 5110 PRINT:PRINT CHR$(22);"*** KLINGON DESTROYED ***";CHR$(22):PRINT:K3=K3-1:K9=K9-1:IF K9<=0 THEN 6370
+  ^~~~~~~
+STARTREK.BAS:210:2: warning: #warning "missing rhs" [-Wcpp]
+ 5260 PRINT"STAR AT";X3;",";Y3;"ABSORBED TORPEDO ENERGY.":GOSUB 6000:GOTO 1990
+  ^~~~~~~
+STARTREK.BAS:212:2: warning: #warning "missing rhs" [-Wcpp]
+ 5330 PRINT CHR$(22);"*** STARBASE DESTROYED ***";CHR$(22):B3=B3-1:B9=B9-1
+  ^~~~~~~
+STARTREK.BAS:222:2: warning: #warning "missing rhs" [-Wcpp]
+ 5530 IF D(7)<0 THEN PRINT"SHIELD CONTROL INOPERABLE.":GOTO 1990
+  ^~~~~~~
+STARTREK.BAS:249:2: warning: #warning "missing rhs" [-Wcpp]
+ 6080 PRINT:PRINT H;"UNIT HIT ON ENTERPRISE FROM SECTOR";K(I,1);CHR$(8);",";K(I,2);CHR$(8);"."
+  ^~~~~~~
+STARTREK.BAS:272:2: warning: #warning "missing rhs" [-Wcpp]
+ 6540 NEXT J:NEXT I:D0=0:GOTO 6650
+  ^~~~~~~
+STARTREK.BAS:275:2: warning: #warning "missing rhs" [-Wcpp]
+ 6650 IF K3>0 THEN C$="*RED*":GOTO 6720
+  ^~~~~~~
+STARTREK.BAS:277:2: warning: #warning "missing rhs" [-Wcpp]
+ 6720 IF D(2)>=0 THEN 6770
+  ^~~~~~~
+STARTREK.BAS:280:2: warning: #warning "missing rhs" [-Wcpp]
+ 6820 FOR J=(I-1)*24+1 TO(I-1)*24+22 STEP 3:PRINT" ";MID$(Q$,J,3);:NEXT J:PRINT"|";I;
+  ^~~~~~~
+STARTREK.BAS:310:2: warning: #warning "missing rhs" [-Wcpp]
+ 7560 O1$="    +-----+-----+-----+-----+-----+-----+-----+-----+"
+  ^~~~~~~
+STARTREK.BAS:318:2: warning: #warning "missing rhs" [-Wcpp]
+ 7850 PRINT O1$:NEXT I:PRINT:GOTO 1990
+  ^~~~~~~
+STARTREK.BAS:318:2: warning: #warning "missing rhs" [-Wcpp]
+ 7850 PRINT O1$:NEXT I:PRINT:GOTO 1990
+  ^~~~~~~
+STARTREK.BAS:321:2: warning: #warning "missing rhs" [-Wcpp]
+ 7960 PRINT" MISSION MUST BE COMPLETED IN";.1*INT((T0+T9-T)*10);"STARDATES."
+  ^~~~~~~
+STARTREK.BAS:322:2: warning: #warning "missing rhs" [-Wcpp]
+ 7970 X$="S":IF B9<2 THEN X$="":IF B9<1 THEN 8010
+  ^~~~~~~
+STARTREK.BAS:328:2: warning: #warning "missing rhs" [-Wcpp]
+ 8080 X$="":IF K3>1 THEN X$="S"
+  ^~~~~~~
+STARTREK.BAS:358:2: warning: #warning "missing rhs" [-Wcpp]
+ 8670 S8=INT(Z2-.5)*3+INT(Z1-.5)*24+1
+  ^~~~~~~
+STARTREK.BAS:358:45: error: expected expression before ‘)’ token
+ 8670 S8=INT(Z2-.5)*3+INT(Z1-.5)*24+1
+                                             ^
+STARTREK.BAS:362:2: warning: #warning "missing rhs" [-Wcpp]
+ 8700 Q$=LEFT$(Q$,S8-1)+A$+RIGHT$(Q$,190-S8):RETURN
+  ^~~~~~~
+STARTREK.BAS:364:2: warning: #warning "missing rhs" [-Wcpp]
+ 8792 G2$="WARP ENGINES":RETURN
+  ^~~~~~~
+STARTREK.BAS:365:2: warning: #warning "missing rhs" [-Wcpp]
+ 8794 G2$="SHORT RANGE SENSORS":RETURN
+  ^~~~~~~
+STARTREK.BAS:366:2: warning: #warning "missing rhs" [-Wcpp]
+ 8796 G2$="LONG RANGE SENSORS":RETURN
+  ^~~~~~~
+STARTREK.BAS:367:2: warning: #warning "missing rhs" [-Wcpp]
+ 8798 G2$="PHASER CONTROL":RETURN
+  ^~~~~~~
+STARTREK.BAS:368:2: warning: #warning "missing rhs" [-Wcpp]
+ 8800 G2$="PHOTON TUBES":RETURN
+  ^~~~~~~
+STARTREK.BAS:369:2: warning: #warning "missing rhs" [-Wcpp]
+ 8802 G2$="DAMAGE CONTROL":RETURN
+  ^~~~~~~
+STARTREK.BAS:370:2: warning: #warning "missing rhs" [-Wcpp]
+ 8804 G2$="SHIELD CONTROL":RETURN
+  ^~~~~~~
+STARTREK.BAS:371:2: warning: #warning "missing rhs" [-Wcpp]
+ 8806 G2$="LIBRARY-COMPUTER":RETURN
+  ^~~~~~~
+STARTREK.BAS:372:2: warning: #warning "missing rhs" [-Wcpp]
+ 8830 Z1=INT(Z1+.5):Z2=INT(Z2+.5):S8=(Z2-1)*3+(Z1-1)*24+1:Z3=0
+  ^~~~~~~
+STARTREK.BAS:373:2: warning: #warning "missing rhs" [-Wcpp]
+ 8890 IF MID$(Q$,S8,3)<>A$THEN RETURN
+  ^~~~~~~
+STARTREK.BAS:377:2: warning: #warning "missing rhs" [-Wcpp]
+ 9040 G2$="ANTARES":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:378:2: warning: #warning "missing rhs" [-Wcpp]
+ 9050 G2$="RIGEL":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:379:2: warning: #warning "missing rhs" [-Wcpp]
+ 9060 G2$="PROCYON":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:380:2: warning: #warning "missing rhs" [-Wcpp]
+ 9070 G2$="VEGA":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:381:2: warning: #warning "missing rhs" [-Wcpp]
+ 9080 G2$="CANOPUS":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:382:2: warning: #warning "missing rhs" [-Wcpp]
+ 9090 G2$="ALTAIR":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:383:2: warning: #warning "missing rhs" [-Wcpp]
+ 9100 G2$="SAGITTARIUS":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:384:2: warning: #warning "missing rhs" [-Wcpp]
+ 9110 G2$="POLLUX":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:386:2: warning: #warning "missing rhs" [-Wcpp]
+ 9130 G2$="SIRIUS":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:387:2: warning: #warning "missing rhs" [-Wcpp]
+ 9140 G2$="DENEB":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:388:2: warning: #warning "missing rhs" [-Wcpp]
+ 9150 G2$="CAPELLA":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:389:2: warning: #warning "missing rhs" [-Wcpp]
+ 9160 G2$="BETELGEUSE":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:390:2: warning: #warning "missing rhs" [-Wcpp]
+ 9170 G2$="ALDEBARAN":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:391:2: warning: #warning "missing rhs" [-Wcpp]
+ 9180 G2$="REGULUS":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:392:2: warning: #warning "missing rhs" [-Wcpp]
+ 9190 G2$="ARCTURUS":GOTO 9210
+  ^~~~~~~
+STARTREK.BAS:393:2: warning: #warning "missing rhs" [-Wcpp]
+ 9200 G2$="SPICA"
+  ^~~~~~~
+STARTREK.BAS:396:2: warning: #warning "missing rhs" [-Wcpp]
+ 9230 G2$=G2$+" I":RETURN
+  ^~~~~~~
+STARTREK.BAS:397:2: warning: #warning "missing rhs" [-Wcpp]
+ 9240 G2$=G2$+" II":RETURN
+  ^~~~~~~
+STARTREK.BAS:398:2: warning: #warning "missing rhs" [-Wcpp]
+ 9250 G2$=G2$+" III":RETURN
+  ^~~~~~~
+STARTREK.BAS:399:2: warning: #warning "missing rhs" [-Wcpp]
+ 9260 G2$=G2$+" IV":RETURN
+  ^~~~~~~

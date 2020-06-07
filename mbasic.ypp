@@ -895,23 +895,23 @@ string_value:   string_var_ref
                   }
                 | CHR_TOKEN '(' expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::ChrFunction($3);
                   }
                 | LEFT_TOKEN '(' string_expression ',' expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::LeftFunction($3, $5);
                   }
                 | MID_TOKEN '(' string_expression ',' expression ',' expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::MidFunction($3, $5, $7);
                   }
                 | RIGHT_TOKEN '(' string_expression ',' expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::RightFunction($3, $5);
                   }
                 | STR_TOKEN '(' expression ')'  
                   {
-                    $$ = nullptr;
+                    $$ = new AST::StrFunction($3);
                   }                  
                 | TAB_TOKEN '(' expression ')'  
                   {

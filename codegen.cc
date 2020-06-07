@@ -584,3 +584,67 @@ int C_CodeGenerator::Generate(const AST::TabFunction & expr)
   return 0;
 }
 
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::LeftFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+    
+  TopOutput() << "   ";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::MidFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+    
+  TopOutput() << "   ";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::RightFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+    
+  TopOutput() << "   ";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::ChrFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+    
+  TopOutput() << "   ";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::StrFunction & expr)
+{
+  if (expr.GetArg1() == nullptr)
+    return -1;
+
+  PushClosure(true);
+  TopOutput() << "int tmp = ";
+  expr.GetArg1()->Generate(*this);
+  std::string str = TopOutput().str();
+  PopClosure();
+
+  TopOutput() << str;
+  
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
