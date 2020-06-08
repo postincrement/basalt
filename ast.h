@@ -223,8 +223,6 @@ class StringAddition : public StringExpr
       , m_rhs(rhs)
     { }
 
-    virtual bool Validate();
-
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
     const StringExpr * m_lhs;

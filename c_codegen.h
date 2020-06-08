@@ -91,9 +91,12 @@ class C_CodeGenerator : public CodeGenerator
         std::stringstream & Output()
         { return m_output; }
 
+        std::string GetTempName();
+
       protected:
         int m_indent;
         std::stringstream m_output;
+        int m_tempIndex = 1;
     };
 
     Closure & Top()
@@ -139,6 +142,8 @@ class C_CodeGenerator : public CodeGenerator
     int UnaryOperator        (const std::string & op, const AST::UnaryOperation * expr,         std::string & result);
     int NumericExpr          (const std::string & op, const AST::NumericExpr * expr,            std::string & result);
     int StringExpr           (const std::string & op, const AST::StringExpr * expr,             std::string & result);
+
+    void CatStrings(const std::string & tempName, const std::string & lhs, const std::string & rhs, const std::string & pre);
 
     typedef std::map<std::string, CVarDef> GlobalVarMap;
     std::set<std::string> m_cnames;

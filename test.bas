@@ -38,5 +38,9 @@
 301 r = len(a$)
 
 310 s$ = str$(r)
+311 s$ = "xxx" + "   "
+312 s$ = s$ + "   "
+313 print s$
+314 s$ = s$ + "   " + s$ + a$ + "fred" : print s$
 
 400 s = sqr(300)
