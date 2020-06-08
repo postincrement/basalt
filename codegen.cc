@@ -307,22 +307,29 @@ int C_CodeGenerator::Generate(const AST::StringAssign & expr)
 
   std::string rhs;
 
-  PushClosure();
-
   expr.m_rhs->Evaluate(*this, rhs);
 
-  TopOutput() << "if (" << cvar.m_cname << ") free(" << cvar.m_cname << ");\n";
-
-  if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
-    TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\")";
+  if (expr.m_lhs->IsVarRef() && 
+      expr.m_rhs->IsVarRef() && 
+      (cvar.m_cname == rhs)) {
+    TopOutput() << "/* optimised out */\n";
   }
   else {
-    TopOutput() << "if (!" << rhs << ") " << cvar.m_cname << " = 0;\n";
-    TopOutput() << "else " << cvar.m_cname << " = " << rhs;
-  }
-  TopOutput(false) << ";" << endl;
+    PushClosure();
 
-  PopClosure();
+    TopOutput() << "if (" << cvar.m_cname << ") free(" << cvar.m_cname << ");\n";
+
+    if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
+      TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\")";
+    }
+    else {
+      TopOutput() << "if (!" << rhs << ") " << cvar.m_cname << " = 0;\n";
+      TopOutput() << "else " << cvar.m_cname << " = " << rhs;
+    }
+    TopOutput(false) << ";" << endl;
+
+    PopClosure();
+  }
 
   return 0;
 }
