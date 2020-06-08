@@ -44,6 +44,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Evaluate(const AST::MidFunction & expr, std::string & result) override;
     virtual int Evaluate(const AST::RightFunction & expr, std::string & result) override;
     virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) override;
+    virtual int Evaluate(const AST::StringAddition & expr, std::string & result) override;
 
     virtual int Print(const AST::Node & node) override;
     virtual int Print(const AST::StringConstant & expr) override;

@@ -49,6 +49,7 @@ class CodeGenerator
     virtual int Evaluate(const AST::MidFunction & expr, std::string & result) { }
     virtual int Evaluate(const AST::RightFunction & expr, std::string & result) { }
     virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) { }
+    virtual int Evaluate(const AST::StringAddition & expr, std::string & result) { }
 
     virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }

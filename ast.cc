@@ -105,6 +105,13 @@ bool StringAssign::Validate()
 
 /////////////////////////////////////////
 
+int StringAddition::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+/////////////////////////////////////////
+
 StringVarRef::StringVarRef(const std::string & varName)
 {
   m_originalName = varName;

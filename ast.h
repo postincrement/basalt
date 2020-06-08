@@ -81,6 +81,9 @@ class Expr : public Node
     virtual bool IsConstant() const
     { return false; } 
 
+    virtual bool IsVarRef() const
+    { return false; } 
+
   protected:
     VarType m_type;
 };
@@ -153,6 +156,9 @@ class NumericVarRef : public NumericExpr
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
+    virtual bool IsVarRef() const
+    { return true; } 
+
     std::string GetName() const
     {
       return m_name;
@@ -174,6 +180,9 @@ class StringVarRef : public StringExpr
     StringVarRef(const std::string & m_id);
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
+
+    virtual bool IsVarRef() const
+    { return true; } 
 
     std::string GetName() const
     {
@@ -201,6 +210,24 @@ class StringAssign : public StringExpr
     virtual bool Validate();
 
     const AST::StringVarRef * m_lhs;
+    const StringExpr * m_rhs;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class StringAddition : public StringExpr
+{
+  public:
+    StringAddition(const StringExpr * lhs, const StringExpr * rhs)
+      : m_lhs(lhs)
+      , m_rhs(rhs)
+    { }
+
+    virtual bool Validate();
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+
+    const StringExpr * m_lhs;
     const StringExpr * m_rhs;
 };
 

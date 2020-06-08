@@ -280,19 +280,81 @@ int C_CodeGenerator::Generate(const AST::StringAssign & expr)
   std::string rhs;
 
   PushClosure();
-  expr.m_rhs->Evaluate(*this, rhs);
 
   TopOutput() << "if (" << cvar.m_cname << ") free(" << cvar.m_cname << ");\n";
-  TopOutput() << cvar.m_cname << " = ";
-  if (expr.m_rhs->IsConstant()) 
-    TopOutput(false) << rhs;
-  else
-    TopOutput(false) << "basalt_strdup(" << rhs << ")";
+
+  expr.m_rhs->Evaluate(*this, rhs);
+
+  if (!expr.m_rhs->IsVarRef()) 
+    TopOutput() << cvar.m_cname << " = " << rhs;
+  else {
+    TopOutput() << "if (!" << rhs << ") " << cvar.m_cname << " = 0;\n";
+    TopOutput() << "else " << cvar.m_cname << " = basalt_strdup(" << rhs << ")";
+  }
   TopOutput(false) << ";" << endl;
 
   PopClosure();
 
   return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & result)
+{
+  std::string lhs, rhs;
+  expr.m_lhs->Evaluate(*this, lhs);
+  expr.m_rhs->Evaluate(*this, rhs);
+
+  TopOutput() << "char * tmp = 0;\n";
+
+  if (expr.m_lhs->IsVarRef() && expr.m_rhs->IsVarRef()) {
+    TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0) {\n";
+    TopOutput() << "  if (!" << lhs << ") tmp = strdup(" << rhs << ");\n";
+    TopOutput() << "  else if (!" << rhs << ") tmp = strdup(" << lhs << ");\n";
+    TopOutput() << "  else {\n";
+    TopOutput() << "    size_t ll = strlen(" << lhs << ");\n";
+    TopOutput() << "    size_t rl = strlen(" << rhs << ");\n";
+    TopOutput() << "    tmp = (char *)malloc(ll + rl + 1);\n";
+    TopOutput() << "    strcpy(tmp, " << lhs << ");\n";
+    TopOutput() << "    strcat(tmp, " << rhs << ");\n";
+    TopOutput() << "  };\n";
+    TopOutput() << "}\n";
+  }
+  else if (expr.m_lhs->IsVarRef()) {
+  }
+    
+    tmp = malloc(strlen(" << m_lhs << ") + strlen(" << m_rhs << ") + 1);\n";
+    
+    
+     if (!" << rhs << ") tmp = strdup(" << lhs << ");\n";
+    TopOutput() << "}\n";
+  }
+  else {
+
+  if (expr.m_rhs->IsVarRef()) {
+    TopOutput() << first << "if (!" << rhs << ") tmp = " << lhs << ";\n";
+    first = "else ";
+  }
+  TopOutput() << first << "if (!" << rhs << ") tmp = " << lhs << ";\n";
+
+ 
+  TopOutput() << "char * tmp = " << str << ";\n";
+
+
+  TopOutput() << "if (" << cvar.m_cname << ") free(" << cvar.m_cname << ");\n";
+
+  expr.m_rhs->Evaluate(*this, rhs);
+
+  if (!expr.m_rhs->IsVarRef()) 
+    TopOutput() << cvar.m_cname << " = " << rhs;
+  else {
+    TopOutput() << "if (!" << rhs << ") " << cvar.m_cname << " = 0;\n";
+    TopOutput() << "else " << cvar.m_cname << " = basalt_strdup(" << rhs << ")";
+  }
+  TopOutput(false) << ";" << endl;
+
+  PopClosure();
 }
 
 ////////////////////////////////////////////////////////////////
