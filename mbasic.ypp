@@ -211,6 +211,9 @@ line:     opt_line_number
                 std::string basicLineNumber;
                 if ($1 != nullptr) {
                   basicLineNumber = *$1;
+                  if (AST::g_lineNumberInfo.count(basicLineNumber) != 0) {
+                    cerr << "warning: duplicate BASIC line number '" << basicLineNumber << "' on lines " << g_lexLineNumber << " & " << AST::g_lineNumberInfo[basicLineNumber] << endl;
+                  }
                   AST::g_lineNumberInfo[basicLineNumber] = g_lexLineNumber;
                 }
                 $<sourceLine>$ = new AST::SourceLine(
@@ -222,13 +225,19 @@ line:     opt_line_number
               }
           opt_statement_list 
             {
-              AST::SourceLine * line = $<sourceLine>2;
-              if ($3 != nullptr)
-                line->m_statements.reset($3);
-              AST::g_program.Append(line);
-              /*cerr << "line " 
-                   << line->GetSourceLineNumber()
-                   << ": " << line->GetLine() << "\n";*/      
+              if (($3 == nullptr) && ($<sourceLine>2->GetBasicLineNumber().empty())) {
+                delete $<sourceLine>2;
+                delete $3;
+              }
+              else {
+                AST::SourceLine * line = $<sourceLine>2;
+                if ($3 != nullptr)
+                  line->m_statements.reset($3);
+                AST::g_program.Append(line);
+                /*cerr << "line " 
+                    << line->GetSourceLineNumber()
+                    << ": " << line->GetLine() << "\n";*/
+              }
             }
           eol
           ;

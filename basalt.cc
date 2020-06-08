@@ -337,51 +337,6 @@ int Basalt::Main(int argc, char const *argv[])
 
 ////////////////////////////////////////////////////////////////////////
 
-#if 0  
-  
-bool BasicLanguageProfile::NormalizeVariableName(Variable & var, int dim)
-{
-  std::string rawName = var.m_name;
-
-  // take out unprintables
-  for (auto & r : rawName)
-    if (!isalnum(r) && (r != '_'))
-      r = '_';
-    else
-      r = tolower(r);  
-
-  std::stringstream strm;
-  strm << rawName;
-    
-  switch (var.m_type) {
-    case Variable::eString:
-      strm << "_string";
-      break;
-    case Variable::eInt16:
-      strm << "_int";
-      break;
-    case Variable::eSingle:
-      strm << "_single";
-      break;
-    case Variable::eDouble:
-      strm << "_double";
-      break;
-    case Variable::eUntyped:
-      return false;
-  };
-
-  if (dim > 0)
-    strm << "_array_" << dim;
-
-  var.m_normalizedName = rawName;
-
-  return true;
-}
-
-#endif
-
-////////////////////////////////////////////////////////////////////////
-
 Basic_8k_LanguageProfile::Basic_8k_LanguageProfile()
  : LanguageProfile(2)
 {
@@ -440,8 +395,11 @@ char Basalt::ReadNextChar()
       return 0;
     m_lineOffs = 0;
     if (m_line.length() > 0) {
-      if (m_line[m_line.length()-1] == '\r')
-        m_line = m_line.substr(0, m_line.length()-1);
+      char * start = &m_line[0];
+      char * ptr   = start + m_line.length() - 1;
+      while ((ptr > start) && (isspace(*ptr)))
+        --ptr;
+      m_line = m_line.substr(0, (ptr - start) + 1);
     }
   }
 

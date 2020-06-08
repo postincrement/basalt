@@ -42,6 +42,7 @@
 312 s$ = s$ + "   "
 313 print s$
 314 s$ = s$ + "   " + s$ + a$ + "fred" : print s$
-316 s$ = s$
+315 s$ = s$
+316 rem test
 
 400 s = sqr(300)

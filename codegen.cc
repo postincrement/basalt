@@ -9,7 +9,9 @@ using namespace std;
 #include "c_codegen.h"
 
 #define STRING_CTYPE    "char *"
-#define TEMP_PREFIX      "temp_"
+#define TEMP_PREFIX     "temp_"
+#define LINEFN_PREFIX   "Line_"
+#define ENDLINE_FN      "Line_end"
 
 struct CTypeInfoRec {
   const char * m_ctype; 
@@ -179,11 +181,6 @@ bool C_CodeGenerator::Body()
     m_cnames.insert(cvar.m_cname);
   }
 
-  PushClosure();
-  for (auto & r : m_program.m_list) {
-    r->Generate(*this);
-  }
-
   cout << "program has " << m_program.m_list.size() << " elements" << endl;
 
   *m_outputStream
@@ -223,11 +220,50 @@ bool C_CodeGenerator::Body()
   }
   *m_outputStream << "\n";
 
+  *m_outputStream << "struct LineFunction {\n"
+                  << "  struct LineFunction (* m_func)();\n"
+                  << "};\n"
+                  ;
+
+  for (size_t i = 0; i < m_program.m_list.size(); ++i) {
+    auto & r = m_program.m_list[i];
+    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "(); /* " << r->GetBasicLineNumber() << " */\n";
+  }
+
+  for (size_t i = 0; i < m_program.m_list.size(); ++i) {
+    auto & r = m_program.m_list[i];
+
+    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "() /* " << r->GetBasicLineNumber() << " */\n"
+                    << "{\n"
+                    << "  struct LineFunction nextLine;\n"
+                    << "  nextLine.m_func = ";
+    if (i == m_program.m_list.size()-1) {
+      *m_outputStream << "0";
+    }
+    else {
+      *m_outputStream << "&" << LINEFN_PREFIX << (i+1);
+    } 
+    *m_outputStream << ";\n"
+                    ;
+                    
+    PushClosure();
+    r->Generate(*this);
+    *m_outputStream << PopClosure()
+                    << "  return nextLine;\n"
+                    << "}\n"
+                    << "\n"
+                   ;
+  }
+
   *m_outputStream 
            << "int main(int argc, char * argv[])\n"
            << "{\n"
-           << "  basalt_init();\n" 
-           << PopClosure()
+           << "  basalt_init();\n"
+           << "  struct LineFunction line;\n"
+           << "  line.m_func = &" LINEFN_PREFIX << 0 << ";\n"
+           << "  while (line.m_func != 0) {\n" 
+           << "    line = (*line.m_func)();\n"
+           << "  }\n"
            << "  exit(0);\n"
            << "}\n"
            ;
@@ -394,8 +430,8 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
     case 0x22:  // left var, right var
       TopOutput() << STRING_CTYPE " " << temp1 << " = 0;\n";
       TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0) {\n";
-      TopOutput() << "  if (!" << lhs << ") tmp = strdup(" << rhs << ");\n";
-      TopOutput() << "  else if (!" << rhs << ") tmp = strdup(" << lhs << ");\n";
+      TopOutput() << "  if (!" << lhs << ") " << temp1 << " = strdup(" << rhs << ");\n";
+      TopOutput() << "  else if (!" << rhs << ") " << temp1 << " = strdup(" << lhs << ");\n";
       TopOutput() << "  else {\n";
       CatStrings(temp1, lhs, rhs, "");
       TopOutput() << "  };\n";
@@ -725,9 +761,9 @@ int C_CodeGenerator::Evaluate(const AST::StrFunction & expr, std::string & resul
   std::string str;
   if (NumericExpr(funcName, expr.GetArg1(), str) != 0)
     return -1;
-
-  TopOutput() << STRING_CTYPE " tmp = " << str << ";\n";
-  result = "tmp";
+  std::string temp1 = Top().GetTempName();
+  TopOutput() << STRING_CTYPE " " << temp1 << " = " << str << ";\n";
+  result = temp1;
   return 0;
 }
 
