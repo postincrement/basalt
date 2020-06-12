@@ -13,7 +13,8 @@ OBJS = basalt.o \
 			 ast.o \
 			 codegen.o \
 			 common.o \
-			 c/codegen.o
+			 c/codegen.o \
+			 z80/codegen.o \
 
 all: basalt libbasaltrt.a
 

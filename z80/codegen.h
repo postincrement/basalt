@@ -1,24 +1,25 @@
-#ifndef C_CODEGEN_H_
-#define C_CODEGEN_H_
+#ifndef Z80_CODEGEN_H_
+#define Z80_CODEGEN_H_
 
 #include "../codegen.h"
 
-class C_CodeGenerator : public CodeGenerator
+class Z80_CodeGenerator : public CodeGenerator
 {
   public:
-    C_CodeGenerator();
+    Z80_CodeGenerator();
 
     virtual std::string GetOutputFileExtension() const override;
-
+                    
     virtual bool Body() override;
 
     virtual int Generate(const AST::SourceLine & expr) override;
     virtual int Generate(const AST::Statement & statement) override;
+    virtual int Generate(const AST::End & expr) override;
+/*    
     virtual int Generate(const AST::Print & expr) override;
     virtual int Generate(const AST::NumericAssign & expr) override;
     virtual int Generate(const AST::StringAssign & expr) override;
     virtual int Generate(const AST::Goto & expr) override;
-    virtual int Generate(const AST::End & expr) override;
 
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) override;
@@ -150,6 +151,7 @@ class C_CodeGenerator : public CodeGenerator
     typedef std::map<std::string, CVarDef> GlobalVarMap;
     std::set<std::string> m_cnames;
     GlobalVarMap m_globalVars;  
+*/    
 };
 
-#endif // C_CODEGEN_H_
+#endif // Z80_CODEGEN_H_

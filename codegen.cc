@@ -7,33 +7,16 @@ using namespace std;
 #include "basalt.h"
 #include "codegen.h"
 
-
-CodeGenerator::CodeGenerator(const std::string & inputFilename, 
-                             const std::string & outputFilename,
-                                  const AST::Program & program)
-  : m_outputFilename(outputFilename)
-  , m_inputFilename(inputFilename)
-  , m_program(program)
+CodeGenerator::CodeGenerator()
 {
 }
 
-bool CodeGenerator::Run()
+bool CodeGenerator::Run(std::ostream * outputStream, const AST::Program & program)
 {
-  // check stuff
-  CheckVars();
+  m_program      = &program;
+  m_outputStream = outputStream;
 
-  // generate output
-  if (m_outputFilename == "-") {
-    m_outputStream = &std::cout;
-  }
-  else {
-    m_outputFile.open(m_outputFilename, std::ofstream::out | std::ofstream::trunc);
-    if (!m_outputFile.is_open()) {
-      cerr << "error: cannot create output file '" << m_outputFilename << "'" << endl;
-      return false;
-    }
-    m_outputStream = &m_outputFile;
-  }
+  CheckVars();
   Body();
   return true;
 }
@@ -60,6 +43,31 @@ bool CodeGenerator::CheckVars()
   return true;
 }
 
+static std::string DemangleTypeName(const std::type_info & r)
+{
+  const char * mangledName = r.name();
+  int status;
+  char * demangledName = abi::__cxa_demangle (mangledName, NULL, NULL, &status);
+  std::string ret(demangledName);
+  free(demangledName);
+  return ret;
+}
 
+int CodeGenerator::Generate(const AST::Node & expr)
+{
+  cerr << "warning: unimplemented Generate for " << DemangleTypeName(typeid(expr)) << "\n";
+}
+
+int CodeGenerator::Print(const AST::Node & expr)
+{
+  const std::type_info & r = typeid(expr);
+  cerr << "warning: unimplemented Print for " <<DemangleTypeName(typeid(expr)) << "\n";
+}
+
+int CodeGenerator::Evaluate(const AST::Node & expr, std::string & result)
+{
+  const std::type_info & r = typeid(expr);
+  cerr << "warning: unimplemented Evaluate for " <<DemangleTypeName(typeid(expr)) << "\n";
+}
 
 ///////////////////////////////////////////////////////

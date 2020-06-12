@@ -8,41 +8,20 @@ using namespace std;
 
 #include "basalt.h"
 
-#include "c_codegen.h"
+#include "c/codegen.h"
+#include "z80/codegen.h"
 
-int g_lexLineNumber   = 1;
-int g_errorCount   = 0;
-int g_warningCount = 0;
+int  g_lexLineNumber     = 1;
+int  g_errorCount        = 0;
+int  g_warningCount      = 0;
+bool g_disableWarnings   = false;
+bool g_enableLineNumbers = false;
 
 LanguageProfile * g_languageProfile = nullptr;
 
+static Factory<CodeGenerator> g_codeGenerators;
+
 Basalt g_application;
-
-int g_verbose = 0;
-int g_displayHelp = 0;
-std::string g_codeGeneratorName;
-std::string g_outputFilename;
-std::string g_languageProfileName;
-bool g_dump = false;
-bool g_compileOnly = false;
-bool g_enableDebugging = false;
-bool g_disableWarnings = false;
-bool g_enableLineNumbers = false;
-
-ArgDef g_argDefs[] = {
-  { 'c',   "",          "b",  &g_compileOnly,         "compile only" },
-  { 'd',   "dump",      "b",  &g_dump,                "dump output" },
-  { 'v',   "verbose",   "",   &g_verbose,             "enable verbosity" },
-  { 't',   "target",    "s",  &g_codeGeneratorName,   "set code generator" },
-  { 'o',   "output",    "s",  &g_outputFilename,      "set output filename" },
-  { 'p',   "profile",   "s",  &g_languageProfileName, "set language profile" },
-  { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
-  { 'g',   "debug",     "b",  &g_enableDebugging,     "add debugging information to output file"},
-  { 'h',   "help",      "",   &g_displayHelp,         "display help message"},
-  { 'W',   "warnings",  "b",  &g_disableWarnings,     "disable warnings"},
-  { 'L',   "linenum",   "b",  &g_enableLineNumbers,   "enable line numbers"},
-  {  0,    NULL,        NULL, NULL,                    NULL }
-};
 
 static Factory<LanguageProfile> g_languageProfileFactory;
 
@@ -76,7 +55,6 @@ void SourceErrorFunc(ErrorCode code, unsigned line, const std::string & str)
   strm << "line " << line << ": error " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
   cerr << strm.str();
 }
-
 
 void WarningFunc(WarningCode code, const std::string & str)
 {
@@ -174,8 +152,7 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
   return index;
 }
 
-
-void Basalt::Usage(const ArgDef * defs, bool showKeys)
+void Basalt::Usage(bool showKeys)
 {
   if (showKeys) {
     std::vector<std::string> keys;
@@ -193,7 +170,7 @@ void Basalt::Usage(const ArgDef * defs, bool showKeys)
   exit(1);
 }
 
-void Basalt::DisplayHelp()
+void Basalt::DisplayHelp(const std::vector<ArgDef> & argDefs)
 {
   std::vector<std::string> col1;
   std::vector<std::string> col2;
@@ -205,23 +182,23 @@ void Basalt::DisplayHelp()
   int col3Width = 0;
   int col4Width = 0;
 
-  for (ArgDef * arg = g_argDefs; arg->m_short != 0; ++arg) {    
+  for (auto & arg : argDefs) {    
     stringstream strm;
-    if (arg->m_short != ' ') {
-      strm << "-" << arg->m_short;
+    if (arg.m_short != ' ') {
+      strm << "-" << arg.m_short;
     }
     col1.push_back(strm.str());
     col1Width = std::max<int>(col1Width, strm.str().length());
     strm.str("");
 
-    if ((arg->m_long != nullptr) && (arg->m_long[0] != '\0')) {
-      strm << "--" << arg->m_long;
+    if ((arg.m_long != nullptr) && (arg.m_long[0] != '\0')) {
+      strm << "--" << arg.m_long;
     }
     col2.push_back(strm.str());
     col2Width = std::max<int>(col2Width, strm.str().length());
     strm.str("");
 
-    switch (arg->m_type[0]) {
+    switch (arg.m_type[0]) {
       case 's':
         strm << "string";
         break;
@@ -231,8 +208,8 @@ void Basalt::DisplayHelp()
     col3.push_back(strm.str());
     col3Width = std::max<int>(col3Width, strm.str().length());
 
-    col4.push_back(arg->m_usage);
-    col4Width = std::max<int>(col4Width, strlen(arg->m_usage));
+    col4.push_back(arg.m_usage);
+    col4Width = std::max<int>(col4Width, strlen(arg.m_usage));
   }
 
   for (size_t i = 0; i < col1.size(); ++i) {
@@ -249,37 +226,62 @@ int Basalt::Main(int argc, char const *argv[])
   g_languageProfileFactory.Register<Basic_8k_LanguageProfile>      ("basic-8k");
   g_languageProfileFactory.Register<Basic_Extended_LanguageProfile>("basic-ext");
   g_languageProfileFactory.Register<Basic_Disk_LanguageProfile>    ("basic-disk");
-  
-  // parse options and arguments
-  int index = ParseArguments(g_argDefs, argc, argv);
 
-  if (g_displayHelp) {
-    DisplayHelp();
+  g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
+  g_codeGenerators.Register<Z80_CodeGenerator>("z80");
+
+  m_arch           = "ansi-c";
+  m_dump = false;
+  m_compileOnly = false;
+  m_enableDebugging = false;
+  g_disableWarnings = false;
+  g_enableLineNumbers = false;
+  
+  std::vector<ArgDef> argDefs = {
+    { 'c',   "",          "b",  &m_compileOnly,         "compile only" },
+    { 'd',   "dump",      "b",  &m_dump,                "dump output" },
+    { 'v',   "verbose",   "",   &m_verbose,             "enable verbosity" },
+    { 't',   "target",    "s",  &m_codeGeneratorName,   "set code generator" },
+    { 'o',   "output",    "s",  &m_outputFilename,      "set output filename" },
+    { 'p',   "profile",   "s",  &m_languageProfileName, "set language profile" },
+    { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
+    { 'g',   "debug",     "b",  &m_enableDebugging,     "add debugging information to output file"},
+    { 'h',   "help",      "",   &m_displayHelp,         "display help message"},
+    { 'W',   "warnings",  "b",  &g_disableWarnings,     "disable warnings"},
+    { 'L',   "linenum",   "b",  &g_enableLineNumbers,   "enable line numbers"},
+    { 'a',   "arch",      "s",  &m_arch,                "set output architecture" }
+  };
+
+  // parse options and arguments
+  int index = ParseArguments(&argDefs[0], argc, argv);
+
+  if (m_displayHelp) {
+    DisplayHelp(argDefs);
     return 0;
   }
 
   // set language profile 
-  if (g_languageProfileName.empty())
-    g_languageProfileName = "basic-8k";
+  if (m_languageProfileName.empty())
+    m_languageProfileName = "basic-8k";
 
   // see if the language profile exists
-  if (!g_languageProfileFactory.Contains(g_languageProfileName)) {
-    cerr << "error: code generator " << g_languageProfileName << "not known.\n";
-    Usage(g_argDefs, true);
+  if (!g_languageProfileFactory.Contains(m_languageProfileName)) {
+    cerr << "error: language profile " << m_languageProfileName << "not known.\n";
+    Usage(true);
     exit(1);
   }
 
   // create the language profile
-  g_languageProfile = g_languageProfileFactory.CreateInstance(g_languageProfileName);
+  g_languageProfile = g_languageProfileFactory.CreateInstance(m_languageProfileName);
   if (g_languageProfile == nullptr) {
-    cerr << "internal error: cannot instantiate language profile with name '" << g_languageProfileName << "'" << endl;
+    cerr << "internal error: cannot instantiate language profile with name '" << m_languageProfileName << "'" << endl;
     return -1;
   }
 
   // see if using stdin or file as input  
   if (index == argc) {
     m_interactive = true;
-    if (g_verbose)
+    if (m_verbose)
       cerr << "info: parsing stdin" << endl;
     m_inputStream = &std::cin;
     m_printableInputFilename = "<stdin>";
@@ -307,13 +309,46 @@ int Basalt::Main(int argc, char const *argv[])
     }
   }
 
-  if (g_verbose)
+  // create code generator
+  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch);
+  if (codeGen == nullptr) {
+    cerr << "error: unknown arch '" << m_arch << "'" << endl;
+    return -1;
+  }
+
+  std::ostream * outputStream = nullptr;
+  std::ofstream outputFile;
+
+  // construct output stream
+  if (m_outputFilename == "-") {
+    outputStream = &std::cout;
+  }
+  else {
+    Filename ofn;
+    if (!m_outputFilename.empty()) {
+      ofn = m_outputFilename;
+    }
+    else {
+      ofn = m_inputFilename.GetDir() + 
+            m_inputFilename.GetBasename() + 
+            codeGen->GetOutputFileExtension();
+    }
+    outputFile.open(ofn, std::ofstream::out | std::ofstream::trunc);
+    if (!outputFile.is_open()) {
+      cerr << "error: cannot create output file '" << ofn << "'" << endl;
+      return false;
+    }
+    cout << "outputting to " << ofn << endl;
+    outputStream = &outputFile;
+  }
+
+  if (m_verbose)
     cerr << "info: parsing '" << m_printableInputFilename << "'" << endl;
 
   m_lineOffs = 2;
   MBASIC_parse();
 
-  if (g_verbose) {
+  if (m_verbose) {
     cerr << "info: parsing finished" << endl;
   }
 
@@ -322,15 +357,9 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  Filename m_outputFilename = m_inputFilename.GetDir() + 
-                              m_inputFilename.GetBasename() + 
-                              ".c";
-
-  C_CodeGenerator codeGenerator(m_printableInputFilename,
-                                m_outputFilename,
-                                AST::g_program);
-
-  codeGenerator.Run();
+  if (!codeGen->Run(outputStream, AST::g_program)) {
+    cerr << "error: code generation failed" << endl;
+  }
 
   return 0;
 }

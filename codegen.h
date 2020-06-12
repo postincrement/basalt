@@ -10,14 +10,17 @@
 class CodeGenerator
 {
   public:
-    CodeGenerator(const std::string & inputFilename, 
-                  const std::string & outputFilename, 
-                  const AST::Program & program);
+    CodeGenerator();
 
-    bool Run();
+    virtual std::string GetOutputFileExtension() const = 0;              
+
+    bool Run(std::ostream * outputStream, const AST::Program & program);
     virtual bool Body() = 0;
 
-    virtual int Generate(const AST::Node & node) { }
+    virtual int Generate(const AST::Node & node);
+    virtual int Evaluate(const AST::Node & expr, std::string & result);
+    virtual int Print(const AST::Node & node);
+
     virtual int Generate(const AST::SourceLine & expr) { }
     virtual int Generate(const AST::Statement & statement) { }
     virtual int Generate(const AST::Print & expr) { }
@@ -26,7 +29,6 @@ class CodeGenerator
     virtual int Generate(const AST::Goto & expr) { }
     virtual int Generate(const AST::End & expr) { }
 
-    virtual int Evaluate(const AST::Node & expr, std::string & result) { }
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result) { }
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) { }
     virtual int Evaluate(const AST::StrFunction & expr, std::string & result) { }
@@ -52,7 +54,6 @@ class CodeGenerator
     virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) { }
     virtual int Evaluate(const AST::StringAddition & expr, std::string & result) { }
 
-    virtual int Print(const AST::Node & node) { }
     virtual int Print(const AST::StringConstant & expr) { }
     virtual int Print(const AST::Int16Constant & expr) { }
     virtual int Print(const AST::Int32Constant & expr) { }
@@ -63,15 +64,13 @@ class CodeGenerator
     virtual int Print(const AST::NumericVarRef & expr) { }
     virtual int Print(const AST::StringVarRef & expr) { }
 
-    std::string m_inputFilename;
+    Filename m_inputFilename;
     std::ostream * m_outputStream;
 
   protected:
     bool CheckVars();
 
-    std::string m_outputFilename; 
-    const AST::Program & m_program;
-    std::ofstream m_outputFile;
+    const AST::Program * m_program;
 };
 
 #endif // CODEGEN_H_

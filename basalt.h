@@ -9,7 +9,6 @@
 #include "codegen.h"
 #include "common.h"
 
-
 struct ArgDef 
 {
   const char   m_short;
@@ -26,8 +25,8 @@ class Basalt
 
     int ParseArguments(ArgDef * defs, int argc, char const *argv[], int index);
     void DecodeOpt(ArgDef * def, int & index, int argc, const char **argv);
-    void Usage(const ArgDef * defs, bool keys = false);
-    void DisplayHelp();
+    void Usage(bool keys = false);
+    void DisplayHelp(const std::vector<ArgDef> & argDefs);
     char ReadNextChar();
 
     void OnError(unsigned lineNumber, const std::string & msg);
@@ -37,6 +36,7 @@ class Basalt
     std::string GetCurrentLine() const { return m_line; }
 
   protected:    
+
     bool m_interactive;
 
     std::string m_progname;
@@ -48,7 +48,15 @@ class Basalt
     Filename m_inputFilename; 
     std::string m_printableInputFilename;
 
-    Filename m_outputFilename;
+    int m_verbose = 0;
+    int m_displayHelp = 0;
+    std::string m_codeGeneratorName;
+    std::string m_outputFilename;
+    std::string m_languageProfileName;
+    std::string m_arch;
+    bool m_dump = false;
+    bool m_compileOnly = false;
+    bool m_enableDebugging = false;
 };
 
 

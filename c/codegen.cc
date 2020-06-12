@@ -33,11 +33,15 @@ static CTypeInfoRec g_varTypeInfo[] = {
 
 ////////////////////////////////////////////////////////////
 
-C_CodeGenerator::C_CodeGenerator (const std::string & inputFilename, 
-                                  const std::string & outputFilename,
-                                      const AST::Program & program)
-  : CodeGenerator(inputFilename, outputFilename, program)
+C_CodeGenerator::C_CodeGenerator ()
 {
+}
+
+////////////////////////////////////////////////////////////////
+
+std::string C_CodeGenerator::GetOutputFileExtension() const
+{
+  return ".c";
 }
 
 ////////////////////////////////////////////////////////////////
@@ -50,39 +54,11 @@ static std::string QuoteLiteral(const std::string & str_)
   return str;
 }
 
-
-static std::string DemangleTypeName(const std::type_info & r)
-{
-  const char * mangledName = r.name();
-  int status;
-  char * demangledName = abi::__cxa_demangle (mangledName, NULL, NULL, &status);
-  std::string ret(demangledName);
-  free(demangledName);
-  return ret;
-}
-
 std::string C_CodeGenerator::Closure::GetTempName()
 {
   stringstream name;
   name << TEMP_PREFIX << m_tempIndex++;
   return name.str();
-}
-
-int C_CodeGenerator::Generate(const AST::Node & expr)
-{
-  cerr << "warning: unimplemented Generate for " << DemangleTypeName(typeid(expr)) << "\n";
-}
-
-int C_CodeGenerator::Print(const AST::Node & expr)
-{
-  const std::type_info & r = typeid(expr);
-  cerr << "warning: unimplemented Print for " <<DemangleTypeName(typeid(expr)) << "\n";
-}
-
-int C_CodeGenerator::Evaluate(const AST::Node & expr, std::string & result)
-{
-  const std::type_info & r = typeid(expr);
-  cerr << "warning: unimplemented Evaluate for " <<DemangleTypeName(typeid(expr)) << "\n";
 }
 
 ////////////////////////////////////////////////////////////////
@@ -128,10 +104,8 @@ bool C_CodeGenerator::Body()
     m_cnames.insert(cvar.m_cname);
   }
 
-  cout << "program has " << m_program.m_list.size() << " elements" << endl;
-
   *m_outputStream
-           << "/* Generator by basalt */\n"
+           << "/* C generator by basalt */\n"
            << "#include <stdlib.h>\n"
            << "#include <stdint.h>\n"
            << "#include <math.h>\n"
@@ -172,19 +146,19 @@ bool C_CodeGenerator::Body()
                   << "};\n"
                   ;
 
-  for (size_t i = 0; i < m_program.m_list.size(); ++i) {
-    auto & r = m_program.m_list[i];
+  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
+    auto & r = m_program->m_list[i];
     *m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "(); /* " << r->GetBasicLineNumber() << " */\n";
   }
 
-  for (size_t i = 0; i < m_program.m_list.size(); ++i) {
-    auto & r = m_program.m_list[i];
+  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
+    auto & r = m_program->m_list[i];
 
     *m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "() /* " << r->GetBasicLineNumber() << " */\n"
                     << "{\n"
                     << "  struct LineFunction nextLine;\n"
                     << "  nextLine.m_func = ";
-    if (i == m_program.m_list.size()-1) {
+    if (i == m_program->m_list.size()-1) {
       *m_outputStream << "0";
     }
     else {
