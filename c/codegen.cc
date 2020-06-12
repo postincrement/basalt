@@ -34,6 +34,7 @@ static CTypeInfoRec g_varTypeInfo[] = {
 ////////////////////////////////////////////////////////////
 
 C_CodeGenerator::C_CodeGenerator ()
+  : CodeGenerator(TEMP_PREFIX)
 {
 }
 
@@ -52,13 +53,6 @@ static std::string QuoteLiteral(const std::string & str_)
   str += str_;
   str += "\"";
   return str;
-}
-
-std::string C_CodeGenerator::Closure::GetTempName()
-{
-  stringstream name;
-  name << TEMP_PREFIX << m_tempIndex++;
-  return name.str();
 }
 
 ////////////////////////////////////////////////////////////////
@@ -167,9 +161,9 @@ bool C_CodeGenerator::Body()
     *m_outputStream << ";\n"
                     ;
                     
-    PushClosure();
+    Push();
     r->Generate(*this);
-    *m_outputStream << PopClosure()
+    *m_outputStream << Pop()
                     << "  return nextLine;\n"
                     << "}\n"
                     << "\n"
@@ -280,7 +274,7 @@ int C_CodeGenerator::Generate(const AST::StringAssign & expr)
     TopOutput() << "/* optimised out */\n";
   }
   else {
-    PushClosure();
+    Push();
 
     TopOutput() << "if (" << cvar.m_cname << ")\n";
     TopOutput() << "  free(" << cvar.m_cname << ");\n";
@@ -295,7 +289,7 @@ int C_CodeGenerator::Generate(const AST::StringAssign & expr)
       TopOutput() << "  " << cvar.m_cname << " = " << rhs << ";\n";
     }
 
-    PopClosure();
+    Pop();
   }
 
   return 0;
@@ -344,9 +338,9 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
       TopOutput() << "if (!" << rhs << ")\n";
       TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
       TopOutput() << "else\n";
-      PushClosure();
+      Push();
       CatStrings(temp1, lhs, rhs, "");
-      PopClosure();
+      Pop();
       break;
     case 0x13:  // left constant, right expr
       CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
@@ -358,31 +352,31 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
       TopOutput() << "if (!" << lhs << ")\n";
       TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
       TopOutput() << "else\n";
-      PushClosure();
+      Push();
       CatStrings(temp1, lhs, rhs, "");
-      PopClosure();
+      Pop();
       break;
     case 0x22:  // left var, right var
       TopOutput() << STRING_CTYPE " " << temp1 << " = 0;\n";
       TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0)\n";
-      PushClosure();
+      Push();
       TopOutput() << "if (!" << lhs << ")\n";
       TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
       TopOutput() << "else if (!" << rhs << ")";
       TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
       TopOutput() << "else {\n";
-      PushClosure();
+      Push();
       CatStrings(temp1, lhs, rhs, "");
-      PopClosure();
-      PopClosure();
+      Pop();
+      Pop();
     case 0x23:  // left var, right expr
       TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
       TopOutput() << "if (!" << lhs << ")\n";
       TopOutput() << "  " << temp1 << " = " << rhs << ";\n";
-      PushClosure();
+      Push();
       CatStrings(temp1, lhs, rhs, "");
       TopOutput() << "free(" << rhs << ");\n";
-      PopClosure();
+      Pop();
       break;
 
     case 0x31:  // left expression, right constant
@@ -393,10 +387,10 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
       TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
       TopOutput() << "if (!" << rhs << ")\n";
       TopOutput() << "  " << temp1 << " = " << lhs << ";\n";
-      PushClosure();
+      Push();
       CatStrings(temp1, lhs, rhs, "");
       TopOutput() << "free(" << lhs << ");\n";
-      PopClosure();
+      Pop();
       break;
     case 0x33:  // left expression, right expr
       CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");

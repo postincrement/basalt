@@ -19,16 +19,15 @@ std::string Z80_CodeGenerator::GetOutputFileExtension() const
 
 bool Z80_CodeGenerator::Body()
 {
-  cout << "generating Z80" << endl;
-
 #if 0
   for (auto & r : AST::g_globalVars) {
     AST::VarInfo & info = r.second;
     int tag = 0;
   }
+#endif
 
   *m_outputStream
-           << "/* Z80 generator by basalt */\n"
+           << "; Z80 generator by basalt\n"
            << "\n"
            ;
 
@@ -37,19 +36,25 @@ bool Z80_CodeGenerator::Body()
     //*m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "(); /* " << r->GetBasicLineNumber() << " */\n";
   }
 
+#if 0
   for (size_t i = 0; i < m_program->m_list.size(); ++i) {
     //auto & r = m_program->m_list[i];
   }
 #endif
 
-  *m_outputStream 
-           << "int main(int argc, char * argv[])\n"
-           << "{\n"
-           << "  exit(0);\n"
-           << "}\n"
-           ;
+  *m_outputStream << "\torg 0x100\n"
+                  << "\tjp start\n"
+                  ;
 
-cerr << "finished Z80" << endl;
+  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
+    auto & r = m_program->m_list[i];
+    r->Generate(*this);
+  }
+
+  *m_outputStream << "start:\n"
+                  << "\n"
+                  << "end:\tjp 0x0000\n"
+           ;
 
   return true;           
 }

@@ -10,11 +10,14 @@
 class CodeGenerator
 {
   public:
-    CodeGenerator();
+    CodeGenerator(const char * tempPrefix = nullptr);
+
+    struct Closure;
 
     virtual std::string GetOutputFileExtension() const = 0;              
+    virtual Closure * CreateClosure(int indent) const;
 
-    bool Run(std::ostream * outputStream, const AST::Program & program);
+    bool Run(const std::string & inputFilename, std::ostream * outputStream, const AST::Program & program);
     virtual bool Body() = 0;
 
     virtual int Generate(const AST::Node & node);
@@ -64,13 +67,38 @@ class CodeGenerator
     virtual int Print(const AST::NumericVarRef & expr) { }
     virtual int Print(const AST::StringVarRef & expr) { }
 
-    Filename m_inputFilename;
-    std::ostream * m_outputStream;
+    class Closure {
+      public:
+        Closure(const std::string & tempPrefix, int indent);
+        ~Closure();
+
+        std::string Indent(int n = 0) const;
+        int GetIndent() const;
+
+        std::stringstream & Output();
+        std::string GetTempName();
+
+      protected:
+        std::string m_tempPrefix;
+        int m_indent;
+        std::stringstream m_output;
+        int m_tempIndex = 1;
+    };
+
+    Closure & Top();
+    std::stringstream & TopOutput(bool indent = true);
+    void Push();
+    std::string Pop();
 
   protected:
     bool CheckVars();
 
+    std::string m_tempPrefix;
+    std::string m_inputFilename;
+
     const AST::Program * m_program;
+    std::ostream * m_outputStream;
+    std::deque<Closure *> m_stack;
 };
 
 #endif // CODEGEN_H_

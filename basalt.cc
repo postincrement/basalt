@@ -357,7 +357,7 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  if (!codeGen->Run(outputStream, AST::g_program)) {
+  if (!codeGen->Run(m_printableInputFilename, outputStream, AST::g_program)) {
     cerr << "error: code generation failed" << endl;
   }
 
