@@ -144,7 +144,11 @@ class C_CodeGenerator : public CodeGenerator
     int NumericExpr          (const std::string & op, const AST::NumericExpr * expr,            std::string & result);
     int StringExpr           (const std::string & op, const AST::StringExpr * expr,             std::string & result);
 
-    void CatStrings(const std::string & tempName, const std::string & lhs, const std::string & rhs, const std::string & pre);
+    void CatStrings(const std::string & tempName,
+                    const std::string & lhs, 
+                    const std::string & rhs, 
+                    const std::string & pre,
+                    bool indent = true);
 
     typedef std::map<std::string, CVarDef> GlobalVarMap;
     std::set<std::string> m_cnames;

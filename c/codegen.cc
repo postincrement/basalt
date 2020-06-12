@@ -276,11 +276,12 @@ int C_CodeGenerator::Generate(const AST::Goto & expr)
 void C_CodeGenerator::CatStrings(const std::string & tempName,
                                  const std::string & lhs, 
                                  const std::string & rhs, 
-                                 const std::string & pre)
+                                 const std::string & pre,
+                                 bool indent)
 {
-  TopOutput() << pre << tempName << " = (char *)malloc(strlen(" << lhs << ") + strlen(" << rhs << ") + 1);\n";
-  TopOutput() << "strcpy(" << tempName << ", " << lhs << ");\n";
-  TopOutput() << "strcat(" << tempName << ", " << rhs << ");\n";  
+  TopOutput(indent) << pre << tempName << " = (char *)malloc(strlen(" << lhs << ") + strlen(" << rhs << ") + 1);\n";
+  TopOutput(indent) << "strcpy(" << tempName << ", " << lhs << ");\n";
+  TopOutput(indent) << "strcat(" << tempName << ", " << rhs << ");\n";  
 }
 
 int C_CodeGenerator::Generate(const AST::StringAssign & expr)
@@ -307,16 +308,18 @@ int C_CodeGenerator::Generate(const AST::StringAssign & expr)
   else {
     PushClosure();
 
-    TopOutput() << "if (" << cvar.m_cname << ") free(" << cvar.m_cname << ");\n";
+    TopOutput() << "if (" << cvar.m_cname << ")\n";
+    TopOutput() << "  free(" << cvar.m_cname << ");\n";
 
     if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
-      TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\")";
+      TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\");\n";
     }
     else {
-      TopOutput() << "if (!" << rhs << ") " << cvar.m_cname << " = 0;\n";
-      TopOutput() << "else " << cvar.m_cname << " = " << rhs;
+      TopOutput() << "if (!" << rhs << ")\n";
+      TopOutput() << "  " << cvar.m_cname << " = 0;\n";
+      TopOutput() << "else\n";
+      TopOutput() << "  " << cvar.m_cname << " = " << rhs << ";\n";
     }
-    TopOutput(false) << ";" << endl;
 
     PopClosure();
   }
@@ -364,10 +367,12 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
       break;
     case 0x12:  // left constant, right var
       TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-      TopOutput() << "if (!" << rhs << ") " << temp1 << " = strdup(" << lhs << ");\n";
-      TopOutput() << "else {\n";
+      TopOutput() << "if (!" << rhs << ")\n";
+      TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
+      TopOutput() << "else\n";
+      PushClosure();
       CatStrings(temp1, lhs, rhs, "");
-      TopOutput() << "}\n";
+      PopClosure();
       break;
     case 0x13:  // left constant, right expr
       CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
@@ -376,27 +381,34 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
 
     case 0x21:  // left var, right constant
       TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-      TopOutput() << "if (!" << lhs << ") " << temp1 << " = strdup(" << rhs << ");\n";
-      TopOutput() << "else {\n";
+      TopOutput() << "if (!" << lhs << ")\n";
+      TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
+      TopOutput() << "else\n";
+      PushClosure();
       CatStrings(temp1, lhs, rhs, "");
-      TopOutput() << "}\n";
+      PopClosure();
       break;
     case 0x22:  // left var, right var
       TopOutput() << STRING_CTYPE " " << temp1 << " = 0;\n";
-      TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0) {\n";
-      TopOutput() << "  if (!" << lhs << ") " << temp1 << " = strdup(" << rhs << ");\n";
-      TopOutput() << "  else if (!" << rhs << ") " << temp1 << " = strdup(" << lhs << ");\n";
-      TopOutput() << "  else {\n";
+      TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0)\n";
+      PushClosure();
+      TopOutput() << "if (!" << lhs << ")\n";
+      TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
+      TopOutput() << "else if (!" << rhs << ")";
+      TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
+      TopOutput() << "else {\n";
+      PushClosure();
       CatStrings(temp1, lhs, rhs, "");
-      TopOutput() << "  };\n";
-      TopOutput() << "}\n";
+      PopClosure();
+      PopClosure();
     case 0x23:  // left var, right expr
       TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-      TopOutput() << "if (!" << lhs << ") " << temp1 << " = " << rhs << ";\n";
-      TopOutput() << "else {\n";
+      TopOutput() << "if (!" << lhs << ")\n";
+      TopOutput() << "  " << temp1 << " = " << rhs << ";\n";
+      PushClosure();
       CatStrings(temp1, lhs, rhs, "");
       TopOutput() << "free(" << rhs << ");\n";
-      TopOutput() << "}\n";
+      PopClosure();
       break;
 
     case 0x31:  // left expression, right constant
@@ -405,11 +417,12 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
       break;
     case 0x32:  // left expression, right var
       TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-      TopOutput() << "if (!" << rhs << ") " << temp1 << " = " << lhs << ";\n";
-      TopOutput() << "else {\n";
+      TopOutput() << "if (!" << rhs << ")\n";
+      TopOutput() << "  " << temp1 << " = " << lhs << ";\n";
+      PushClosure();
       CatStrings(temp1, lhs, rhs, "");
       TopOutput() << "free(" << lhs << ");\n";
-      TopOutput() << "}\n";
+      PopClosure();
       break;
     case 0x33:  // left expression, right expr
       CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
@@ -621,17 +634,16 @@ int C_CodeGenerator::NumericBinaryOperator(const std::string & op, const AST::Nu
 {
   if ((expr == nullptr) || (expr->m_lhs == nullptr) || (expr->m_rhs == nullptr))
     return -1;
-  
-  std::string lhs;
+
+  std::string temp1 = Top().GetTempName();
+  CTypeInfoRec & info = g_varTypeInfo[(int)expr->GetType()];
+
+  std::string lhs, rhs;
   expr->m_lhs->Evaluate(*this, lhs);
-
-  std::string rhs;
   expr->m_rhs->Evaluate(*this, rhs);
+  TopOutput() << info.m_ctype << " " << temp1 << " = " << lhs << " " << op << " " << rhs << ";\n";
 
-  Closure & us = Top();
-  stringstream strm;
-  strm << "(" << lhs << " " << op << " " << rhs << ")";
-  result = strm.str();
+  result = temp1;
 
   return 0;
 }
