@@ -11,23 +11,19 @@ AST::Program AST::g_program;
 AST::VarList AST::g_globalVars;
 AST::LineNumberInfo AST::g_lineNumberInfo;
 AST::GotoList AST::g_gotoInfo;
+AST::StringConstantList AST::g_stringConstants;
+static unsigned g_stringConstantIndex = 0;
 
 /////////////////////////////////////////
 
 int AST::Node::Generate(CodeGenerator & gen) const
-{
-  return gen.Generate(*this);
-}
+{ return gen.Generate(*this); }
 
 int AST::Node::Print(CodeGenerator & gen) const
-{ 
-  return gen.Print(*this);
-}
+{ return gen.Print(*this); }
 
 int AST::Node::Evaluate(CodeGenerator & gen, std::string & result) const
-{ 
-  return gen.Evaluate(*this, result);
-}
+{ return gen.Evaluate(*this, result); }
 
 /////////////////////////////////////////
 
@@ -47,75 +43,53 @@ SourceLine::SourceLine(
 }
 
 int SourceLine::Generate(CodeGenerator & gen) const
-{
-  return gen.Generate(*this);
-}
+{ return gen.Generate(*this); }
 
 ////////////////////////////////////////////////////////////////////////////
 
 int End::Generate(CodeGenerator & gen) const
-{
-  return gen.Generate(*this);
-}
+{ return gen.Generate(*this); }
 
 ////////////////////////////////////////////////////////////////////////////
 
 Expr::Expr(VarType type)
   : m_type(type)
-{
-}
+{ }
 
 VarType AST::Expr::GetType() const
-{
-  return m_type;
-}
+{ return m_type; }
 
 /////////////////////////////////////////
 
 Print::Print(ExprList * list)
-{
-  Append(list);
-}
+{ Append(list); }
 
 int Print::Generate(CodeGenerator & gen) const
-{
-  return gen.Generate(*this);
-}
+{ return gen.Generate(*this); }
 
 int PrintComma::Print(CodeGenerator & gen) const
-{
-  return gen.Print(*this);
-}
+{ return gen.Print(*this); }
 
 int PrintSemiColon::Print(CodeGenerator & gen) const
-{
-  return gen.Print(*this);
-}
+{ return gen.Print(*this); }
 
 /////////////////////////////////////////
 
 StringAssign::StringAssign(const AST::StringVarRef * lhs, const StringExpr * rhs)
   : m_lhs(lhs)
   , m_rhs(rhs)
-{
-}
+{ }
 
 int StringAssign::Generate(CodeGenerator & gen) const
-{
-  return gen.Generate(*this);
-}
+{ return gen.Generate(*this); }
 
 bool StringAssign::Validate()
-{
-  return false;
-}
+{ return false; }
 
 /////////////////////////////////////////
 
 int StringAddition::Evaluate(CodeGenerator & gen, std::string & result) const
-{
-  return gen.Evaluate(*this, result);
-}
+{ return gen.Evaluate(*this, result); }
 
 /////////////////////////////////////////
 
@@ -143,16 +117,24 @@ StringVarRef::StringVarRef(const std::string & varName)
 }
 
 int StringVarRef::Evaluate(CodeGenerator & gen, std::string & result) const
-{
-  return gen.Evaluate(*this, result);
-}
+{ return gen.Evaluate(*this, result); }
 
 int StringVarRef::Print(CodeGenerator & gen) const
-{
-  return gen.Print(*this);
-}
+{ return gen.Print(*this); }
 
 /////////////////////////////////////////
+
+StringConstant::StringConstant(const std::string & str)
+  : m_value(str)
+{
+  if (AST::g_stringConstants.count(str) != 0) {
+    m_index = AST::g_stringConstants[str];
+  }
+  else {
+    m_index = g_stringConstantIndex++;
+    AST::g_stringConstants[str] = m_index;
+  }
+}
 
 int StringConstant::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
@@ -165,13 +147,10 @@ int StringConstant::Print(CodeGenerator & gen) const
 NumericAssign::NumericAssign(const AST::NumericVarRef * lhs, const NumericExpr * rhs)
   : m_lhs(lhs)
   , m_rhs(rhs)
-{
-}
+{ }
 
 int NumericAssign::Generate(CodeGenerator & gen) const
-{
-  return gen.Generate(*this);
-}
+{ return gen.Generate(*this); }
 
 bool NumericAssign::Validate()
 {

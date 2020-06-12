@@ -433,14 +433,15 @@ struct VarInfo {
 typedef std::map<std::string, VarInfo> VarList;
 extern VarList g_globalVars;
 
+typedef std::map<std::string, unsigned> StringConstantList;
+extern StringConstantList g_stringConstants;
+
 ////////////////////////////////////////////////////////////////////////////
 
 class StringConstant : public StringExpr
 {
   public:
-    StringConstant(const std::string & str)
-      : m_value(str)
-      {}
+    StringConstant(const std::string & str);
 
     virtual bool IsConstant() const
     { return true; }
@@ -454,6 +455,7 @@ class StringConstant : public StringExpr
 
   protected:   
     std::string m_value;  
+    unsigned m_index;
 };
 
 ////////////////////////////////////////////////////////////////////////////

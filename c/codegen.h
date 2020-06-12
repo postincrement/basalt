@@ -15,10 +15,40 @@ class C_CodeGenerator : public CodeGenerator
 
     virtual std::string GetOutputFileExtension() const override;
 
+    std::stringstream m_body;
+
+    struct CVarDef {
+      VarType m_type;
+      std::string m_cname;
+    };
+
+    bool LookupGlobalVar(
+      const std::string & varName, 
+      CVarDef & cvar
+    );
+
+  protected:
+    int NumericBinaryOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
+    int UnaryOperator        (const std::string & op, const AST::UnaryOperation * expr,         std::string & result);
+    int NumericExpr          (const std::string & op, const AST::NumericExpr * expr,            std::string & result);
+    int StringExpr           (const std::string & op, const AST::StringExpr * expr,             std::string & result);
+
+    void CatStrings(const std::string & tempName,
+                    const std::string & lhs, 
+                    const std::string & rhs, 
+                    const std::string & pre,
+                    bool indent = true);
+
+    typedef std::map<std::string, CVarDef> GlobalVarMap;
+    std::set<std::string> m_cnames;
+    GlobalVarMap m_globalVars;  
+
+  public:   
     virtual bool Body() override;
 
     virtual int Generate(const AST::SourceLine & expr) override;
-    virtual int Generate(const AST::Statement & statement) override;
+    //virtual int Generate(const AST::Statement & statement) override;
+
     virtual int Generate(const AST::Print & expr) override;
     virtual int Generate(const AST::NumericAssign & expr) override;
     virtual int Generate(const AST::StringAssign & expr) override;
@@ -59,34 +89,6 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Print(const AST::PrintSemiColon & expr) override;
     virtual int Print(const AST::NumericVarRef & expr) override;
     virtual int Print(const AST::StringVarRef & expr) override;
-
-    std::stringstream m_body;
-
-    struct CVarDef {
-      VarType m_type;
-      std::string m_cname;
-    };
-
-    bool LookupGlobalVar(
-      const std::string & varName, 
-      C_CodeGenerator::CVarDef & cvar
-    );
-
-  protected:
-    int NumericBinaryOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
-    int UnaryOperator        (const std::string & op, const AST::UnaryOperation * expr,         std::string & result);
-    int NumericExpr          (const std::string & op, const AST::NumericExpr * expr,            std::string & result);
-    int StringExpr           (const std::string & op, const AST::StringExpr * expr,             std::string & result);
-
-    void CatStrings(const std::string & tempName,
-                    const std::string & lhs, 
-                    const std::string & rhs, 
-                    const std::string & pre,
-                    bool indent = true);
-
-    typedef std::map<std::string, CVarDef> GlobalVarMap;
-    std::set<std::string> m_cnames;
-    GlobalVarMap m_globalVars;  
 };
 
 #endif // C_CODEGEN_H_

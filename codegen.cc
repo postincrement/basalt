@@ -152,4 +152,22 @@ std::string CodeGenerator::Closure::GetTempName()
   return name.str();
 }
 
+///////////////////////////////////////////////////////
+
+int CodeGenerator::Generate(const AST::SourceLine & line)
+{
+  if (line.m_statements)       
+    line.m_statements->Generate(*this);
+
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::Statement & statement)
+{
+  for (auto & r : statement.m_list) {
+    r->Generate(*this);
+    TopOutput() << TopOutput().str();    
+  }
+  return 0;
+}
 

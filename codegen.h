@@ -24,8 +24,9 @@ class CodeGenerator
     virtual int Evaluate(const AST::Node & expr, std::string & result);
     virtual int Print(const AST::Node & node);
 
-    virtual int Generate(const AST::SourceLine & expr) { }
-    virtual int Generate(const AST::Statement & statement) { }
+    virtual int Generate(const AST::SourceLine & expr);     // iterate through statements
+    virtual int Generate(const AST::Statement & statement); // iterate through expressions 
+
     virtual int Generate(const AST::Print & expr) { }
     virtual int Generate(const AST::NumericAssign & expr) { }
     virtual int Generate(const AST::StringAssign & expr) { }

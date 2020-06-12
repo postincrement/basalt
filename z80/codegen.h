@@ -10,9 +10,25 @@ class Z80_CodeGenerator : public CodeGenerator
 
     virtual std::string GetOutputFileExtension() const override;
                     
+    struct AsmVarDef {
+      VarType m_type;
+      std::string m_aname;
+    };
+
+    bool LookupGlobalVar(
+      const std::string & varName, 
+      AsmVarDef & cvar
+    );
+
+  protected:
+    typedef std::map<std::string, AsmVarDef> GlobalVarMap;
+    std::set<std::string> m_anames;
+    GlobalVarMap m_globalVars;  
+  
+  public:
     virtual bool Body() override;
 
-    virtual int Generate(const AST::SourceLine & expr) override;
+//    virtual int Generate(const AST::SourceLine & expr) override;
     virtual int Generate(const AST::Statement & statement) override;
     virtual int Generate(const AST::End & expr) override;
 /*    
@@ -55,103 +71,7 @@ class Z80_CodeGenerator : public CodeGenerator
     virtual int Print(const AST::PrintSemiColon & expr) override;
     virtual int Print(const AST::NumericVarRef & expr) override;
     virtual int Print(const AST::StringVarRef & expr) override;
-
-    std::stringstream m_body;
-
-    struct CVarDef {
-      VarType m_type;
-      std::string m_cname;
-    };
-
-    bool LookupGlobalVar(
-      const std::string & varName, 
-      C_CodeGenerator::CVarDef & cvar
-    );
-
-    class Closure {
-      public:
-        Closure(int indent)
-          : m_indent(indent)
-        { 
-        }
-
-        ~Closure()
-        {
-        }
-
-        std::string Indent(int n = 0) const
-        {
-          return std::string(m_indent + n, ' ');
-        }
-
-        int GetIndent() const
-        { return m_indent; }
-
-        std::stringstream & Output()
-        { return m_output; }
-
-        std::string GetTempName();
-
-      protected:
-        int m_indent;
-        std::stringstream m_output;
-        int m_tempIndex = 1;
-    };
-
-    Closure & Top()
-    {
-      return m_stack[m_stack.size()-1];      
-    }
-
-    std::stringstream & TopOutput(bool indent = true)
-    {
-      if (indent)
-        Top().Output() << Top().Indent();
-      return Top().Output();
-    }
-
-    void PushClosure()
-    {
-      int indent = (m_stack.size() < 1) ? 2 : (Top().GetIndent()+2); 
-      m_stack.emplace_back(indent);
-      if (m_stack.size() > 1)
-        TopOutput(false) << Top().Indent(-2) << "{\n";
-    }
-
-    std::string PopClosure()
-    {
-      std::string str;
-      if (m_stack.size() > 1) {
-        TopOutput(false) << Top().Indent(-2) << "}\n";
-      }
-      str = TopOutput(false).str();
-      if (m_stack.size() > 0) {
-        m_stack.pop_back();
-      }
-      if (m_stack.size() > 0) {
-        TopOutput(false) << str;
-      }
-      return str;  
-    }
-
-    std::deque<Closure> m_stack;
-
-  protected:
-    int NumericBinaryOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
-    int UnaryOperator        (const std::string & op, const AST::UnaryOperation * expr,         std::string & result);
-    int NumericExpr          (const std::string & op, const AST::NumericExpr * expr,            std::string & result);
-    int StringExpr           (const std::string & op, const AST::StringExpr * expr,             std::string & result);
-
-    void CatStrings(const std::string & tempName,
-                    const std::string & lhs, 
-                    const std::string & rhs, 
-                    const std::string & pre,
-                    bool indent = true);
-
-    typedef std::map<std::string, CVarDef> GlobalVarMap;
-    std::set<std::string> m_cnames;
-    GlobalVarMap m_globalVars;  
-*/    
+  */  
 };
 
 #endif // Z80_CODEGEN_H_

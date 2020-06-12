@@ -197,20 +197,7 @@ int C_CodeGenerator::Generate(const AST::SourceLine & line)
   //  TopOutput() << "  line_" << line.GetBasicLineNumber() << ":\n";
   //}
 
-  if (line.m_statements)       
-    line.m_statements->Generate(*this);
-
-  return 0;
-}
-
-int C_CodeGenerator::Generate(const AST::Statement & statement)
-{
-  Closure & us = Top();
-  for (auto & r : statement.m_list) {
-    r->Generate(*this);
-    us.Output() << TopOutput().str();    
-  }
-  return 0;
+  return CodeGenerator::Generate(line);
 }
 
 int C_CodeGenerator::Generate(const AST::End & expr)
@@ -218,7 +205,6 @@ int C_CodeGenerator::Generate(const AST::End & expr)
   TopOutput() << "nextLine.m_func = 0;\n";
   return 0;
 }
-
 
 ////////////////////////////////////////////////////////////////
 
