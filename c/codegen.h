@@ -1,7 +1,7 @@
 #ifndef C_CODEGEN_H_
 #define C_CODEGEN_H_
 
-#include "codegen.h"
+#include "../codegen.h"
 
 class C_CodeGenerator : public CodeGenerator
 {

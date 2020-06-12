@@ -12,7 +12,8 @@ OBJS = basalt.o \
        mbasic.lex.o mbasic.tab.o \
 			 ast.o \
 			 codegen.o \
-			 common.o
+			 common.o \
+			 c/codegen.o
 
 all: basalt libbasaltrt.a
 
