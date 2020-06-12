@@ -19,6 +19,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::NumericAssign & expr) override;
     virtual int Generate(const AST::StringAssign & expr) override;
     virtual int Generate(const AST::Goto & expr) override;
+    virtual int Generate(const AST::End & expr) override;
 
     virtual int Evaluate(const AST::Node & expr, std::string & result) override;
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;

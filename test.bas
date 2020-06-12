@@ -29,10 +29,8 @@
 104 q = -m      : print "q" ; q
 110 z = m * 4 + n + o / p * m : print "z " z
 
-200 goto 205
-201 goto 210
-205 goto 201
-210 print "made it!"
+200 goto 1205
+201
 
 300 r$ = a$
 301 r = len(a$)
@@ -46,3 +44,9 @@
 316 rem test
 
 400 s = sqr(300)
+
+999 end
+
+1201 goto 1210
+1205 goto 1201
+1210 print "made it!" : goto 201

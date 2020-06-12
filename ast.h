@@ -494,6 +494,17 @@ extern LineNumberInfo g_lineNumberInfo;
 
 ////////////////////////////////////////////////////////////////////////////
 
+class End : public Statement
+{
+  public:
+    End()
+    {}
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
 struct GotoInfo {
   unsigned m_count = 0;
   std::set<unsigned> m_usedLine;

@@ -305,7 +305,7 @@ statement:     CLEAR_statement
                   }   
                | END_statement
                   {
-                    $$ = nullptr;
+                    $$ = new AST::End();
                   }   
                | FOR_statement
                   {

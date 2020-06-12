@@ -298,6 +298,13 @@ int C_CodeGenerator::Generate(const AST::Statement & statement)
   return 0;
 }
 
+int C_CodeGenerator::Generate(const AST::End & expr)
+{
+  TopOutput() << "nextLine.m_func = 0;\n";
+  return 0;
+}
+
+
 ////////////////////////////////////////////////////////////////
 
 int C_CodeGenerator::Generate(const AST::Print & expr)
