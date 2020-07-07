@@ -436,6 +436,8 @@ extern VarList g_globalVars;
 typedef std::map<std::string, unsigned> StringConstantList;
 extern StringConstantList g_stringConstants;
 
+extern unsigned g_stringConstantIndex;
+
 ////////////////////////////////////////////////////////////////////////////
 
 class StringConstant : public StringExpr

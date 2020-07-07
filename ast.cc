@@ -12,8 +12,7 @@ VarList AST::g_globalVars;
 LineNumberInfo AST::g_lineNumberInfo;
 GotoDestinationList AST::g_gotoDestinationInfo;
 StringConstantList AST::g_stringConstants;
-
-static unsigned g_stringConstantIndex = 0;
+unsigned AST::g_stringConstantIndex = 0;
 
 /////////////////////////////////////////
 

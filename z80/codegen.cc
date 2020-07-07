@@ -2,6 +2,7 @@
 
 #include "codegen.h"
 #include <iostream>
+#include <iomanip>
 #include <typeinfo>
 
 using namespace std;
@@ -88,28 +89,53 @@ bool Z80_CodeGenerator::Body()
     //*m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "(); /* " << r->GetBasicLineNumber() << " */\n";
   }
 
-#if 0
-  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
-    //auto & r = m_program->m_list[i];
-  }
-#endif
-
-  *m_outputStream << "\torg\t0x100\n"
+  *m_outputStream << "\n"
+                  << "; CP/M BDOS entry point\n"
+                  << "wboot:\tequ\t0\n"
+                  << "bdos:\tequ\t5\n"
+                  << "\n"
+                  << "\torg\t0x100\n"
                   << "\tjp\tstart\n"
                   ;
 
   if (AST::g_stringConstants.size() > 0) {
     *m_outputStream << "\n";
     *m_outputStream << "; String constants\n";
+    if (AST::g_stringConstants.count("\r\n") == 0) {
+      int index = AST::g_stringConstantIndex++;
+      AST::g_stringConstants["\r\n"] = index;
+    }
     for (auto & r : AST::g_stringConstants) {
-      *m_outputStream << "str_" << r.second << ":\t" 
-                      << "dm\t"
-                      << "\"" << r.first << "\""
-                      << endl;
+      *m_outputStream << "str_" << r.second << ":";
+      const std::string & str = r.first;
+      int i = 0;
+      std::string prefix = "\t";
+      if (!isprint(str[i])) {
+        prefix += "db\t";
+        while (i < str.length()) {
+          *m_outputStream << prefix << "0x" << setw(2) << setfill('0') << hex << (int)str[i] << dec;
+          prefix = ", ";
+          ++i;
+        }
+      }
+      else {
+        int start = i;
+        while ((i < str.length()) && (isprint(str[i])))
+          ++i;
+        *m_outputStream << prefix << "dm\t\"" << str.substr(start, i-start) << "\"";
+      } 
+      *m_outputStream << "\n";
+      prefix = "\t";
     }
     *m_outputStream << "\n";
   }
-  *m_outputStream << "start:\n";
+  *m_outputStream << "start:\n"
+                  << "\tld\thl,(wboot+1)\n"
+                  << "\tld\tde,9\n"
+                  << "\tadd\thl,de\n"
+                  << "\tld\t(conout+1),hl\n"
+                  << "\tld\tsp,0x100\n"
+                  ;
 
   for (size_t i = 0; i < m_program->m_list.size(); ++i) {
     auto & r = m_program->m_list[i];
@@ -120,12 +146,51 @@ bool Z80_CodeGenerator::Body()
   }
 
   *m_outputStream << "\n"
-                  << "end:\tjp\t0x0000\n"
-           ;
+                  << "\tld\tc,1\n"
+                  << "\tcall\tbdos\n"
+                  << "end:\trst\t0\n";
+
+  if (m_usePrintNewLine) {
+    int index = AST::g_stringConstants["\r\n"];  
+    *m_outputStream << "\n"
+                    << "; print newline\n"
+                    << "print_newline:\n"
+                    << "\tld\thl,str_" << index << "\n"    
+                    << "\tld\tbc,2\n"
+                    ;
+  }                
+
+  if (m_usePrintStr || m_usePrintNewLine) {
+    *m_outputStream << "\n"
+                    << "; print string at HL with BC chars\n"
+                    << "print_str:\n"
+                    << "\tld\ta,(hl)\n"
+                    << "\tcall\tprint_ch\n"
+                    << "\tdec\tbc\n"
+                    << "\tinc\thl\n"
+                    << "\tld\ta,c\n"
+                    << "\tor\tb\n"
+                    << "\tjr\tnz,print_str\n"
+                    << "\tret\n"
+                    ;
+    *m_outputStream << "\n"
+                    << "; print char in A\n"
+                    << "print_ch:\n"
+                    << "\tpush\tbc\n"
+                    << "\tpush\thl\n"
+                    << "\tld\tc,a\n"
+                    << "\tcall\tconout\n"
+                    << "\tpop\thl\n"
+                    << "\tpop\tbc\n"
+                    << "\tret\n"
+                    ;
+  }                
 
   *m_outputStream << "\n"
                   << "; Vars\n"
+                  << "conout:\tjp\t0\t; replaced with address of BIOS conout\n"
                   ;         
+
 
   for (auto & r : m_globalVars) {
     AsmTypeInfoRec & info = g_varTypeInfo[(int)r.second.m_type];
@@ -149,12 +214,37 @@ int Z80_CodeGenerator::Generate(const AST::Goto & expr)
     return 1;
   }
 
-  TopOutput() << "\tjp\tline_" << line << "\n"; 
+  TopOutput(false) << "\tjp\tline_" << line << "\n"; 
 }
 
 int Z80_CodeGenerator::Generate(const AST::End & expr)
 {
   TopOutput() << "\tjp\tend\n";
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::Generate(const AST::Print & expr)
+{
+  for (auto & r : expr.m_list) {
+    r->Print(*this);
+  }
+  m_usePrintNewLine = true;                
+  TopOutput(false) << "\tcall\tprint_newline\n";
+  return 0;
+}
+
+
+int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
+{
+  int index = AST::g_stringConstants[expr.GetValue()];
+  TopOutput(false) << "\tld\thl,str_" << index << "\n"
+                  << "\tld\tbc," << expr.GetValue().length() << "\n"
+                  << "\tcall\tprint_str\n";
+
+  m_usePrintStr = true;                
+
   return 0;
 }
 
