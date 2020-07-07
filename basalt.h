@@ -5,7 +5,6 @@
 #include <string>
 #include <fstream>
 
-#include "ast.h"
 #include "codegen.h"
 #include "common.h"
 

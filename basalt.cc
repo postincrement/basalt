@@ -17,13 +17,25 @@ int  g_warningCount      = 0;
 bool g_disableWarnings   = false;
 bool g_enableLineNumbers = false;
 
+//////////////////////////////////////////////////////////
+
 LanguageProfile * g_languageProfile = nullptr;
+static Factory<LanguageProfile> g_languageProfileFactory;
+
+
+static LanguageProfileDef g_basicVariants[] = { 
+// name      varlen defnum              defint
+{ "BasicEx",   40,  VarType::eInt16,  VarType::eInt16  },
+{ "Basic8k",    2,  VarType::eInt16,  VarType::eInt16  },
+{ "DiskBasic", 40,  VarType::eInt16,  VarType::eInt16  },
+{ 0 }
+};
+
+//////////////////////////////////////////////////////////
 
 static Factory<CodeGenerator> g_codeGenerators;
 
 Basalt g_application;
-
-static Factory<LanguageProfile> g_languageProfileFactory;
 
 void OptionError(const ArgDef * def)
 {
@@ -223,10 +235,6 @@ void Basalt::DisplayHelp(const std::vector<ArgDef> & argDefs)
 int Basalt::Main(int argc, char const *argv[])
 {
   // register language profiles
-  g_languageProfileFactory.Register<Basic_8k_LanguageProfile>      ("basic-8k");
-  g_languageProfileFactory.Register<Basic_Extended_LanguageProfile>("basic-ext");
-  g_languageProfileFactory.Register<Basic_Disk_LanguageProfile>    ("basic-disk");
-
   g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
   g_codeGenerators.Register<Z80_CodeGenerator>("z80");
 
@@ -262,22 +270,24 @@ int Basalt::Main(int argc, char const *argv[])
 
   // set language profile 
   if (m_languageProfileName.empty())
-    m_languageProfileName = "basic-8k";
+    m_languageProfileName = g_basicVariants[0].m_name;
 
   // see if the language profile exists
-  if (!g_languageProfileFactory.Contains(m_languageProfileName)) {
+  int i = 0;
+  g_languageProfile = nullptr;
+  while (g_basicVariants[i].m_name != 0) {
+    if (m_languageProfileName == g_basicVariants[i].m_name) {
+      g_languageProfile = new LanguageProfile(&g_basicVariants[i]);
+      break;
+    }
+  }
+
+  if (!g_languageProfile) {
     cerr << "error: language profile " << m_languageProfileName << "not known.\n";
     Usage(true);
     exit(1);
   }
-
-  // create the language profile
-  g_languageProfile = g_languageProfileFactory.CreateInstance(m_languageProfileName);
-  if (g_languageProfile == nullptr) {
-    cerr << "internal error: cannot instantiate language profile with name '" << m_languageProfileName << "'" << endl;
-    return -1;
-  }
-
+ 
   // see if using stdin or file as input  
   if (index == argc) {
     m_interactive = true;
@@ -362,57 +372,6 @@ int Basalt::Main(int argc, char const *argv[])
   }
 
   return 0;
-}
-
-////////////////////////////////////////////////////////////////////////
-
-Basic_8k_LanguageProfile::Basic_8k_LanguageProfile()
- : LanguageProfile(2)
-{
-}
-
-VarType Basic_8k_LanguageProfile::GetDefaultNumericType()
-{
-  return VarType::eSingle;
-}
-
-VarType Basic_8k_LanguageProfile::GetIntegerType()
-{
-  return VarType::eInt16;
-}
-
-////////////////////////////////////////////////////////////////////////
-
-Basic_Extended_LanguageProfile::Basic_Extended_LanguageProfile()
-  : LanguageProfile(40)
-{
-}
-
-VarType Basic_Extended_LanguageProfile::GetDefaultNumericType()
-{
-  return VarType::eInt16;
-}
-
-VarType Basic_Extended_LanguageProfile::GetIntegerType()
-{
-  return VarType::eInt16;
-}
-
-////////////////////////////////////////////////////////////////////////
-
-Basic_Disk_LanguageProfile::Basic_Disk_LanguageProfile()
-  : LanguageProfile(40)
-{  
-}
-
-VarType Basic_Disk_LanguageProfile::GetDefaultNumericType()
-{
-  return VarType::eInt16;
-}
-
-VarType Basic_Disk_LanguageProfile::GetIntegerType()
-{
-  return VarType::eInt16;
 }
 
 ////////////////////////////////////////////////////////////////////////

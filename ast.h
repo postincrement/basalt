@@ -11,7 +11,43 @@
 #include <set>
 #include <stdint.h>
 
-#include "common.h"
+// if changed, change g_varTypeInfo in c_codegen.cc
+// and g_basicVarSuffixes below
+enum class VarType {
+  eNone,
+  eInt16,
+  eInt32,
+  eSingle,
+  eDouble,
+  eString
+};
+
+//////////////////////////////////////////////////////////////////
+
+struct LanguageProfileDef 
+{
+  const char * m_name;
+  int          m_normalizedVarLen;
+  VarType      m_defaultNumericType;
+  VarType      m_defaultIntegerType;
+};
+
+struct LanguageProfile
+{
+  LanguageProfile(const LanguageProfileDef * def)
+    : m_def(def)
+  { }  
+
+  virtual VarType GetIntegerType()        { return m_def->m_defaultIntegerType; }
+  virtual VarType GetDefaultNumericType() { return m_def->m_defaultNumericType; }
+  virtual int GetVarNameLen()             { return m_def->m_normalizedVarLen;   }
+
+  const LanguageProfileDef * m_def;
+};
+
+extern LanguageProfile * g_languageProfile;
+
+//////////////////////////////////////////////////////////////////
 
 class CodeGenerator;
 

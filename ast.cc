@@ -14,6 +14,18 @@ GotoDestinationList AST::g_gotoDestinationInfo;
 StringConstantList AST::g_stringConstants;
 unsigned AST::g_stringConstantIndex = 0;
 
+#define BASIC_STRING_SUFFIX  "$"
+#define BASIC_INT_SUFFIX     "%"
+#define BASIC_SINGLE_SUFFIX  "!"
+#define BASIC_DOUBLE_SUFFIX  "#"
+
+const char * g_basicVarSuffixes[] = {
+  "", 
+  BASIC_INT_SUFFIX, BASIC_INT_SUFFIX, 
+  BASIC_SINGLE_SUFFIX, BASIC_DOUBLE_SUFFIX, 
+  BASIC_STRING_SUFFIX
+};
+
 /////////////////////////////////////////
 
 int Node::Generate(CodeGenerator & gen) const

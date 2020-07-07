@@ -194,10 +194,6 @@ int C_CodeGenerator::Generate(const AST::SourceLine & line)
           << " \"" << m_inputFilename << "\"\n";
   }
   TopOutput(false) << "  /* " << line.GetLine() << " */\n";
-  //if (AST::g_lineNumberInfo.count(line.GetBasicLineNumber()) > 0) {
-  //  TopOutput() << "  line_" << line.GetBasicLineNumber() << ":\n";
-  //}
-
   return CodeGenerator::Generate(line);
 }
 
@@ -248,7 +244,7 @@ void C_CodeGenerator::CatStrings(const std::string & tempName,
 
 int C_CodeGenerator::Generate(const AST::StringAssign & expr)
 {
-  C_CodeGenerator::CVarDef cvar;
+  CVarDef cvar;
   if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
     return -1;
 
@@ -400,7 +396,7 @@ int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
 {
   Closure & us = Top();
 
-  C_CodeGenerator::CVarDef cvar;
+  CVarDef cvar;
   if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
     return -1;
 
@@ -443,12 +439,6 @@ int C_CodeGenerator::Print(const AST::StringVarRef & expr)
 
 ////////////////////////////////////////////////////////////////
 
-int C_CodeGenerator::Evaluate(const AST::StringConstant & expr, std::string & result)
-{
-  result = expr.GetValue();
-  return 0;
-}
-
 int C_CodeGenerator::Print(const AST::StringConstant & expr)
 {
   TopOutput(true) << "basalt_print_string(" << QuoteLiteral(expr.GetValue()) << ");\n";
@@ -456,14 +446,6 @@ int C_CodeGenerator::Print(const AST::StringConstant & expr)
 }
 
 ////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::Int16Constant & expr, std::string & result)
-{
-  stringstream strm;
-  strm << expr.GetValue();
-  result = strm.str();
-  return 0;
-}
 
 int C_CodeGenerator::Print(const AST::Int16Constant & expr)
 {
@@ -524,15 +506,10 @@ int C_CodeGenerator::Print(const AST::PrintComma & expr)
   return 0;
 }
 
-int C_CodeGenerator::Print(const AST::PrintSemiColon & expr)
-{
-  return 0;
-}
-
 ////////////////////////////////////////////////////////////////
 
 bool C_CodeGenerator::LookupGlobalVar(const std::string & varName, 
-                                      C_CodeGenerator::CVarDef & cvar)
+                                      CVarDef & cvar)
 {
   if (m_globalVars.count(varName) == 0)
     return false;

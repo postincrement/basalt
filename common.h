@@ -6,11 +6,6 @@
 #include <map>
 #include <memory>
 
-#define BASIC_STRING_SUFFIX  "$"
-#define BASIC_INT_SUFFIX     "%"
-#define BASIC_SINGLE_SUFFIX  "!"
-#define BASIC_DOUBLE_SUFFIX  "#"
-
 namespace std {
   template<typename T, typename... Args>
   std::unique_ptr<T> make_unique(Args&&... args) {
@@ -93,89 +88,5 @@ class Factory
     typedef std::map<std::string, AbstractWorker *> WorkerListType;    
     WorkerListType m_workers;
 };
-
-#if 0
-
-//////////////////////////////////////////////////////////////////
-
-typedef std::vector<unsigned> UnsignedList;
-
-struct Variable
-{
-  enum Type {
-    eString,
-    eInt16,
-    eSingle,
-    eDouble,
-    eStringConst,
-    eUntyped
-  };
-
-  Variable(Type type, const std::string & name)
-    : m_type(type)
-    , m_name(name)
-    {
-    }
-
-  Type m_type;
-  std::string m_name;  
-  std::string m_normalizedName;
-};
-
-//////////////////////////////////////////////////////////////////
-
-#endif
-
-// if changed, change g_varTypeInfo in c_codegen.cc
-// and g_basicVarSuffixes below
-enum class VarType {
-  eNone,
-  eInt16,
-  eInt32,
-  eSingle,
-  eDouble,
-  eString
-};
-
-extern const char * g_basicVarSuffixes[];
-
-struct LanguageProfile
-{
-  LanguageProfile(int normVarLen)
-    : m_normalizedVarLen(normVarLen)
-  { }  
-
-  virtual VarType GetIntegerType() = 0;
-  virtual VarType GetDefaultNumericType() = 0;
-  virtual int GetVarNameLen()
-  { return m_normalizedVarLen;  }
-
-  int m_normalizedVarLen;
-};
-
-struct Basic_8k_LanguageProfile : public LanguageProfile
-{
-  Basic_8k_LanguageProfile();
-  virtual VarType GetIntegerType() override;
-  virtual VarType GetDefaultNumericType() override;
-};
-
-struct Basic_Extended_LanguageProfile : public LanguageProfile
-{
-  Basic_Extended_LanguageProfile();
-  virtual VarType GetIntegerType() override;
-  virtual VarType GetDefaultNumericType() override;
-};
-
-struct Basic_Disk_LanguageProfile : public LanguageProfile
-{
-  Basic_Disk_LanguageProfile();
-  virtual VarType GetIntegerType() override;
-  virtual VarType GetDefaultNumericType() override;
-};
-
-//////////////////////////////////////////////////////////////////
-
-extern LanguageProfile * g_languageProfile;
 
 #endif // COMMON_H_

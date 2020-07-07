@@ -1,15 +1,7 @@
 #include <string>
 using namespace std;
 
-
 #include "common.h"
-
-const char * g_basicVarSuffixes[] = {
-  "", 
-  BASIC_INT_SUFFIX, BASIC_INT_SUFFIX, 
-  BASIC_SINGLE_SUFFIX, BASIC_DOUBLE_SUFFIX, 
-  BASIC_STRING_SUFFIX
-};
 
 Filename::Filename()
 { }

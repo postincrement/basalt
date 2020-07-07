@@ -40,10 +40,10 @@ class CodeGenerator
     virtual int Generate(const AST::Goto & expr) { }
     virtual int Generate(const AST::End & expr) { }
 
-    virtual int Evaluate(const AST::StringConstant & expr, std::string & result) { }
+    virtual int Evaluate(const AST::StringConstant & expr, std::string & result);
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) { }
     virtual int Evaluate(const AST::StrFunction & expr, std::string & result) { }
-    virtual int Evaluate(const AST::Int16Constant & expr, std::string & result) { }
+    virtual int Evaluate(const AST::Int16Constant & expr, std::string & result);
     virtual int Evaluate(const AST::Int32Constant & expr, std::string & result) { }
     virtual int Evaluate(const AST::SingleConstant & expr, std::string & result) { }
     virtual int Evaluate(const AST::DoubleConstant & expr, std::string & result) { }
@@ -71,7 +71,7 @@ class CodeGenerator
     virtual int Print(const AST::SingleConstant & expr) { }
     virtual int Print(const AST::DoubleConstant & expr) { }
     virtual int Print(const AST::PrintComma & expr) { }
-    virtual int Print(const AST::PrintSemiColon & expr) { }
+    virtual int Print(const AST::PrintSemiColon & expr);
     virtual int Print(const AST::NumericVarRef & expr) { }
     virtual int Print(const AST::StringVarRef & expr) { }
 

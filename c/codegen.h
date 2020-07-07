@@ -48,10 +48,10 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::Goto & expr) override;
     virtual int Generate(const AST::End & expr) override;
 
-    virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;
+    //virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) override;
     virtual int Evaluate(const AST::StrFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::Int16Constant & expr, std::string & result) override;
+    //virtual int Evaluate(const AST::Int16Constant & expr, std::string & result) override;
     virtual int Evaluate(const AST::Int32Constant & expr, std::string & result) override;
     virtual int Evaluate(const AST::SingleConstant & expr, std::string & result) override;
     virtual int Evaluate(const AST::DoubleConstant & expr, std::string & result) override;
@@ -79,7 +79,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Print(const AST::SingleConstant & expr) override;
     virtual int Print(const AST::DoubleConstant & expr) override;
     virtual int Print(const AST::PrintComma & expr) override;
-    virtual int Print(const AST::PrintSemiColon & expr) override;
+    //virtual int Print(const AST::PrintSemiColon & expr) override;
     virtual int Print(const AST::NumericVarRef & expr) override;
     virtual int Print(const AST::StringVarRef & expr) override;
 };

@@ -209,3 +209,29 @@ int CodeGenerator::Generate(const AST::Statement &statement)
   }
   return 0;
 }
+
+///////////////////////////////////////////////////////
+
+int CodeGenerator::Evaluate(const AST::StringConstant & expr, std::string & result)
+{
+  result = expr.GetValue();
+  return 0;
+}
+
+int CodeGenerator::Evaluate(const AST::Int16Constant & expr, std::string & result)
+{
+  stringstream strm;
+  strm << expr.GetValue();
+  result = strm.str();
+  return 0;
+}
+
+///////////////////////////////////////////////////////
+
+int CodeGenerator::Print(const AST::PrintSemiColon & expr)
+{
+  return 0;
+}
+
+
+
