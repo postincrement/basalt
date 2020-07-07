@@ -507,28 +507,26 @@ class End : public Statement
 
 ////////////////////////////////////////////////////////////////////////////
 
-struct GotoInfo {
+struct GotoDestinationInfo {
   unsigned m_count = 0;
   std::set<unsigned> m_usedLine;
 };
 
-typedef std::map<std::string, GotoInfo> GotoList;
-extern GotoList g_gotoInfo;
+typedef std::map<std::string, GotoDestinationInfo> GotoDestinationList;
+extern GotoDestinationList g_gotoDestinationInfo;
 
 class Goto : public Statement
 {
   public:
-    Goto(const std::string & ref)
-      : m_ref(ref)
-    {}
+    Goto(const std::string & ref, unsigned sourceLineNumber);
 
     std::string GetRef() const
     { return m_ref; } 
 
     virtual int Generate(CodeGenerator & gen) const override;
 
-  protected:
-    std::string m_ref;  
+    std::string m_ref;
+    unsigned m_sourceLineNumber;
 };
 
 ////////////////////////////////////////////////////////////////////////////

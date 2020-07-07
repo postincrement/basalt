@@ -331,7 +331,7 @@ int Basalt::Main(int argc, char const *argv[])
     else {
       ofn = m_inputFilename.GetDir() + 
             m_inputFilename.GetBasename() + 
-            codeGen->GetOutputFileExtension();
+            codeGen->GetConfig().m_extension;
     }
     outputFile.open(ofn, std::ofstream::out | std::ofstream::trunc);
     if (!outputFile.is_open()) {

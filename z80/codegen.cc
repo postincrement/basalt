@@ -6,6 +6,8 @@
 
 using namespace std;
 
+#define TEMP_PREFIX     "temp_"
+
 struct AsmTypeInfoRec {
   const char * m_asmtype; 
   const char * m_initializer;
@@ -17,22 +19,21 @@ struct AsmTypeInfoRec {
 // must be indexed by VarType
 static AsmTypeInfoRec g_varTypeInfo[] = {
   { 0 },                        // none
-  { "word",   "0", "basalt_print_int16",  "basalt_str_int16",  "int16"  },     // eInt16
-  { "dword",  "0", "basalt_print_int32",  "basalt_str_int32",  "int32"  },     // eInt32
-  { "word",   "0", "basalt_print_single", "basalt_str_single", "single" },    // eSingle
-  { "dword",  "0", "basalt_print_double", "basalt_str_double", "double" },    // eDouble
-  { "word",   "0", "basalt_print_string", 0,                   "string" }     // eString
+  { "dw",     "0", "basalt_print_int16",  "basalt_str_int16",  "int16"  },     // eInt16
+  { "dw",     "0", "basalt_print_int32",  "basalt_str_int32",  "int32"  },     // eInt32
+  { "dw",     "0", "basalt_print_single", "basalt_str_single", "single" },    // eSingle
+  { "dw",     "0", "basalt_print_double", "basalt_str_double", "double" },    // eDouble
+  { "dw",     "0", "basalt_print_string", 0,                   "string" }     // eString
 };
 
 ////////////////////////////////////////////////////////////
 
 Z80_CodeGenerator::Z80_CodeGenerator ()
+  : CodeGenerator(
+    {
+      ".asm", TEMP_PREFIX, "", ""
+    })
 {
-}
-
-std::string Z80_CodeGenerator::GetOutputFileExtension() const
-{
-  return ".asm";
 }
 
 static bool CreateAVar(const std::string & name,
@@ -66,7 +67,7 @@ bool Z80_CodeGenerator::Body()
     AsmVarDef avar;
     for (;;) {
       if (!CreateAVar(r.first, info, avar, tag)) {
-        cerr << "internal error: cannot map var to C type" << endl;
+        cerr << "internal error: cannot map var to asm type" << endl;
         return false;
       }
       if (m_anames.count(avar.m_aname) == 0)
@@ -102,7 +103,7 @@ bool Z80_CodeGenerator::Body()
     *m_outputStream << "; String constants\n";
     for (auto & r : AST::g_stringConstants) {
       *m_outputStream << "str_" << r.second << ":\t" 
-                      << "ds\t"
+                      << "dm\t"
                       << "\"" << r.first << "\""
                       << endl;
     }
@@ -110,14 +111,15 @@ bool Z80_CodeGenerator::Body()
   }
   *m_outputStream << "start:\n";
 
-  Push();
-
   for (size_t i = 0; i < m_program->m_list.size(); ++i) {
     auto & r = m_program->m_list[i];
+    Push();
+    *m_outputStream << "line_" << r->GetSourceLineNumber() << ":\n"; 
     r->Generate(*this);
+    *m_outputStream << Pop();
   }
-  *m_outputStream << Pop()
-                  << "\n"
+
+  *m_outputStream << "\n"
                   << "end:\tjp\t0x0000\n"
            ;
 
@@ -139,9 +141,15 @@ bool Z80_CodeGenerator::Body()
   return true;           
 }
 
-int Z80_CodeGenerator::Generate(const AST::Statement & statement)
+int Z80_CodeGenerator::Generate(const AST::Goto & expr)
 {
-  return 0;
+  int line = ResolveGotoDestination(expr.GetRef());
+  if (line < 0) {
+    cerr << "internal error: cannot resolve goto destination '" << expr.GetRef() << "'" << endl;
+    return 1;
+  }
+
+  TopOutput() << "\tjp\tline_" << line << "\n"; 
 }
 
 int Z80_CodeGenerator::Generate(const AST::End & expr)

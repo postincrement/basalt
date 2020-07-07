@@ -3,17 +3,10 @@
 
 #include "../codegen.h"
 
-template <class ClosureType>
-class TypedCodeGenerator : public CodeGenerator
-{
-};
-
 class C_CodeGenerator : public CodeGenerator
 {
   public:
     C_CodeGenerator();
-
-    virtual std::string GetOutputFileExtension() const override;
 
     std::stringstream m_body;
 

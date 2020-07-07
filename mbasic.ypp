@@ -484,10 +484,7 @@ RETURN_statement:  RETURN_TOKEN
               
 GOTO_statement: GOTO_TOKEN line_number
                   {
-                    auto & info = AST::g_gotoInfo[*$2];
-                    info.m_count++;
-                    info.m_usedLine.insert(g_lineNumber);
-                    $$ = new AST::Goto(*$2);
+                    $$ = new AST::Goto(*$2, g_lineNumber);
                     delete $2;
                   }
                 ;

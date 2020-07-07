@@ -7,22 +7,23 @@ using namespace std;
 
 using namespace AST;
 
-AST::Program AST::g_program;
-AST::VarList AST::g_globalVars;
-AST::LineNumberInfo AST::g_lineNumberInfo;
-AST::GotoList AST::g_gotoInfo;
-AST::StringConstantList AST::g_stringConstants;
+Program AST::g_program;
+VarList AST::g_globalVars;
+LineNumberInfo AST::g_lineNumberInfo;
+GotoDestinationList AST::g_gotoDestinationInfo;
+StringConstantList AST::g_stringConstants;
+
 static unsigned g_stringConstantIndex = 0;
 
 /////////////////////////////////////////
 
-int AST::Node::Generate(CodeGenerator & gen) const
+int Node::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
-int AST::Node::Print(CodeGenerator & gen) const
+int Node::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
-int AST::Node::Evaluate(CodeGenerator & gen, std::string & result) const
+int Node::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 /////////////////////////////////////////
@@ -56,7 +57,7 @@ Expr::Expr(VarType type)
   : m_type(type)
 { }
 
-VarType AST::Expr::GetType() const
+VarType Expr::GetType() const
 { return m_type; }
 
 /////////////////////////////////////////
@@ -75,7 +76,7 @@ int PrintSemiColon::Print(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-StringAssign::StringAssign(const AST::StringVarRef * lhs, const StringExpr * rhs)
+StringAssign::StringAssign(const StringVarRef * lhs, const StringExpr * rhs)
   : m_lhs(lhs)
   , m_rhs(rhs)
 { }
@@ -127,12 +128,12 @@ int StringVarRef::Print(CodeGenerator & gen) const
 StringConstant::StringConstant(const std::string & str)
   : m_value(str)
 {
-  if (AST::g_stringConstants.count(str) != 0) {
-    m_index = AST::g_stringConstants[str];
+  if (g_stringConstants.count(str) != 0) {
+    m_index = g_stringConstants[str];
   }
   else {
     m_index = g_stringConstantIndex++;
-    AST::g_stringConstants[str] = m_index;
+    g_stringConstants[str] = m_index;
   }
 }
 
@@ -144,7 +145,7 @@ int StringConstant::Print(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-NumericAssign::NumericAssign(const AST::NumericVarRef * lhs, const NumericExpr * rhs)
+NumericAssign::NumericAssign(const NumericVarRef * lhs, const NumericExpr * rhs)
   : m_lhs(lhs)
   , m_rhs(rhs)
 { }
@@ -199,7 +200,7 @@ bool NumericAssign::Validate()
   }
 
   m_type = ltype;
-  m_rhs = new AST::NumericCast(ltype, m_rhs);
+  m_rhs = new NumericCast(ltype, m_rhs);
 
   return true;
 }
@@ -240,10 +241,10 @@ bool NumericBinaryOperation::Validate()
   }
 
   if (ltype != etype) {
-    m_lhs = new AST::NumericCast(etype, m_lhs);
+    m_lhs = new NumericCast(etype, m_lhs);
   }
   else if (rtype != etype) {
-    m_rhs = new AST::NumericCast(etype, m_rhs);
+    m_rhs = new NumericCast(etype, m_rhs);
   }
 
   m_type = etype;
@@ -405,60 +406,69 @@ int NumericVarRef::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-AST::NumericExpr * AST::Int16Constant::Create(const std::string & str)
+NumericExpr * Int16Constant::Create(const std::string & str)
 { return new Int16Constant(atoi(str.c_str())); }
 
 template<>
-int AST::Int16Constant::Evaluate(CodeGenerator & gen, std::string & result) const
+int Int16Constant::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 template<>
-int AST::Int16Constant::Print(CodeGenerator & gen) const
+int Int16Constant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
 
 template<>
-AST::NumericExpr * AST::Int32Constant::Create(const std::string & str)
+NumericExpr * Int32Constant::Create(const std::string & str)
 { return new Int32Constant(atoi(str.c_str())); }
 
 template<>
-int AST::Int32Constant::Evaluate(CodeGenerator & gen, std::string & result) const
+int Int32Constant::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 template<>
-int AST::Int32Constant::Print(CodeGenerator & gen) const
+int Int32Constant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
 
 template<>
-AST::NumericExpr * AST::SingleConstant::Create(const std::string & str)
+NumericExpr * SingleConstant::Create(const std::string & str)
 { return new SingleConstant(atof(str.c_str())); }
 
 template<>
-int AST::SingleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+int SingleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 template<>
-int AST::SingleConstant::Print(CodeGenerator & gen) const
+int SingleConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
 
 template<>
-AST::NumericExpr * AST::DoubleConstant::Create(const std::string & str)
+NumericExpr * DoubleConstant::Create(const std::string & str)
 { return new DoubleConstant(atof(str.c_str())); }
 
 template<>
-int AST::DoubleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+int DoubleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 template<>
-int AST::DoubleConstant::Print(CodeGenerator & gen) const
+int DoubleConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
 
-int AST::Goto::Generate(CodeGenerator & gen) const
+Goto::Goto(const std::string & ref, unsigned sourceLineNumber)
+  : m_ref(ref)
+  , m_sourceLineNumber(sourceLineNumber)
+{
+  auto & info = g_gotoDestinationInfo[ref];
+  info.m_count++;
+  info.m_usedLine.insert(sourceLineNumber);
+}
+
+int Goto::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }

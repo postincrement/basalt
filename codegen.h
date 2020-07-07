@@ -10,11 +10,18 @@
 class CodeGenerator
 {
   public:
-    CodeGenerator(const char * tempPrefix = nullptr);
+    struct Config {
+      const char * m_extension = "";
+      const char * m_tempPrefix = "";
+      const char * m_open = "";
+      const char * m_close = "";
+    };
+
+    CodeGenerator(const Config & config);
+
+    const Config & GetConfig() const;
 
     struct Closure;
-
-    virtual std::string GetOutputFileExtension() const = 0;              
     virtual Closure * CreateClosure(int indent) const;
 
     bool Run(const std::string & inputFilename, std::ostream * outputStream, const AST::Program & program);
@@ -79,11 +86,15 @@ class CodeGenerator
         std::stringstream & Output();
         std::string GetTempName();
 
+        bool HasGoto() const;
+        void SetGoto(bool v);
+
       protected:
         std::string m_tempPrefix;
         int m_indent;
         std::stringstream m_output;
         int m_tempIndex = 1;
+        bool m_hasGoto = false;
     };
 
     Closure & Top();
@@ -91,8 +102,12 @@ class CodeGenerator
     void Push();
     std::string Pop();
 
+    int ResolveGotoDestination(const std::string & ref);
+
   protected:
     bool CheckVars();
+
+    Config m_config;
 
     std::string m_tempPrefix;
     std::string m_inputFilename;

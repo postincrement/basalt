@@ -34,15 +34,12 @@ static CTypeInfoRec g_varTypeInfo[] = {
 ////////////////////////////////////////////////////////////
 
 C_CodeGenerator::C_CodeGenerator ()
-  : CodeGenerator(TEMP_PREFIX)
+  : CodeGenerator(
+    {
+      ".c", TEMP_PREFIX, "{", "}"
+    }
+    )
 {
-}
-
-////////////////////////////////////////////////////////////////
-
-std::string C_CodeGenerator::GetOutputFileExtension() const
-{
-  return ".c";
 }
 
 ////////////////////////////////////////////////////////////////
@@ -142,29 +139,33 @@ bool C_CodeGenerator::Body()
 
   for (size_t i = 0; i < m_program->m_list.size(); ++i) {
     auto & r = m_program->m_list[i];
-    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "(); /* " << r->GetBasicLineNumber() << " */\n";
+    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << r->GetSourceLineNumber() << "(); /* " << r->GetBasicLineNumber() << " */\n";
   }
 
   for (size_t i = 0; i < m_program->m_list.size(); ++i) {
     auto & r = m_program->m_list[i];
 
-    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "() /* " << r->GetBasicLineNumber() << " */\n"
-                    << "{\n"
-                    << "  struct LineFunction nextLine;\n"
-                    << "  nextLine.m_func = ";
-    if (i == m_program->m_list.size()-1) {
-      *m_outputStream << "0";
-    }
-    else {
-      *m_outputStream << "&" << LINEFN_PREFIX << (i+1);
-    } 
-    *m_outputStream << ";\n"
-                    ;
-                    
+    unsigned nextLine = 0;
+    if (i < m_program->m_list.size()-1)
+      nextLine = m_program->m_list[i+1]->GetSourceLineNumber();
+
+    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << r->GetSourceLineNumber() << "() /* " << r->GetBasicLineNumber() << " */\n"
+                    << "{\n"                    
+                    << "  struct LineFunction nextLine;\n";
     Push();
     r->Generate(*this);
-    *m_outputStream << Pop()
-                    << "  return nextLine;\n"
+    bool hasGoto = Top().HasGoto();
+    *m_outputStream << Pop();
+
+    if (!hasGoto) {
+      *m_outputStream << "  nextLine.m_func = ";
+      if (nextLine > 0) 
+        *m_outputStream << "&" << LINEFN_PREFIX << nextLine;
+      else
+        *m_outputStream << "0";
+      *m_outputStream << ";\n";
+    } 
+    *m_outputStream << "  return nextLine;\n"
                     << "}\n"
                     << "\n"
                    ;
@@ -202,6 +203,7 @@ int C_CodeGenerator::Generate(const AST::SourceLine & line)
 
 int C_CodeGenerator::Generate(const AST::End & expr)
 {
+  Top().SetGoto(true);
   TopOutput() << "nextLine.m_func = 0;\n";
   return 0;
 }
@@ -221,7 +223,13 @@ int C_CodeGenerator::Generate(const AST::Print & expr)
 
 int C_CodeGenerator::Generate(const AST::Goto & expr)
 {
-  //TopOutput() << "  goto line_" << expr.GetRef() << ";\n";  
+  Top().SetGoto(true);
+  int line = ResolveGotoDestination(expr.GetRef());
+  if (line < 0) {
+    cerr << "internal error: cannot resolve goto destination '" << expr.GetRef() << "'" << endl;
+    return 1;
+  }
+  TopOutput() << "nextLine.m_func = &Line_" << line << ";\n";  
   return 0;
 }
 
