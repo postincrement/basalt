@@ -153,44 +153,48 @@ bool Z80_CodeGenerator::Body()
                     << "start:\n"
                     ;
   }
-  *m_outputStream << "\tld\thl,(wboot+1)\n"
-                  << "\tld\tde,9\n"
-                  << "\tadd\thl,de\n"
-                  << "\tld\t(conout+1),hl\n"
-                  << "\tld\tsp,0x100\n"
+  *m_outputStream << "  ld    hl,(wboot+1)\n"
+                  << "  ld    de,9\n"
+                  << "  add   hl,de\n"
+                  << "  ld    (conout+1),hl\n"
+                  << "  ld    sp,0x100\n"
                   ;
 
   *m_outputStream << code.str();
 
   *m_outputStream << "\n"
-                  << "end:\trst\t0\n";
+                  << "end:\n"
+                  << "  rst   0\n";
 
   if (m_usePrintI16) {
     *m_outputStream << "\n"
                     << "; print int16 in HL\n"
                     << "print_i16:\n"
-                    << "\tld\ta,' '\n"
-                    << "\tbit\t7,h\t; check if negative\n"
-                    << "\tjr\tz,print_i16n\n"
-                    << "\tres\t7,h\n"
-                    << "\tinc\thl\n"
-                    << "\tld\ta,'-'\n"
+                    << "  ld    a,' '\n"
+                    << "  bit   7,h   ; check if negative\n"
+                    << "  jr    z,print_i16p\n"
+                    << "  ld    de,0\n"
+                    << "  ex    de,hl\n"
+                    << "  xor   a\n"
+                    << "  sbc   hl,de\n"
+                    << "  ld    a,'-'\n"
+                    << "print_i16p:\n"
+                    << "  call    print_ch\n"
                     << "print_i16n:\n"
-                    << "\tld\ta,h\n"
-                    << "\tor\ta\n"
-                    << "\tjr\tnz,print_i16s\n"
-                    << "\tld\ta,l\n"
-                    << "\tcp\t10\n"
-                    << "\tjr\tc,print_i16r\n"
+                    << "  ld    a,h\n"
+                    << "  or    a\n"
+                    << "  jr    nz,print_i16s\n"
+                    << "  ld    a,l\n"
+                    << "  cp    10\n"
+                    << "  jr    c,print_i16r\n"
                     << "print_i16s:\n"
-                    << "\tpush\taf\n"
-                    << "\tcall\tdiv_10\n"
-                    << "\tcall\tprint_i16n\n"
-                    << "\tpop\taf\n"
+                    << "  call  div_10\n"
+                    << "  push  af\n"
+                    << "  call  print_i16n\n"
+                    << "  pop   af\n"
                     << "print_i16r:\n"
-                    << "\tadd\ta,'0'\n"
-                    << "\tcall\tprint_ch\n"
-                    << "\tret\n"
+                    << "  add   a,'0'\n"
+                    << "  jp    print_ch\n"
                     ;
   }
 
@@ -199,8 +203,8 @@ bool Z80_CodeGenerator::Body()
     *m_outputStream << "\n"
                     << "; print newline\n"
                     << "print_newline:\n"
-                    << "\tld\thl,str_" << index << "\n"    
-                    << "\tld\tbc,2\n"
+                    << "  ld    hl,str_" << index << "\n"    
+                    << "  ld    bc,2\n"
                     << "; fall through to print_str\n"
                     ;
   }                
@@ -209,14 +213,14 @@ bool Z80_CodeGenerator::Body()
     *m_outputStream << "\n"
                     << "; print string at HL with BC chars\n"
                     << "print_str:\n"
-                    << "\tld\ta,(hl)\n"
-                    << "\tcall\tprint_ch\n"
-                    << "\tdec\tbc\n"
-                    << "\tinc\thl\n"
-                    << "\tld\ta,c\n"
-                    << "\tor\tb\n"
-                    << "\tjr\tnz,print_str\n"
-                    << "\tret\n"
+                    << "  ld    a,(hl)\n"
+                    << "  call  print_ch\n"
+                    << "  dec   bc\n"
+                    << "  inc   hl\n"
+                    << "  ld    a,c\n"
+                    << "  or    b\n"
+                    << "  jr    nz,print_str\n"
+                    << "  ret\n"
                     ;
   }
 
@@ -224,13 +228,13 @@ bool Z80_CodeGenerator::Body()
     *m_outputStream << "\n"
                     << "; print char in A\n"
                     << "print_ch:\n"
-                    << "\tpush\tbc\n"
-                    << "\tpush\thl\n"
-                    << "\tld\tc,a\n"
-                    << "\tcall\tconout\n"
-                    << "\tpop\thl\n"
-                    << "\tpop\tbc\n"
-                    << "\tret\n"
+                    << "  push  bc\n"
+                    << "  push  hl\n"
+                    << "  ld    c,a\n"
+                    << "  call  conout\n"
+                    << "  pop   hl\n"
+                    << "  pop   bc\n"
+                    << "  ret\n"
                     ;
   }
 
@@ -239,25 +243,29 @@ bool Z80_CodeGenerator::Body()
     *m_outputStream << "; Divide HL by 10.\n"
                     << "; HL quotient, A = remainder\n" 
                     << "div_10:\n"
-                    << "\tld\tbc,0x0d0a\n"
-                    << "\txor\ta\n"
-                    << "\tadd\thl,hl\n"
-                    << "\tadd\thl,hl\n"
-                    << "\tadd\thl,hl\n"
+                    << "  ld    bc,0x0d0a\n"
+                    << "  xor   a\n"
+                    << "  add   hl,hl\n"
+                    << "  rla\n"
+                    << "  add   hl,hl\n"
+                    << "  rla\n"
+                    << "  add   hl,hl\n"
+                    << "  rla\n"
                     << "div_10_1:\n"
-                    << "\tadd\thl,hl\n"
-                    << "\tcp\tc\n"
-                    << "\tjr\tc,div_10_2\n"
-                    << "\tsub\tc\n"
-                    << "\tinc\tl\n"
-                    << "\tdjnz\tdiv_10_1\n"
+                    << "  add   hl,hl\n"
+                    << "  rla\n"
+                    << "  cp    c\n"
+                    << "  jr    c,div_10_2\n"
+                    << "  sub   c\n"
+                    << "  inc   l\n"
                     << "div_10_2:\n"
-                    << "\tret\n";
+                    << "  djnz  div_10_1\n"
+                    << "  ret\n";
   }   
 
   *m_outputStream << "\n"
                   << "; Vars\n"
-                  << "conout:\tjp\t0\t; replaced with address of BIOS conout\n"
+                  << "conout: jp    0 ; replaced with address of BIOS conout\n"
                   ;         
 
 
@@ -293,9 +301,9 @@ int Z80_CodeGenerator::Generate(const AST::End & expr)
 int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 {
   int index = AST::g_stringConstants[expr.GetValue()];
-  TopOutput(false) << "\tld\thl,str_" << index << "\n"
-                  << "\tld\tbc," << expr.GetValue().length() << "\n"
-                  << "\tcall\tprint_str\n";
+  TopOutput(false) << " ld    hl,str_" << index << "\n"
+                   << " ld    bc," << expr.GetValue().length() << "\n"
+                   << " call  print_str\n";
 
   m_usePrintStr = true;                
 
@@ -306,8 +314,8 @@ int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 
 int Z80_CodeGenerator::Print(const AST::Int16Constant & expr)
 {
-  TopOutput(false) << "\tld\thl," << expr.GetValue() << "\n"
-                   << "\tcall\tprint_i16\n"
+  TopOutput(false) << " ld    hl," << expr.GetValue() << "\n"
+                   << " call  print_i16\n"
                    ;
 
   m_usePrintI16 = true;                
@@ -346,7 +354,7 @@ int Z80_CodeGenerator::Generate(const AST::Print & expr)
     r->Print(*this);
   }
   m_usePrintNewLine = true;                
-  TopOutput(false) << "\tcall\tprint_newline\n";
+  TopOutput(false) << " call  print_newline\n";
   return 0;
 }
 
@@ -360,7 +368,7 @@ int Z80_CodeGenerator::Generate(const AST::Goto & expr)
     return 1;
   }
 
-  TopOutput(false) << "\tjp\tline_" << line << "\n"; 
+  TopOutput(false) << " jp    line_" << line << "\n"; 
 }
 
 ///////////////////////////////////////////////////////////////////
@@ -384,17 +392,14 @@ int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)
 
   if (expr.m_rhs->GetType() == VarType::eInt16) {
     if (expr.m_rhs->IsConstant()) {
-      us.Output() << "\tld\thl," << rhs << "\n"
-                  << "\tld\t(" << avar.m_aname << "),hl\n" << endl;
+      us.Output() << "  ld    hl," << rhs << "\n"
+                  << "  ld    (" << avar.m_aname << "),hl\n" << endl;
     }
     else if (expr.m_rhs->IsVarRef()) {
-      us.Output() << "\tld\thl,(" << rhs << ")\n"
-                  << "\tld\t(" << avar.m_aname << "),hl\n" << endl;
+      us.Output() << "  ld    hl,(" << rhs << ")\n"
+                  << "  ld    (" << avar.m_aname << "),hl\n" << endl;
     }
   }
 
   return 0;
 }
-
-
-

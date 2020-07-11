@@ -23,7 +23,7 @@ int basalt_print_string(const char * str)
   return 0;
 }
 
-int basalt_print_int16(uint16_t value)
+int basalt_print_int16(int16_t value)
 {
   char buffer[10];
   int len = sprintf(buffer, "%i", value);
@@ -32,7 +32,7 @@ int basalt_print_int16(uint16_t value)
   return 0;
 }
 
-int basalt_print_int32(uint32_t value)
+int basalt_print_int32(int32_t value)
 {
   char buffer[10];
   int len = sprintf(buffer, "%i", value);
