@@ -348,7 +348,6 @@ int Basalt::Main(int argc, char const *argv[])
       cerr << "error: cannot create output file '" << ofn << "'" << endl;
       return false;
     }
-    cout << "outputting to " << ofn << endl;
     outputStream = &outputFile;
   }
 

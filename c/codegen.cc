@@ -2,6 +2,7 @@
 
 #include "codegen.h"
 #include <iostream>
+#include <iomanip>
 #include <typeinfo>
 #include <cxxabi.h>
 
@@ -473,13 +474,13 @@ int C_CodeGenerator::Print(const AST::Int32Constant & expr)
 int C_CodeGenerator::Evaluate(const AST::SingleConstant & expr, std::string & result)
 {
   stringstream strm;
-  strm << expr.GetValue();
+  strm << std::setprecision(10) << expr.GetValue();
   result = strm.str();
 }
 
 int C_CodeGenerator::Print(const AST::SingleConstant & expr)
 {
-  TopOutput(true) << "basalt_print_single(" << expr.GetValue() << ");\n";
+  TopOutput(true) << "basalt_print_single(" << std::setprecision(10) << expr.GetValue() << ");\n";
   return 0;
 }
 
@@ -488,13 +489,13 @@ int C_CodeGenerator::Print(const AST::SingleConstant & expr)
 int C_CodeGenerator::Evaluate(const AST::DoubleConstant & expr, std::string & result)
 {
   stringstream strm;
-  strm << expr.GetValue();
+  strm << std::setprecision(10) << expr.GetValue();
   result = strm.str();
 }
 
 int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
 {
-  TopOutput(true) << "basalt_print_double(" << expr.GetValue() << ");\n";
+  TopOutput(true) << "basalt_print_double(" << std::setprecision(10) << expr.GetValue() << ");\n";
   return 0;
 }
 

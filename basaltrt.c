@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define   STDOUT_FD     0
-
 static int g_tabLen       = 14;
 static int g_outputColumn = 0;
 
@@ -18,25 +16,25 @@ int basalt_print_string(const char * str)
   if (str == NULL)
     return 0;
   int len = strlen(str);
-  write(STDOUT_FD, str, len);
+  write(STDOUT_FILENO, str, len);
   g_outputColumn += len;
   return 0;
 }
 
 int basalt_print_int16(int16_t value)
 {
-  char buffer[10];
-  int len = sprintf(buffer, "%i", value);
-  write(STDOUT_FD, buffer, len);
+  char buffer[20];
+  int len = sprintf(buffer, "% d ", value);
+  write(STDOUT_FILENO, buffer, len);
   g_outputColumn += len;
   return 0;
 }
 
 int basalt_print_int32(int32_t value)
 {
-  char buffer[10];
-  int len = sprintf(buffer, "%i", value);
-  write(STDOUT_FD, buffer, len);
+  char buffer[20];
+  int len = sprintf(buffer, "% d ", value);
+  write(STDOUT_FILENO, buffer, len);
   g_outputColumn += len;
   return 0;
 }
@@ -44,8 +42,8 @@ int basalt_print_int32(int32_t value)
 int basalt_print_single(float value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "%f", value);
-  write(STDOUT_FD, buffer, len);
+  int len = sprintf(buffer, "% .10g ", value);
+  write(STDOUT_FILENO, buffer, len);
   g_outputColumn += len;
   return 0;
 }
@@ -53,8 +51,8 @@ int basalt_print_single(float value)
 int basalt_print_double(double value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "%lf", value);
-  write(STDOUT_FD, buffer, len);
+  int len = sprintf(buffer, "% .10lg ", value);
+  write(STDOUT_FILENO, buffer, len);
   g_outputColumn += len;
   return 0;
 }
@@ -64,14 +62,14 @@ int basalt_print_tab()
   int spaces = g_tabLen - (g_outputColumn % g_tabLen);
   int i;
   for (i = 0; i < spaces; ++i)
-    write(STDOUT_FD, " ", 1);
+    write(STDOUT_FILENO, " ", 1);
   g_outputColumn += spaces;
   return 0;
 }
 
 int basalt_print_newline()
 {
-  write(STDOUT_FD, "\n", 1);
+  write(STDOUT_FILENO, "\r\n", 2);
   g_outputColumn = 0;
   return 0;
 }
@@ -93,27 +91,27 @@ char * basalt_strdup(const char * str)
 char * basalt_str_single(float value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "%f", value);
+  int len = sprintf(buffer, "% .10lg ", value);
   return strdup(buffer);
 }
 
 char * basalt_str_double(double value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "%lf", value);
+  int len = sprintf(buffer, "% .10lg ", value);
   return strdup(buffer);
 }
 
 char * basalt_str_int16(int16_t value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "%d", value);
+  int len = sprintf(buffer, "% d ", value);
   return strdup(buffer);
 }
 
 char * basalt_str_int32(int32_t value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "%d", value);
+  int len = sprintf(buffer, "% d ", value);
   return strdup(buffer);
 }

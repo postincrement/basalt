@@ -1,0 +1,64 @@
+#!/bin/bash
+
+MBASIC_CPM="${HOME}/gratze/emulator/gratze --type cpm80 --turbo ${HOME}/gratze/emulator/Mbasic.com"
+BASALT="${HOME}/basalt/basalt"
+
+function TestCPM()
+{
+  local fn=$1
+  local out=$2
+  $MBASIC_CPM $fn | sed "0,/^--START/d" > $out
+}
+
+function TestANSIC()
+{
+  local fn=$1
+  local out=$2
+
+  $BASALT -a ansi-c -o ${out}.c $fn && \
+  gcc ${out}.c -o ${out}.bin -L.. -lbasaltrt
+  ./${out}.bin | sed "0,/^--START/d" > $out
+}
+
+function run_test()
+{
+  local num=$1
+  local bas=test_${num}.bas
+  local cpm=cpm_${num}.out
+  local ansic=ansic_${num}.out
+
+  echo "Test $num"
+
+  echo '1 print "--START--"' > $bas
+  cat - >> $bas
+  echo '9999 system' >> $bas
+
+  TestCPM $bas $cpm
+  TestANSIC $bas $ansic
+  diff -q $cpm $ansic
+  #cmp $cpm $ansi
+}
+
+##########################
+
+cat <<EOF | run_test 1
+10 print "hello, world"
+EOF
+
+cat <<EOF | run_test 2
+5 print "0" ; 0
+6 print "1" ; 1
+7 print "-1" ; -1
+10 print "-4567" ; -4567
+30 print "4567" ; 4567
+40 print "-32768" ; -32768
+50 print "-32767" ; -32767
+60 print "32767" ; 32767
+71 print "32768" ; 32768
+80 print "100000" ; 100000
+90 print "-100000" ; -100000
+100 print "2147483647" ; 2147483647
+101 print "2147483648" ; 2147483648
+110 print "-2147483647" ; -2147483647
+111 print "-2147483648" ; -2147483648
+EOF

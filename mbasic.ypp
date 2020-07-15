@@ -1018,7 +1018,16 @@ numeric_const_expr: INTEGER
               }
             | DEF_NUMERIC  
               {
-                $$ = CreateConstant(g_languageProfile->GetDefaultNumericType(), *$1);
+                int32_t v = strtoul($1->c_str(), nullptr, 10);
+                if ((v <= 32767) && (v >= -32378)) {
+                  $$ = CreateConstant(VarType::eInt16, *$1);
+                }
+                else if ((v <= 2147483647) && (v >= -214748368)) {
+                  $$ = CreateConstant(VarType::eInt32, *$1);
+                } 
+                else {
+                  $$ = CreateConstant(VarType::eDouble, *$1);
+                }
                 delete $1;
               }
             | DOUBLE

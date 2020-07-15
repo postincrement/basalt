@@ -22,3 +22,8 @@ STARTREK
 test.asm
 test.lst
 a.bin
+verify/ansic_*
+verify/cpm_*
+verify/test_*.bas
+bdos_debug.txt
+
