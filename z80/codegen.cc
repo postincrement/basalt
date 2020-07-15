@@ -115,7 +115,6 @@ bool Z80_CodeGenerator::Body()
   m_usePrintChar = m_usePrintChar || m_usePrintStr || m_usePrintI16;
   m_useDiv10     = m_useDiv10 || m_usePrintI16;
 
-  cout << "newline is " << m_usePrintNewLine << "\n";
   if (m_usePrintNewLine) {
     if (AST::g_stringConstants.count("\r\n") == 0) {
       int index = AST::g_stringConstantIndex++;

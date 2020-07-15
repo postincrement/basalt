@@ -26,4 +26,5 @@ verify/ansic_*
 verify/cpm_*
 verify/test_*.bas
 bdos_debug.txt
+verify/z80_*
 

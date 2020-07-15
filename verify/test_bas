@@ -1,6 +1,7 @@
 #!/bin/bash
 
-MBASIC_CPM="${HOME}/gratze/emulator/gratze --type cpm80 --turbo ${HOME}/gratze/emulator/Mbasic.com"
+RUN_CPM="${HOME}/gratze/emulator/gratze --type cpm80 --turbo "
+MBASIC_CPM="${RUN_CPM} ${HOME}/gratze/emulator/Mbasic.com"
 BASALT="${HOME}/basalt/basalt"
 
 function TestCPM()
@@ -20,12 +21,23 @@ function TestANSIC()
   ./${out}.bin | sed "0,/^--START/d" > $out
 }
 
+function TestZ80()
+{
+  local fn=$1
+  local out=$2
+
+  $BASALT -a z80 -o ${out}.asm $fn && \
+  z80asm -o ${out}.com ${out}.asm
+  ${RUN_CPM} ${out}.com | sed "0,/^--START/d" > $out
+}
+
 function run_test()
 {
   local num=$1
   local bas=test_${num}.bas
-  local cpm=cpm_${num}.out
-  local ansic=ansic_${num}.out
+  local cpm=cpm_${num}_out
+  local ansic=ansic_${num}_out
+  local z80=z80_${num}_out
 
   echo "Test $num"
 
@@ -35,14 +47,18 @@ function run_test()
 
   TestCPM $bas $cpm
   TestANSIC $bas $ansic
+  TestZ80 $bas $z80
   diff -q $cpm $ansic
-  #cmp $cpm $ansi
+  diff -q $cpm $z80
 }
 
 ##########################
 
 cat <<EOF | run_test 1
 10 print "hello, world"
+20 print "hello" ; "world"
+30 print "hello" , "world"
+40 print "hello" , "world" ;
 EOF
 
 cat <<EOF | run_test 2
