@@ -48,8 +48,8 @@ function run_test()
   TestCPM $bas $cpm
   TestANSIC $bas $ansic
   TestZ80 $bas $z80
-  diff -q $cpm $ansic
-  diff -q $cpm $z80
+  cmp $cpm $ansic
+  cmp $cpm $z80
 }
 
 ##########################
@@ -59,6 +59,7 @@ cat <<EOF | run_test 1
 20 print "hello" ; "world"
 30 print "hello" , "world"
 40 print "hello" , "world" ;
+50 print "continue"
 EOF
 
 cat <<EOF | run_test 2
@@ -77,4 +78,19 @@ cat <<EOF | run_test 2
 101 print "2147483648" ; 2147483648
 110 print "-2147483647" ; -2147483647
 111 print "-2147483648" ; -2147483648
+EOF
+
+cat <<EOF | run_test 3
+10 print "start"
+20 goto 50
+30 print "step 3"
+40 goto 70
+50 print "step 2"
+60 goto 30
+70 print "end"
+EOF
+
+cat <<EOF | run_test 4
+10 a = 1 : print a
+20 a = 1234 : print a
 EOF

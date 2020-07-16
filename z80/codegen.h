@@ -22,12 +22,8 @@ class Z80_CodeGenerator : public CodeGenerator
     typedef std::map<std::string, AsmVarDef> GlobalVarMap;
     std::set<std::string> m_anames;
     GlobalVarMap m_globalVars;
-    bool m_usePrintChar = false;
-    bool m_usePrintTab = false;
-    bool m_usePrintStr = false;
-    bool m_usePrintNewLine = false;
-    bool m_usePrintI16 = false;
-    bool m_useDiv10 = false;
+
+    std::set<std::string> m_funcsUsed;
 
   public:
     virtual bool Body() override;
@@ -74,7 +70,7 @@ class Z80_CodeGenerator : public CodeGenerator
     //virtual int Print(const AST::DoubleConstant & expr) override;
     virtual int Print(const AST::PrintComma & expr) override;
     //virtual int Print(const AST::PrintSemiColon & expr) override;
-    //virtual int Print(const AST::NumericVarRef & expr) override;
+    virtual int Print(const AST::NumericVarRef & expr) override;
     //virtual int Print(const AST::StringVarRef & expr) override;
 };
 

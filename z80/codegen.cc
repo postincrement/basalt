@@ -17,14 +17,26 @@ struct AsmTypeInfoRec {
   const char * m_suffix;
 };
 
+#define PrintCh_FUNC        "print_ch"
+#define PrintTab_FUNC       "print_tab"
+#define PrintNewline_FUNC   "print_newline"
+#define PrintI16_FUNC       "print_i16"
+#define PrintI16s_FUNC      "print_i16s"
+#define PrintI32_FUNC       "print_i32"
+#define PrintF_FUNC         "print_f"
+#define PrintD_FUNC         "print_d"
+#define PrintStr_FUNC       "print_str"
+#define Div10_FUNC          "div10"
+
+
 // must be indexed by VarType
 static AsmTypeInfoRec g_varTypeInfo[] = {
   { 0 },                        // none
-  { "dw",     "0", "basalt_print_int16",  "basalt_str_int16",  "i16"  },     // eInt16
-  { "dw",     "0", "basalt_print_int32",  "basalt_str_int32",  "i32"  },     // eInt32
-  { "dw",     "0", "basalt_print_single", "basalt_str_single", "f"    },    // eSingle
-  { "dw",     "0", "basalt_print_double", "basalt_str_double", "d"    },    // eDouble
-  { "dw",     "0", "basalt_print_string", 0,                   "s"    }     // eString
+  { "dw",     "0", PrintI16s_FUNC, "basalt_str_int16",  "i16"  },    // eInt16
+  { "dw",     "0", PrintI32_FUNC,  "basalt_str_int32",  "i32"  },    // eInt32
+  { "dw",     "0", PrintF_FUNC,    "basalt_str_single", "f"    },    // eSingle
+  { "dw",     "0", PrintD_FUNC,    "basalt_str_double", "d"    },    // eDouble
+  { "dw",     "0", PrintStr_FUNC,  0,                   "s"    }     // eString
 };
 
 ////////////////////////////////////////////////////////////
@@ -110,11 +122,21 @@ bool Z80_CodeGenerator::Body()
     code << Pop();
   }
 
-  m_usePrintStr  = m_usePrintStr  || m_usePrintNewLine;
-  m_usePrintChar = m_usePrintChar || m_usePrintStr || m_usePrintI16 || m_usePrintTab;
-  m_useDiv10     = m_useDiv10 || m_usePrintI16;
+  #define USED(s) m_funcsUsed.count(s##_FUNC)
+
+  if (USED(PrintNewline))
+    m_funcsUsed.insert(PrintStr_FUNC);
+
+  if (USED(PrintI16s))  
+    m_funcsUsed.insert(PrintI16_FUNC);
+
+  if (USED(PrintStr) || USED(PrintI16) || USED(PrintTab))
+    m_funcsUsed.insert(PrintCh_FUNC);
+
+  if (USED(PrintI16))
+    m_funcsUsed.insert(Div10_FUNC);
   
-  if (m_usePrintNewLine) {
+  if (USED(PrintNewline)) {
     if (AST::g_stringConstants.count("\r\n") == 0) {
       AST::g_stringConstants["\r\n"] = AST::g_stringConstantIndex++;
     }
@@ -141,9 +163,18 @@ bool Z80_CodeGenerator::Body()
                   << "\n"
                   ;
 
-  if (m_usePrintI16) {
-    *m_outputStream << "; print int16 in HL\n"
-                    << "print_i16:\n"
+  if (USED(PrintI16s)) {
+    *m_outputStream << "; print int16 in HL with trailing space\n"
+                    << PrintI16s_FUNC ":\n"
+                    << "    call  " PrintI16_FUNC "\n"
+                    << "    ld    a,' '\n"
+                    << "    jp    " PrintCh_FUNC "\n"
+                    << "\n"
+                    ;
+  }
+  if (USED(PrintI16)) {
+     *m_outputStream << "; print int16 in HL\n"
+                    << PrintI16_FUNC ":\n"
                     << "    ld    a,' '\n"
                     << "    bit   7,h   ; check if negative\n"
                     << "    jr    z,print_i16p\n"
@@ -153,30 +184,30 @@ bool Z80_CodeGenerator::Body()
                     << "    sbc   hl,de\n"
                     << "    ld    a,'-'\n"
                     << "print_i16p:\n"
-                    << "    call    print_ch\n"
+                    << "    call    " PrintCh_FUNC "\n"
                     << "print_i16n:\n"
                     << "    ld    a,h\n"
                     << "    or    a\n"
-                    << "    jr    nz,print_i16s\n"
+                    << "    jr    nz,print_i16q\n"
                     << "    ld    a,l\n"
                     << "    cp    10\n"
                     << "    jr    c,print_i16r\n"
-                    << "print_i16s:\n"
-                    << "    call  div_10\n"
+                    << "print_i16q:\n"
+                    << "    call  " Div10_FUNC "\n"
                     << "    push  af\n"
                     << "    call  print_i16n\n"
                     << "    pop   af\n"
                     << "print_i16r:\n"
                     << "    add   a,'0'\n"
-                    << "    jp    print_ch\n"
+                    << "    jp    " PrintCh_FUNC "\n"
                     << "\n"
                     ;
   }
 
-  if (m_usePrintNewLine) {
+  if (USED(PrintNewline)) {
     int index = AST::g_stringConstants["\r\n"];  
     *m_outputStream << "; print newline\n"
-                    << "print_newline:\n"
+                    << PrintNewline_FUNC ":\n"
                     << "    ld    hl,str_" << index << "\n"    
                     << "    ld    bc,2\n"
                     << "    call  print_str\n"
@@ -186,11 +217,11 @@ bool Z80_CodeGenerator::Body()
                     ;
   }                
 
-  if (m_usePrintStr) {
+  if (USED(PrintStr)) {
     *m_outputStream << "; print string at HL with BC chars\n"
-                    << "print_str:\n"
+                    << PrintStr_FUNC ":\n"
                     << "    ld    a,(hl)\n"
-                    << "    call  print_ch\n"
+                    << "    call  " PrintCh_FUNC "\n"
                     << "    dec   bc\n"
                     << "    inc   hl\n"
                     << "    ld    a,c\n"
@@ -201,7 +232,7 @@ bool Z80_CodeGenerator::Body()
                     ;
   }
 
-  if (m_usePrintTab) {
+  if (USED(PrintTab)) {
     *m_outputStream << "; print tab with expnsion\n"
                     << "print_tab:\n"
                     << "    ld    a,(ix+column-vars)\n"
@@ -218,16 +249,16 @@ bool Z80_CodeGenerator::Body()
                     << "    ld    b,a\n"
                     << "    ld    a,' '\n"
                     << "print_tab3:\n"
-                    << "    call  print_ch\n"
+                    << "    call  " PrintCh_FUNC "\n"
                     << "    djnz  print_tab3\n"
                     << "    ret\n"
                     << "\n"
                     ;
   }
 
-  if (m_usePrintChar) {                 
+  if (USED(PrintCh)) {
     *m_outputStream << "; print char in A\n"
-                    << "print_ch:\n"
+                    <<  PrintCh_FUNC ":\n"
                     << "    inc   (ix+column-vars)\n"
                     << "print_chn:\n"
                     << "    push  bc\n"
@@ -240,10 +271,10 @@ bool Z80_CodeGenerator::Body()
                     << "\n";
   }
 
-  if (m_useDiv10) {
+  if (USED(Div10)) {
     *m_outputStream << "; Divide HL by 10.\n"
                     << "; HL quotient, A = remainder\n" 
-                    << "div_10:\n"
+                    << Div10_FUNC ":\n"
                     << "    ld    bc,0x0d0a\n"
                     << "    xor   a\n"
                     << "    add   hl,hl\n"
@@ -297,7 +328,7 @@ bool Z80_CodeGenerator::Body()
   *m_outputStream << "; Vars\n"
                   << "vars:\n"
                   ;
-  if (m_usePrintChar) {
+  if (USED(PrintCh)) {
     *m_outputStream << "conout: jp    0  ; replaced with address of BIOS conout\n"
                     << "tabwid: db    " << g_languageProfile->GetTabWidth() << " ; tab width\n"
                     << "column: db    0  ; current tab column\n"
@@ -341,7 +372,7 @@ int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
                    << "    ld    bc," << expr.GetValue().length() << "\n"
                    << "    call  print_str\n";
 
-  m_usePrintStr = true;                
+  m_funcsUsed.insert(PrintStr_FUNC);                
 
   return 0;
 }
@@ -351,11 +382,27 @@ int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 int Z80_CodeGenerator::Print(const AST::Int16Constant & expr)
 {
   TopOutput(false) << "    ld    hl," << expr.GetValue() << "\n"
-                   << "    call  print_i16\n"
+                   << "    call  " PrintI16s_FUNC "\n"
                    ;
 
-  m_usePrintI16 = true;
+  m_funcsUsed.insert(PrintI16s_FUNC);
 
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::Generate(const AST::Print & expr)
+{
+  for (auto & r : expr.m_list) {
+    r->Print(*this);
+  }
+
+  if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon()) {
+    TopOutput(false) << "    call  " << PrintNewline_FUNC << "\n";
+    m_funcsUsed.insert(PrintNewline_FUNC);
+  }
+  
   return 0;
 }
 
@@ -364,8 +411,52 @@ int Z80_CodeGenerator::Print(const AST::Int16Constant & expr)
 int Z80_CodeGenerator::Print(const AST::PrintComma & expr)
 {
   TopOutput(false) << "    call  print_tab\n";
+  m_funcsUsed.insert(PrintTab_FUNC);
+  return 0;
+}
 
-  m_usePrintTab = true;
+///////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::Generate(const AST::Goto & expr)
+{
+  int line = ResolveGotoDestination(expr.GetRef());
+  if (line < 0) {
+    cerr << "internal error: cannot resolve goto destination '" << expr.GetRef() << "'" << endl;
+    return 1;
+  }
+
+  TopOutput(false) << "    jp    line_" << line << "\n"; 
+}
+
+///////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)
+{
+  Closure & us = Top();
+
+  AsmVarDef avar;
+  if (!LookupGlobalVar(expr.m_lhs->GetName(), avar))
+    return -1;
+
+  if (expr.m_rhs == nullptr) {
+    if (!g_disableWarnings)
+      us.Output() << "#warning \"missing rhs\"\n";
+    return -1;
+  }
+
+  std::string rhs;
+  expr.m_rhs->Evaluate(*this, rhs);
+
+  if (expr.m_rhs->GetType() == VarType::eInt16) {
+    if (expr.m_rhs->IsConstant()) {
+      us.Output() << "    ld    hl," << rhs << "\n"
+                  << "    ld    (" << avar.m_aname << "),hl\n" << endl;
+    }
+    else if (expr.m_rhs->IsVarRef()) {
+      us.Output() << "    ld    hl,(" << rhs << ")\n"
+                  << "    ld    (" << avar.m_aname << "),hl\n" << endl;
+    }
+  }
 
   return 0;
 }
@@ -393,64 +484,19 @@ int Z80_CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & r
   return 0;
 }
 
-///////////////////////////////////////////////////////////////////
-
-int Z80_CodeGenerator::Generate(const AST::Print & expr)
+int Z80_CodeGenerator::Print(const AST::NumericVarRef & expr)
 {
-  for (auto & r : expr.m_list) {
-    r->Print(*this);
-  }
-
-  if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon()) {
-    TopOutput(false) << "    call  print_newline\n";
-    m_usePrintNewLine = true;
-  }
-  
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////
-
-int Z80_CodeGenerator::Generate(const AST::Goto & expr)
-{
-  int line = ResolveGotoDestination(expr.GetRef());
-  if (line < 0) {
-    cerr << "internal error: cannot resolve goto destination '" << expr.GetRef() << "'" << endl;
-    return 1;
-  }
-
-  TopOutput(false) << " jp    line_" << line << "\n"; 
-}
-
-///////////////////////////////////////////////////////////////////
-
-int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)
-{
-  Closure & us = Top();
-
-  AsmVarDef avar;
-  if (!LookupGlobalVar(expr.m_lhs->GetName(), avar))
-    return -1;
-
-  if (expr.m_rhs == nullptr) {
-    if (!g_disableWarnings)
-      us.Output() << "#warning \"missing rhs\"\n";
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
     return -1;
   }
+  AsmVarDef & avar = m_globalVars[expr.GetName()];
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
 
-  std::string rhs;
-  expr.m_rhs->Evaluate(*this, rhs);
+  m_funcsUsed.insert(funcName);
 
-  if (expr.m_rhs->GetType() == VarType::eInt16) {
-    if (expr.m_rhs->IsConstant()) {
-      us.Output() << "  ld    hl," << rhs << "\n"
-                  << "  ld    (" << avar.m_aname << "),hl\n" << endl;
-    }
-    else if (expr.m_rhs->IsVarRef()) {
-      us.Output() << "  ld    hl,(" << rhs << ")\n"
-                  << "  ld    (" << avar.m_aname << "),hl\n" << endl;
-    }
-  }
-
+  TopOutput(false) << "    ld      hl,(" << avar.m_aname << ")\n"
+                   << "    call    " << funcName << "\n"
+                   ;  
   return 0;
 }

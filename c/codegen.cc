@@ -221,6 +221,14 @@ int C_CodeGenerator::Generate(const AST::Print & expr)
 
 ////////////////////////////////////////////////////////////////
 
+int C_CodeGenerator::Print(const AST::PrintComma & expr)
+{
+  TopOutput(true) << "basalt_print_tab();\n";
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
 int C_CodeGenerator::Generate(const AST::Goto & expr)
 {
   Top().SetGoto(true);
@@ -499,14 +507,6 @@ int C_CodeGenerator::Evaluate(const AST::DoubleConstant & expr, std::string & re
 int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
 {
   TopOutput(true) << "basalt_print_double(" << std::setprecision(10) << expr.GetValue() << ");\n";
-  return 0;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Print(const AST::PrintComma & expr)
-{
-  TopOutput(true) << "basalt_print_tab();\n";
   return 0;
 }
 
