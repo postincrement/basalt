@@ -212,7 +212,10 @@ int C_CodeGenerator::Generate(const AST::Print & expr)
   for (auto & r : expr.m_list) {
     r->Print(*this);
   }
-  TopOutput() << "basalt_print_newline();\n";
+
+  if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon())
+    TopOutput() << "basalt_print_newline();\n";
+    
   return 0;
 }
 

@@ -93,12 +93,11 @@ bool Z80_CodeGenerator::Body()
     //*m_outputStream << "struct LineFunction " LINEFN_PREFIX << i << "(); /* " << r->GetBasicLineNumber() << " */\n";
   }
 
-  *m_outputStream << "\n"
-                  << "; CP/M BDOS entry point\n"
-                  << "wboot:\tequ\t0\n"
-                  << "bdos:\tequ\t5\n"
+  *m_outputStream << ""
+                  << "wboot: equ 0  ; warm boot\n"
+                  << "bdos:  equ 5  ; CP/M BDOS\n"
                   << "\n"
-                  << "\torg\t0x100\n"
+                  << "    org  0x100\n"
                   << "\n"
                   ;
 
@@ -112,19 +111,163 @@ bool Z80_CodeGenerator::Body()
   }
 
   m_usePrintStr  = m_usePrintStr  || m_usePrintNewLine;
-  m_usePrintChar = m_usePrintChar || m_usePrintStr || m_usePrintI16;
+  m_usePrintChar = m_usePrintChar || m_usePrintStr || m_usePrintI16 || m_usePrintTab;
   m_useDiv10     = m_useDiv10 || m_usePrintI16;
-
+  
   if (m_usePrintNewLine) {
     if (AST::g_stringConstants.count("\r\n") == 0) {
-      int index = AST::g_stringConstantIndex++;
-      AST::g_stringConstants["\r\n"] = index;
+      AST::g_stringConstants["\r\n"] = AST::g_stringConstantIndex++;
     }
   }
 
+  *m_outputStream << "start:\n"
+                  << "    ld    ix,vars\n"
+                  << "    ld    hl,(bdos+1)\t; set SP to just below BDOS\n"
+                  << "    ld    sp,hl\n"
+                  << "    ld    hl,(wboot+1)\t; get BIOS conout vector\n"
+                  << "    ld    de,9\n"
+                  << "    add   hl,de\n"
+                  << "    ld    (conout+1),hl\n"
+                  ;
+
+  *m_outputStream << code.str();
+
+  *m_outputStream << "end:\n"
+                  << "    rst   0  ; warm boot\n"
+                  << "\n"
+                  ;
+
+  *m_outputStream << "; Functions\n"
+                  << "\n"
+                  ;
+
+  if (m_usePrintI16) {
+    *m_outputStream << "; print int16 in HL\n"
+                    << "print_i16:\n"
+                    << "    ld    a,' '\n"
+                    << "    bit   7,h   ; check if negative\n"
+                    << "    jr    z,print_i16p\n"
+                    << "    ld    de,0\n"
+                    << "    ex    de,hl\n"
+                    << "    xor   a\n"
+                    << "    sbc   hl,de\n"
+                    << "    ld    a,'-'\n"
+                    << "print_i16p:\n"
+                    << "    call    print_ch\n"
+                    << "print_i16n:\n"
+                    << "    ld    a,h\n"
+                    << "    or    a\n"
+                    << "    jr    nz,print_i16s\n"
+                    << "    ld    a,l\n"
+                    << "    cp    10\n"
+                    << "    jr    c,print_i16r\n"
+                    << "print_i16s:\n"
+                    << "    call  div_10\n"
+                    << "    push  af\n"
+                    << "    call  print_i16n\n"
+                    << "    pop   af\n"
+                    << "print_i16r:\n"
+                    << "    add   a,'0'\n"
+                    << "    jp    print_ch\n"
+                    << "\n"
+                    ;
+  }
+
+  if (m_usePrintNewLine) {
+    int index = AST::g_stringConstants["\r\n"];  
+    *m_outputStream << "; print newline\n"
+                    << "print_newline:\n"
+                    << "    ld    hl,str_" << index << "\n"    
+                    << "    ld    bc,2\n"
+                    << "    call  print_str\n"
+                    << "    ld    (ix+column-vars),0\n"
+                    << "    ret\n"
+                    << "\n"
+                    ;
+  }                
+
+  if (m_usePrintStr) {
+    *m_outputStream << "; print string at HL with BC chars\n"
+                    << "print_str:\n"
+                    << "    ld    a,(hl)\n"
+                    << "    call  print_ch\n"
+                    << "    dec   bc\n"
+                    << "    inc   hl\n"
+                    << "    ld    a,c\n"
+                    << "    or    b\n"
+                    << "    jr    nz,print_str\n"
+                    << "    ret\n"
+                    << "\n"
+                    ;
+  }
+
+  if (m_usePrintTab) {
+    *m_outputStream << "; print tab with expnsion\n"
+                    << "print_tab:\n"
+                    << "    ld    a,(ix+column-vars)\n"
+                    << "    ld    b,(ix+tabwid-vars)\n"
+                    << "print_tab1:\n"
+                    << "    cp    b\n"
+                    << "    jr    c,print_tab2\n"
+                    << "    sub   b\n"
+                    << "    jr    print_tab1\n"
+                    << "print_tab2:\n"
+                    << "    ld    b,a\n"
+                    << "    ld    a,(ix+tabwid-vars)\n"
+                    << "    sub   b\n"
+                    << "    ld    b,a\n"
+                    << "    ld    a,' '\n"
+                    << "print_tab3:\n"
+                    << "    call  print_ch\n"
+                    << "    djnz  print_tab3\n"
+                    << "    ret\n"
+                    << "\n"
+                    ;
+  }
+
+  if (m_usePrintChar) {                 
+    *m_outputStream << "; print char in A\n"
+                    << "print_ch:\n"
+                    << "    inc   (ix+column-vars)\n"
+                    << "print_chn:\n"
+                    << "    push  bc\n"
+                    << "    push  hl\n"
+                    << "    ld    c,a\n"
+                    << "    call  conout\n"
+                    << "    pop   hl\n"
+                    << "    pop   bc\n"
+                    << "    ret\n"
+                    << "\n";
+  }
+
+  if (m_useDiv10) {
+    *m_outputStream << "; Divide HL by 10.\n"
+                    << "; HL quotient, A = remainder\n" 
+                    << "div_10:\n"
+                    << "    ld    bc,0x0d0a\n"
+                    << "    xor   a\n"
+                    << "    add   hl,hl\n"
+                    << "    rla\n"
+                    << "    add   hl,hl\n"
+                    << "    rla\n"
+                    << "    add   hl,hl\n"
+                    << "    rla\n"
+                    << "div_10_1:\n"
+                    << "    add   hl,hl\n"
+                    << "    rla\n"
+                    << "    cp    c\n"
+                    << "    jr    c,div_10_2\n"
+                    << "    sub   c\n"
+                    << "    inc   l\n"
+                    << "div_10_2:\n"
+                    << "    djnz  div_10_1\n"
+                    << "    ret\n"
+                    << "\n"
+                    ;
+  }
+
   if (AST::g_stringConstants.size() > 0) {
-    *m_outputStream << "\tjp\tstart\n"
-                    << "; String constants\n"
+    *m_outputStream << "; String constants\n"
                     ;
     for (auto & r : AST::g_stringConstants) {
       *m_outputStream << "str_" << r.second << ":";
@@ -146,127 +289,21 @@ bool Z80_CodeGenerator::Body()
         *m_outputStream << prefix << "dm\t\"" << str.substr(start, i-start) << "\"";
       } 
       *m_outputStream << "\n";
-      prefix = "\t";
+      prefix = " ";
     }
-    *m_outputStream << "\n"
-                    << "start:\n"
-                    ;
+    *m_outputStream << "\n";
   }
-  *m_outputStream << "  ld    hl,(wboot+1)\n"
-                  << "  ld    de,9\n"
-                  << "  add   hl,de\n"
-                  << "  ld    (conout+1),hl\n"
-                  << "  ld    sp,0x100\n"
+
+  *m_outputStream << "; Vars\n"
+                  << "vars:\n"
                   ;
-
-  *m_outputStream << code.str();
-
-  *m_outputStream << "\n"
-                  << "end:\n"
-                  << "  rst   0\n";
-
-  if (m_usePrintI16) {
-    *m_outputStream << "\n"
-                    << "; print int16 in HL\n"
-                    << "print_i16:\n"
-                    << "  ld    a,' '\n"
-                    << "  bit   7,h   ; check if negative\n"
-                    << "  jr    z,print_i16p\n"
-                    << "  ld    de,0\n"
-                    << "  ex    de,hl\n"
-                    << "  xor   a\n"
-                    << "  sbc   hl,de\n"
-                    << "  ld    a,'-'\n"
-                    << "print_i16p:\n"
-                    << "  call    print_ch\n"
-                    << "print_i16n:\n"
-                    << "  ld    a,h\n"
-                    << "  or    a\n"
-                    << "  jr    nz,print_i16s\n"
-                    << "  ld    a,l\n"
-                    << "  cp    10\n"
-                    << "  jr    c,print_i16r\n"
-                    << "print_i16s:\n"
-                    << "  call  div_10\n"
-                    << "  push  af\n"
-                    << "  call  print_i16n\n"
-                    << "  pop   af\n"
-                    << "print_i16r:\n"
-                    << "  add   a,'0'\n"
-                    << "  jp    print_ch\n"
-                    ;
+  if (m_usePrintChar) {
+    *m_outputStream << "conout: jp    0  ; replaced with address of BIOS conout\n"
+                    << "tabwid: db    " << g_languageProfile->GetTabWidth() << " ; tab width\n"
+                    << "column: db    0  ; current tab column\n"
+                    << "\n"
+                    ;    
   }
-
-  if (m_usePrintNewLine) {
-    int index = AST::g_stringConstants["\r\n"];  
-    *m_outputStream << "\n"
-                    << "; print newline\n"
-                    << "print_newline:\n"
-                    << "  ld    hl,str_" << index << "\n"    
-                    << "  ld    bc,2\n"
-                    << "; fall through to print_str\n"
-                    ;
-  }                
-
-  if (m_usePrintStr) {
-    *m_outputStream << "\n"
-                    << "; print string at HL with BC chars\n"
-                    << "print_str:\n"
-                    << "  ld    a,(hl)\n"
-                    << "  call  print_ch\n"
-                    << "  dec   bc\n"
-                    << "  inc   hl\n"
-                    << "  ld    a,c\n"
-                    << "  or    b\n"
-                    << "  jr    nz,print_str\n"
-                    << "  ret\n"
-                    ;
-  }
-
-  if (m_usePrintChar) {                 
-    *m_outputStream << "\n"
-                    << "; print char in A\n"
-                    << "print_ch:\n"
-                    << "  push  bc\n"
-                    << "  push  hl\n"
-                    << "  ld    c,a\n"
-                    << "  call  conout\n"
-                    << "  pop   hl\n"
-                    << "  pop   bc\n"
-                    << "  ret\n"
-                    ;
-  }
-
-
-  if (m_useDiv10) {
-    *m_outputStream << "; Divide HL by 10.\n"
-                    << "; HL quotient, A = remainder\n" 
-                    << "div_10:\n"
-                    << "  ld    bc,0x0d0a\n"
-                    << "  xor   a\n"
-                    << "  add   hl,hl\n"
-                    << "  rla\n"
-                    << "  add   hl,hl\n"
-                    << "  rla\n"
-                    << "  add   hl,hl\n"
-                    << "  rla\n"
-                    << "div_10_1:\n"
-                    << "  add   hl,hl\n"
-                    << "  rla\n"
-                    << "  cp    c\n"
-                    << "  jr    c,div_10_2\n"
-                    << "  sub   c\n"
-                    << "  inc   l\n"
-                    << "div_10_2:\n"
-                    << "  djnz  div_10_1\n"
-                    << "  ret\n";
-  }   
-
-  *m_outputStream << "\n"
-                  << "; Vars\n"
-                  << "conout: jp    0 ; replaced with address of BIOS conout\n"
-                  ;         
-
 
   for (auto & r : m_globalVars) {
     AsmTypeInfoRec & info = g_varTypeInfo[(int)r.second.m_type];
@@ -291,7 +328,7 @@ int Z80_CodeGenerator::Generate(const AST::SourceLine & line)
 
 int Z80_CodeGenerator::Generate(const AST::End & expr)
 {
-  TopOutput() << "\tjp\tend\n";
+  TopOutput() << "    jp    end\n";
   return 0;
 }
 
@@ -300,9 +337,9 @@ int Z80_CodeGenerator::Generate(const AST::End & expr)
 int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 {
   int index = AST::g_stringConstants[expr.GetValue()];
-  TopOutput(false) << " ld    hl,str_" << index << "\n"
-                   << " ld    bc," << expr.GetValue().length() << "\n"
-                   << " call  print_str\n";
+  TopOutput(false) << "    ld    hl,str_" << index << "\n"
+                   << "    ld    bc," << expr.GetValue().length() << "\n"
+                   << "    call  print_str\n";
 
   m_usePrintStr = true;                
 
@@ -313,11 +350,22 @@ int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 
 int Z80_CodeGenerator::Print(const AST::Int16Constant & expr)
 {
-  TopOutput(false) << " ld    hl," << expr.GetValue() << "\n"
-                   << " call  print_i16\n"
+  TopOutput(false) << "    ld    hl," << expr.GetValue() << "\n"
+                   << "    call  print_i16\n"
                    ;
 
-  m_usePrintI16 = true;                
+  m_usePrintI16 = true;
+
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::Print(const AST::PrintComma & expr)
+{
+  TopOutput(false) << "    call  print_tab\n";
+
+  m_usePrintTab = true;
 
   return 0;
 }
@@ -352,8 +400,12 @@ int Z80_CodeGenerator::Generate(const AST::Print & expr)
   for (auto & r : expr.m_list) {
     r->Print(*this);
   }
-  m_usePrintNewLine = true;                
-  TopOutput(false) << " call  print_newline\n";
+
+  if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon()) {
+    TopOutput(false) << "    call  print_newline\n";
+    m_usePrintNewLine = true;
+  }
+  
   return 0;
 }
 

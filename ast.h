@@ -28,6 +28,7 @@ struct LanguageProfileDef
 {
   const char * m_name;
   int          m_normalizedVarLen;
+  int          m_tabWidth;
   VarType      m_defaultNumericType;
   VarType      m_defaultIntegerType;
 };
@@ -38,9 +39,10 @@ struct LanguageProfile
     : m_def(def)
   { }  
 
-  virtual VarType GetIntegerType()        { return m_def->m_defaultIntegerType; }
-  virtual VarType GetDefaultNumericType() { return m_def->m_defaultNumericType; }
-  virtual int GetVarNameLen()             { return m_def->m_normalizedVarLen;   }
+  virtual VarType GetIntegerType() const        { return m_def->m_defaultIntegerType; }
+  virtual VarType GetDefaultNumericType() const { return m_def->m_defaultNumericType; }
+  virtual int GetVarNameLen() const             { return m_def->m_normalizedVarLen;   }
+  virtual int GetTabWidth() const               { return m_def->m_tabWidth;   }
 
   const LanguageProfileDef * m_def;
 };
@@ -120,6 +122,9 @@ class Expr : public Node
     virtual bool IsVarRef() const
     { return false; } 
 
+    virtual bool IsPrintSemiColon() const
+    { return false; }
+
   protected:
     VarType m_type;
 };
@@ -165,6 +170,8 @@ class PrintSemiColon : public Expr
   public:
     PrintSemiColon() = default;
     virtual int Print(CodeGenerator & gen) const override;
+    virtual bool IsPrintSemiColon() const override
+    { return true; }
 };
 
 ////////////////////////////////////////////////////////////////////////////

@@ -24,10 +24,10 @@ static Factory<LanguageProfile> g_languageProfileFactory;
 
 
 static LanguageProfileDef g_basicVariants[] = { 
-// name      varlen defnum              defint
-{ "BasicEx",   40,  VarType::eInt16,  VarType::eInt16  },
-{ "Basic8k",    2,  VarType::eInt16,  VarType::eInt16  },
-{ "DiskBasic", 40,  VarType::eInt16,  VarType::eInt16  },
+// name      varlen tab defnum              defint
+{ "BasicEx",   40,  14, VarType::eInt16,  VarType::eInt16  },
+{ "Basic8k",    2,  14, VarType::eInt16,  VarType::eInt16  },
+{ "DiskBasic", 40,  14, VarType::eInt16,  VarType::eInt16  },
 { 0 }
 };
 
