@@ -26,6 +26,7 @@ struct AsmTypeInfoRec {
 #define PrintF_FUNC         "print_f"
 #define PrintD_FUNC         "print_d"
 #define PrintStr_FUNC       "print_str"
+#define PrintStrc_FUNC      "print_strc"
 #define Div10_FUNC          "div10"
 
 
@@ -143,13 +144,14 @@ bool Z80_CodeGenerator::Body()
   }
 
   *m_outputStream << "start:\n"
-                  << "    ld    ix,vars\n"
                   << "    ld    hl,(bdos+1)\t; set SP to just below BDOS\n"
                   << "    ld    sp,hl\n"
                   << "    ld    hl,(wboot+1)\t; get BIOS conout vector\n"
                   << "    ld    de,9\n"
                   << "    add   hl,de\n"
                   << "    ld    (conout+1),hl\n"
+                  << "    ld    ix,temp\n"
+                  << "    ld    iy,vars\n"
                   ;
 
   *m_outputStream << code.str();
@@ -159,7 +161,9 @@ bool Z80_CodeGenerator::Body()
                   << "\n"
                   ;
 
-  *m_outputStream << "; Functions\n"
+  *m_outputStream << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+                  << "; Functions\n"
+                  << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
                   << "\n"
                   ;
 
@@ -168,10 +172,23 @@ bool Z80_CodeGenerator::Body()
                     << PrintI16s_FUNC ":\n"
                     << "    call  " PrintI16_FUNC "\n"
                     << "    ld    a,' '\n"
-                    << "    jp    " PrintCh_FUNC "\n"
-                    << "\n"
-                    ;
+                    << "; fall through\n";
   }
+  if (USED(PrintCh)) {
+    *m_outputStream << "; print char in A\n"
+                    <<  PrintCh_FUNC ":\n"
+                    << "    inc   (ix+column-temp)\n"
+                    << "print_chn:\n"
+                    << "    push  bc\n"
+                    << "    push  hl\n"
+                    << "    ld    c,a\n"
+                    << "    call  conout\n"
+                    << "    pop   hl\n"
+                    << "    pop   bc\n"
+                    << "    ret\n"
+                    << "\n";
+  }
+
   if (USED(PrintI16)) {
      *m_outputStream << "; print int16 in HL\n"
                     << PrintI16_FUNC ":\n"
@@ -199,7 +216,7 @@ bool Z80_CodeGenerator::Body()
                     << "    pop   af\n"
                     << "print_i16r:\n"
                     << "    add   a,'0'\n"
-                    << "    jp    " PrintCh_FUNC "\n"
+                    << "    jr    " PrintCh_FUNC "\n"
                     << "\n"
                     ;
   }
@@ -211,14 +228,17 @@ bool Z80_CodeGenerator::Body()
                     << "    ld    hl,str_" << index << "\n"    
                     << "    ld    bc,2\n"
                     << "    call  print_str\n"
-                    << "    ld    (ix+column-vars),0\n"
+                    << "    ld    (ix+column-temp),0\n"
                     << "    ret\n"
                     << "\n"
                     ;
   }                
 
   if (USED(PrintStr)) {
-    *m_outputStream << "; print string at HL with BC chars\n"
+    *m_outputStream << "; print string at HL with C chars\n"
+                    << PrintStrc_FUNC ":\n"
+                    << "    ld    b,0\n"
+                    << "; print string at HL with BC chars\n"
                     << PrintStr_FUNC ":\n"
                     << "    ld    a,(hl)\n"
                     << "    call  " PrintCh_FUNC "\n"
@@ -233,10 +253,10 @@ bool Z80_CodeGenerator::Body()
   }
 
   if (USED(PrintTab)) {
-    *m_outputStream << "; print tab with expnsion\n"
+    *m_outputStream << "; print tab with expansion\n"
                     << "print_tab:\n"
-                    << "    ld    a,(ix+column-vars)\n"
-                    << "    ld    b,(ix+tabwid-vars)\n"
+                    << "    ld    a,(ix+column-temp)\n"
+                    << "    ld    b,(ix+tabwid-temp)\n"
                     << "print_tab1:\n"
                     << "    cp    b\n"
                     << "    jr    c,print_tab2\n"
@@ -244,7 +264,7 @@ bool Z80_CodeGenerator::Body()
                     << "    jr    print_tab1\n"
                     << "print_tab2:\n"
                     << "    ld    b,a\n"
-                    << "    ld    a,(ix+tabwid-vars)\n"
+                    << "    ld    a,(ix+tabwid-temp)\n"
                     << "    sub   b\n"
                     << "    ld    b,a\n"
                     << "    ld    a,' '\n"
@@ -254,21 +274,6 @@ bool Z80_CodeGenerator::Body()
                     << "    ret\n"
                     << "\n"
                     ;
-  }
-
-  if (USED(PrintCh)) {
-    *m_outputStream << "; print char in A\n"
-                    <<  PrintCh_FUNC ":\n"
-                    << "    inc   (ix+column-vars)\n"
-                    << "print_chn:\n"
-                    << "    push  bc\n"
-                    << "    push  hl\n"
-                    << "    ld    c,a\n"
-                    << "    call  conout\n"
-                    << "    pop   hl\n"
-                    << "    pop   bc\n"
-                    << "    ret\n"
-                    << "\n";
   }
 
   if (USED(Div10)) {
@@ -298,7 +303,10 @@ bool Z80_CodeGenerator::Body()
   }
 
   if (AST::g_stringConstants.size() > 0) {
-    *m_outputStream << "; String constants\n"
+    *m_outputStream << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+                    << "; String constants\n"
+                    << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+                    << "\n"
                     ;
     for (auto & r : AST::g_stringConstants) {
       *m_outputStream << "str_" << r.second << ":";
@@ -325,8 +333,11 @@ bool Z80_CodeGenerator::Body()
     *m_outputStream << "\n";
   }
 
-  *m_outputStream << "; Vars\n"
-                  << "vars:\n"
+  *m_outputStream << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+                  << "; Temp storage\n"
+                  << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+                  << "\n"
+                  << "temp:\n"
                   ;
   if (USED(PrintCh)) {
     *m_outputStream << "conout: jp    0  ; replaced with address of BIOS conout\n"
@@ -336,6 +347,11 @@ bool Z80_CodeGenerator::Body()
                     ;    
   }
 
+  *m_outputStream << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+                  << "; Variables\n"
+                  << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
+                  << "\n"
+                  << "vars:\n";
   for (auto & r : m_globalVars) {
     AsmTypeInfoRec & info = g_varTypeInfo[(int)r.second.m_type];
     *m_outputStream << r.second.m_aname << ":\t"
@@ -365,12 +381,70 @@ int Z80_CodeGenerator::Generate(const AST::End & expr)
 
 ///////////////////////////////////////////////////////////////////
 
+void Z80_CodeGenerator::LoadRegPair(const std::string & regPair, const std::string & val)
+{
+  if (val.empty()) {
+    m_regs.erase(regPair);
+    m_regs.erase(std::string(regPair[0], 1));
+    m_regs.erase(std::string(regPair[1], 1));
+  }
+  if (m_regs[regPair] != val) {
+    m_regs[regPair] = val;
+    m_regs.erase(std::string(regPair[0], 1));
+    m_regs.erase(std::string(regPair[1], 1));
+    TopOutput(false) << "    ld    " << regPair << "," << val << "\n";
+  }
+}
+
+void Z80_CodeGenerator::LoadReg(char reg, const std::string & val)
+{
+  std::string regPair;
+  switch (reg) {
+    case 'b':
+    case 'c':
+      regPair = "bc";
+      break;
+    case 'd':
+    case 'e':
+      regPair = "de";
+      break;
+    case 'h':
+    case 'l':
+      regPair = "hl";
+      break;
+  }
+  std::string regStr(reg, 1);
+  if (val.empty()) {
+    m_regs.erase(regPair);
+    m_regs.erase(regStr);
+  }
+  if (m_regs[regStr] != val) {
+    m_regs.erase(regPair);
+    m_regs[regStr] = val;
+    TopOutput(false) << "    ld    " << reg << "," << val << "\n";
+  }
+}
+
 int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 {
   int index = AST::g_stringConstants[expr.GetValue()];
-  TopOutput(false) << "    ld    hl,str_" << index << "\n"
-                   << "    ld    bc," << expr.GetValue().length() << "\n"
-                   << "    call  print_str\n";
+
+  STRM_STR_DECL(hl, "str_" << index);
+  LoadHL(hl);
+
+  int len = expr.GetValue().length();
+  STRM_STR_DECL(lenStr, len);
+
+  if (len < 0x100) {
+    LoadC(lenStr);
+    TopOutput(false) << "    call  " PrintStrc_FUNC "\n"
+                     ;
+  }
+  else {
+    LoadBC(lenStr);
+    TopOutput(false) << "    call  " PrintStr_FUNC "\n"
+                     ;
+  }
 
   m_funcsUsed.insert(PrintStr_FUNC);                
 
@@ -381,8 +455,9 @@ int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 
 int Z80_CodeGenerator::Print(const AST::Int16Constant & expr)
 {
-  TopOutput(false) << "    ld    hl," << expr.GetValue() << "\n"
-                   << "    call  " PrintI16s_FUNC "\n"
+  STRM_STR_DECL(val, expr.GetValue());
+  LoadHL(val);
+  TopOutput(false) << "    call  " PrintI16s_FUNC "\n"
                    ;
 
   m_funcsUsed.insert(PrintI16s_FUNC);
@@ -449,12 +524,13 @@ int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)
 
   if (expr.m_rhs->GetType() == VarType::eInt16) {
     if (expr.m_rhs->IsConstant()) {
-      us.Output() << "    ld    hl," << rhs << "\n"
-                  << "    ld    (" << avar.m_aname << "),hl\n" << endl;
+      LoadHL(rhs);
+      us.Output() << "    ld    (" << avar.m_aname << "),hl\n" << endl;
     }
     else if (expr.m_rhs->IsVarRef()) {
-      us.Output() << "    ld    hl,(" << rhs << ")\n"
-                  << "    ld    (" << avar.m_aname << "),hl\n" << endl;
+      STRM_STR_DECL(val, "(" << rhs << ")");
+      LoadHL(val);
+      us.Output() << "    ld    (" << avar.m_aname << "),hl\n" << endl;
     }
   }
 
@@ -495,8 +571,9 @@ int Z80_CodeGenerator::Print(const AST::NumericVarRef & expr)
 
   m_funcsUsed.insert(funcName);
 
-  TopOutput(false) << "    ld      hl,(" << avar.m_aname << ")\n"
-                   << "    call    " << funcName << "\n"
+  STRM_STR_DECL(val, "(" << avar.m_aname << ")");
+  LoadHL(val);
+  TopOutput(false) << "    call    " << funcName << "\n"
                    ;  
   return 0;
 }

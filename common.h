@@ -16,6 +16,9 @@ namespace std {
 std::string Trim(const std::string & str);
 void Tokenize(std::vector<std::string> & tokens, const std::string & str, char sep);
 
+#define STRM_STR(x, v) do { std::stringstream strm; strm << v; x = strm.str(); } while(0)
+#define STRM_STR_DECL(x, v) std::string x; do { std::stringstream strm; strm << v; x = strm.str(); } while(0)
+
 //////////////////////////////////////////////////////////////////
 
 class Filename : public std::string

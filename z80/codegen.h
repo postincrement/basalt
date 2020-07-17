@@ -18,12 +18,43 @@ class Z80_CodeGenerator : public CodeGenerator
       AsmVarDef & cvar
     );
 
+    void LoadHL(const std::string & val = "")
+    { LoadRegPair("hl", val); }
+
+    void LoadDE(const std::string & val = "")
+    { LoadRegPair("de", val); }
+
+    void LoadBC(const std::string & val = "")
+    { LoadRegPair("bc", val); }
+
+    void LoadB(const std::string & val = "")
+    { LoadReg('b', val); }
+
+    void LoadC(const std::string & val = "")
+    { LoadReg('c', val); }
+
+    void LoadD(const std::string & val = "")
+    { LoadReg('d', val); }
+
+    void LoadE(const std::string & val = "")
+    { LoadReg('e', val); }
+
+    void LoadH(const std::string & val = "")
+    { LoadReg('h', val); }
+
+    void LoadL(const std::string & val = "")
+    { LoadReg('l', val); }
+
+    void LoadReg(char reg, const std::string & val);
+    void LoadRegPair(const std::string & regPair, const std::string & val);
+
   protected:
     typedef std::map<std::string, AsmVarDef> GlobalVarMap;
     std::set<std::string> m_anames;
     GlobalVarMap m_globalVars;
 
     std::set<std::string> m_funcsUsed;
+    std::map<std::string, std::string> m_regs;
 
   public:
     virtual bool Body() override;
