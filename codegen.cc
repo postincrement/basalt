@@ -128,18 +128,21 @@ static std::string DemangleTypeName(const std::type_info &r)
 int CodeGenerator::Generate(const AST::Node &expr)
 {
   cerr << "warning: unimplemented Generate for " << DemangleTypeName(typeid(expr)) << "\n";
+  return 1;
 }
 
 int CodeGenerator::Print(const AST::Node &expr)
 {
   const std::type_info &r = typeid(expr);
   cerr << "warning: unimplemented Print for " << DemangleTypeName(typeid(expr)) << "\n";
+  return 1;
 }
 
 int CodeGenerator::Evaluate(const AST::Node &expr, std::string &result)
 {
   const std::type_info &r = typeid(expr);
   cerr << "warning: unimplemented Evaluate for " << DemangleTypeName(typeid(expr)) << "\n";
+  return 1;
 }
 
 ///////////////////////////////////////////////////////

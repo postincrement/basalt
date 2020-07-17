@@ -501,6 +501,7 @@ int Z80_CodeGenerator::Generate(const AST::Goto & expr)
   }
 
   TopOutput(false) << "    jp    line_" << line << "\n"; 
+  return 0;
 }
 
 ///////////////////////////////////////////////////////////////////
