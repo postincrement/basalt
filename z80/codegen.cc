@@ -388,12 +388,12 @@ void Z80_CodeGenerator::LoadRegPair(const std::string & regPair, const std::stri
     m_regs.erase(std::string(regPair[0], 1));
     m_regs.erase(std::string(regPair[1], 1));
   }
-  if (m_regs[regPair] != val) {
+  //if (m_regs[regPair] != val) {
     m_regs[regPair] = val;
     m_regs.erase(std::string(regPair[0], 1));
     m_regs.erase(std::string(regPair[1], 1));
     TopOutput(false) << "    ld    " << regPair << "," << val << "\n";
-  }
+  //}
 }
 
 void Z80_CodeGenerator::LoadReg(char reg, const std::string & val)
@@ -418,11 +418,11 @@ void Z80_CodeGenerator::LoadReg(char reg, const std::string & val)
     m_regs.erase(regPair);
     m_regs.erase(regStr);
   }
-  if (m_regs[regStr] != val) {
+  //if (m_regs[regStr] != val) {
     m_regs.erase(regPair);
     m_regs[regStr] = val;
     TopOutput(false) << "    ld    " << reg << "," << val << "\n";
-  }
+  //}
 }
 
 int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
@@ -506,6 +506,29 @@ int Z80_CodeGenerator::Generate(const AST::Goto & expr)
 
 ///////////////////////////////////////////////////////////////////
 
+void Z80_CodeGenerator::AssignExprToRegPair(const std::string & regPair, const AST::Expr & expr)
+{  
+  std::string exprVal;
+  expr.Evaluate(*this, exprVal);
+  switch (expr.GetType()) {
+    case VarType::eInt16:
+      if (expr.IsConstant()) {
+        LoadRegPair(regPair, exprVal);
+      }
+      else if (expr.IsVarRef()) {
+        STRM_STR_DECL(val, "(" << exprVal << ")");
+        LoadHL(val);
+        if (regPair != "hl") {
+          TopOutput(false) << "    ex  hl," << regPair << "\n"; 
+        }
+      }
+      break;
+    default:
+      cerr << "error: numeric type not supported for assign" << endl;
+      exit(-1);  
+  }
+}
+
 int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)
 {
   Closure & us = Top();
@@ -520,20 +543,8 @@ int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)
     return -1;
   }
 
-  std::string rhs;
-  expr.m_rhs->Evaluate(*this, rhs);
-
-  if (expr.m_rhs->GetType() == VarType::eInt16) {
-    if (expr.m_rhs->IsConstant()) {
-      LoadHL(rhs);
-      us.Output() << "    ld    (" << avar.m_aname << "),hl\n" << endl;
-    }
-    else if (expr.m_rhs->IsVarRef()) {
-      STRM_STR_DECL(val, "(" << rhs << ")");
-      LoadHL(val);
-      us.Output() << "    ld    (" << avar.m_aname << "),hl\n" << endl;
-    }
-  }
+  AssignExprToHL(*expr.m_rhs);
+  us.Output() << "    ld    (" << avar.m_aname << "),hl\n";
 
   return 0;
 }
@@ -574,7 +585,67 @@ int Z80_CodeGenerator::Print(const AST::NumericVarRef & expr)
 
   STRM_STR_DECL(val, "(" << avar.m_aname << ")");
   LoadHL(val);
-  TopOutput(false) << "    call    " << funcName << "\n"
+  TopOutput(false) << "    call  " << funcName << "\n"
                    ;  
+  return 0;  
+}
+
+////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::EvaluateBinaryOperands(const AST::NumericBinaryOperation & expr, bool commutative)
+{
+  if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
+    return -1;
+
+  if (expr.m_rhs->IsConstant()) {
+    AssignExprToHL(*expr.m_lhs);
+    AssignExprToRegPair("de", *expr.m_rhs);
+  }
+  else if (expr.m_lhs->IsConstant()) {
+    AssignExprToHL(*expr.m_rhs);
+    AssignExprToRegPair("de", *expr.m_lhs);
+    TopOutput(false) << "    ex    de,hl\n";
+  }
+  else {
+    AssignExprToHL(*expr.m_rhs);
+    TopOutput(false) << "    push  hl\n";
+    AssignExprToHL(*expr.m_lhs);
+    TopOutput(false) << "    pop   de\n";
+  }
+
   return 0;
 }
+
+int Z80_CodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string & result)
+{
+  EvaluateBinaryOperands(expr, true);
+
+  switch (expr.GetType()) {
+    case VarType::eInt16:
+      TopOutput(false) << "    add   hl,de\n";
+      break;
+    default:
+      cerr << "error: numeric type not supported for binary op +" << endl;
+      exit(-1);  
+  }
+
+  return 0;
+}
+
+int Z80_CodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & result)
+{
+  EvaluateBinaryOperands(expr, false);
+
+  switch (expr.GetType()) {
+    case VarType::eInt16:
+      TopOutput(false) << "    or    a\n"
+                       << "    sbc   hl,de\n";
+      break;
+    default:
+      cerr << "error: numeric type not supported for binary op -" << endl;
+      exit(-1);  
+  }
+
+  return 0;
+}
+

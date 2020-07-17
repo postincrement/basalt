@@ -518,8 +518,7 @@ int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
 
 ////////////////////////////////////////////////////////////////
 
-bool C_CodeGenerator::LookupGlobalVar(const std::string & varName, 
-                                      CVarDef & cvar)
+bool C_CodeGenerator::LookupGlobalVar(const std::string & varName, CVarDef & cvar)
 {
   if (m_globalVars.count(varName) == 0)
     return false;
@@ -588,8 +587,9 @@ int C_CodeGenerator::NumericBinaryOperator(const std::string & op, const AST::Nu
   CTypeInfoRec & info = g_varTypeInfo[(int)expr->GetType()];
 
   std::string lhs, rhs;
-  expr->m_lhs->Evaluate(*this, lhs);
+  // always evaluate LHS first, to ensure left to right evaluation
   expr->m_rhs->Evaluate(*this, rhs);
+  expr->m_lhs->Evaluate(*this, lhs);
   TopOutput() << info.m_ctype << " " << temp1 << " = " << lhs << " " << op << " " << rhs << ";\n";
 
   result = temp1;

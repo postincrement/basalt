@@ -48,6 +48,13 @@ class Z80_CodeGenerator : public CodeGenerator
     void LoadReg(char reg, const std::string & val);
     void LoadRegPair(const std::string & regPair, const std::string & val);
 
+    void AssignExprToHL(const AST::Expr & expr)
+    { return AssignExprToRegPair("hl", expr); }
+
+    void AssignExprToRegPair(const std::string & regPair, const AST::Expr & expr);
+
+    int EvaluateBinaryOperands(const AST::NumericBinaryOperation & expr, bool commutative);
+
   protected:
     typedef std::map<std::string, AsmVarDef> GlobalVarMap;
     std::set<std::string> m_anames;
@@ -77,9 +84,9 @@ class Z80_CodeGenerator : public CodeGenerator
     //virtual int Evaluate(const AST::SingleConstant & expr, std::string & result) override;
     //virtual int Evaluate(const AST::DoubleConstant & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericVarRef & expr, std::string & result) override;
-    //virtual int Evaluate(const AST::NumericAddition & expr, std::string & result) override;
-/*    virtual int Evaluate(const AST::Subtraction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::Multiplication & expr, std::string & result) override;
+    virtual int Evaluate(const AST::NumericAddition & expr, std::string & result) override;
+    virtual int Evaluate(const AST::Subtraction & expr, std::string & result) override;
+/*    virtual int Evaluate(const AST::Multiplication & expr, std::string & result) override;
     virtual int Evaluate(const AST::Division & expr, std::string & result) override;
     virtual int Evaluate(const AST::Negation & expr, std::string & result) override;
     virtual int Evaluate(const AST::Power & expr, std::string & result) override;
