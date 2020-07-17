@@ -239,9 +239,6 @@ line:     opt_line_number
                 if ($3 != nullptr)
                   line->m_statements.reset($3);
                 AST::g_program.Append(line);
-                /*cerr << "line " 
-                    << line->GetSourceLineNumber()
-                    << ": " << line->GetLine() << "\n";*/
               }
             }
           eol

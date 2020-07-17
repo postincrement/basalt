@@ -107,3 +107,13 @@ cat <<EOF | run_test 5
 40 d = 123 - b : print d "= -1134"
 50 e = a + 8192 - b + d - 123 : print e "= 6912"
 EOF
+
+cat << EOF | run_test 6
+10 if 1 then print "true" else print "false" 
+20 if 1 then 40 else print "false" 
+30 goto 50
+40 print "made it" : goto 60
+50 goto 70
+60 print "second"
+70 rem testing rem
+EOF

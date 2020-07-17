@@ -407,7 +407,6 @@ int Z80_CodeGenerator::Generate(const AST::End & expr)
 
 int Z80_CodeGenerator::Generate(const AST::Rem & expr)
 {
-  TopOutput() << "; " << expr.m_comment << endl;
   return 0;
 }
 
@@ -751,26 +750,41 @@ int Z80_CodeGenerator::Generate(const AST::IfStatement & expr)
   if (expr.m_trueStatements == nullptr)
     return -1;
 
-  std::string temp1 = GetGlobalTempName();  
-  std::string temp2;
+  if (expr.m_cond->IsConstant()) {
 
-  std::string str;    
-  expr.m_cond->Evaluate(*this, str);
+  }  
+
+  std::string temp2;
+  AssignExprToHL(*expr.m_cond);    
   TopOutput(false) << "    ld    a,h\n"
-                   << "    or    l\n"
-                   << "    jp    z," << temp1 << "\n";
-  Push();
-  expr.m_trueStatements->Generate(*this);
-  Pop();
-  if (expr.m_falseStatements) {
-    temp2 = GetGlobalTempName();  
-    TopOutput(true) << "jp    " << temp2 << "\n";
+                   << "    or    l\n";
+
+  std::string gotoLine = expr.m_trueStatements->m_lineNumber;
+  if (!gotoLine.empty()) {
+    int line = ResolveGotoDestination(gotoLine);
+    if (line < 0) {
+      cerr << "internal error: cannot resolve goto destination '" << gotoLine << "'" << endl;
+      return 1;
+    }
+    TopOutput() << "jp    nz,line_" << line << "\n";
   }
-  TopOutput(false) << temp1 << ":\n";
+  else {
+    std::string temp1 = GetGlobalTempName();  
+    temp2 = GetGlobalTempName();  
+    TopOutput() << "jp    z," << temp1 << "  ; branch if false\n";
+    Push();
+    expr.m_trueStatements->m_statements->Generate(*this);
+    Pop();
+    TopOutput() << "jp    " << temp2 << "\n";
+    TopOutput(false) << temp1 << ":\n";
+  }
   if (expr.m_falseStatements) {
     Push();
     expr.m_falseStatements->Generate(*this);
     Pop();
+  }
+  if (gotoLine.empty()) {
     TopOutput(false) << temp2 << ":\n";
   }
+  return 0;
 }

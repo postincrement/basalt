@@ -209,7 +209,6 @@ int C_CodeGenerator::Generate(const AST::End & expr)
 
 int C_CodeGenerator::Generate(const AST::Rem & expr)
 {
-  TopOutput() << "// " << expr.m_comment << endl;
   return 0;
 }
 
