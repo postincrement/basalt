@@ -184,6 +184,7 @@ bool C_CodeGenerator::Body()
            << "  exit(0);\n"
            << "}\n"
            ;
+  return true;
 }
 
 int C_CodeGenerator::Generate(const AST::SourceLine & line)
@@ -392,6 +393,8 @@ int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & re
       TopOutput() << "free(" << lhs << ");\n";
       break;
   }
+
+  return 0;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -464,6 +467,7 @@ int C_CodeGenerator::Evaluate(const AST::Int32Constant & expr, std::string & res
   stringstream strm;
   strm << expr.GetValue();
   result = strm.str();
+  return 0;
 }
 
 int C_CodeGenerator::Print(const AST::Int32Constant & expr)
@@ -479,6 +483,7 @@ int C_CodeGenerator::Evaluate(const AST::SingleConstant & expr, std::string & re
   stringstream strm;
   strm << std::setprecision(10) << expr.GetValue();
   result = strm.str();
+  return 0;
 }
 
 int C_CodeGenerator::Print(const AST::SingleConstant & expr)
@@ -494,6 +499,7 @@ int C_CodeGenerator::Evaluate(const AST::DoubleConstant & expr, std::string & re
   stringstream strm;
   strm << std::setprecision(10) << expr.GetValue();
   result = strm.str();
+  return 0;
 }
 
 int C_CodeGenerator::Print(const AST::DoubleConstant & expr)

@@ -97,12 +97,14 @@ class NodeList : public Node
     {
       for (auto & r : m_list)
         r->Generate(gen);
+      return 0;  
     }
 
     virtual int Print(CodeGenerator & gen) const
     {
       for (auto & r : m_list)
         r->Print(gen);
+      return 0;  
     }
 
     std::vector<std::unique_ptr<N>> m_list;

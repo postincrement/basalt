@@ -35,8 +35,9 @@ static AST::NumericExpr * CreateConstant(VarType type, const std::string & val)
     case VarType::eDouble:
       return AST::DoubleConstant::Create(val);
     case VarType::eString:
-      return nullptr;
+      break;
   }
+  return nullptr;
 }
 
 static void UseNumericGlobalVar(AST::NumericVarRef & var, bool left, bool right)
