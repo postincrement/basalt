@@ -18,8 +18,15 @@
 %%
 
 <REM_MODE>[^\n]* {
-    BEGIN(INITIAL);
-  }
+  MBASIC_lval.sval = new std::string(yytext);
+  return COMMENT;
+}
+
+<REM_MODE>\n {
+  BEGIN(INITIAL);
+  g_lexLineNumber++;
+  return EOL_TOKEN;
+}
 
 [Rr][Ee][Tt][Uu][Rr][Nn]  {
           return RETURN_TOKEN;

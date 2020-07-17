@@ -37,7 +37,7 @@ static CTypeInfoRec g_varTypeInfo[] = {
 C_CodeGenerator::C_CodeGenerator ()
   : CodeGenerator(
     {
-      ".c", TEMP_PREFIX, "{", "}"
+      ".c", TEMP_PREFIX, "{", "}", 2, 2
     }
     )
 {
@@ -165,7 +165,8 @@ bool C_CodeGenerator::Body()
       else
         *m_outputStream << "0";
       *m_outputStream << ";\n";
-    } 
+    }
+
     *m_outputStream << "  return nextLine;\n"
                     << "}\n"
                     << "\n"
@@ -203,6 +204,12 @@ int C_CodeGenerator::Generate(const AST::End & expr)
 {
   Top().SetGoto(true);
   TopOutput() << "nextLine.m_func = 0;\n";
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::Rem & expr)
+{
+  TopOutput() << "// " << expr.m_comment << endl;
   return 0;
 }
 
@@ -790,3 +797,45 @@ int C_CodeGenerator::Evaluate(const AST::NumericCast & expr, std::string & resul
   return 0;     
 }
 
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::IfStatement & expr)
+{
+  if (expr.m_cond == nullptr)
+    return -1;
+  if (expr.m_trueStatements == nullptr)
+    return -1;
+
+  std::string str;    
+  expr.m_cond->Evaluate(*this, str);
+
+  TopOutput(true) << "if (" << str << ")\n";
+
+  std::string gotoLine = expr.m_trueStatements->m_lineNumber;
+  if (!gotoLine.empty()) {
+    int line = ResolveGotoDestination(gotoLine);
+    if (line < 0) {
+      cerr << "internal error: cannot resolve goto destination '" << gotoLine << "'" << endl;
+      return 1;
+    }
+    Push();
+    TopOutput() << "nextLine.m_func = &Line_" << line << ";\n";  
+    TopOutput() << "return nextLine;\n";
+    Pop();  
+  }
+  else {
+    Push();
+    expr.m_trueStatements->m_statements->Generate(*this);
+    Pop();
+    if (expr.m_falseStatements) {
+      TopOutput(true) << "else\n";
+    }
+    Push();
+  }
+  if (expr.m_falseStatements) {
+    expr.m_falseStatements->Generate(*this);
+  }
+  if (gotoLine.empty()) {
+    Pop();
+  }
+}

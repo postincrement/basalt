@@ -103,7 +103,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
   AST::Statement       * statement;
   AST::StatementList   * statementList;
   AST::NumericOperator * oper;
-
+  AST::IfConditional   * ifcond;
   AST::NumericExpr     * numexpr;
   AST::NumericVarRef   * numvarref;
 
@@ -164,7 +164,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 
 // other lexemes
 %token <sval>   IDENTIFIER QUOTED_STRING DEF_INTEGER
-%token <sval>   INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME
+%token <sval>   INTEGER_VARNAME STRING_VARNAME SINGLE_VARNAME DOUBLE_VARNAME COMMENT
 %token <ival>   INTEGER  
 %token <dfloat> DOUBLE 
 %token <sfloat> SINGLE
@@ -172,17 +172,20 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 // rules
 //%type <sourceLine>    line 
 %type <statementList> opt_statement_list statement_list
- 
+%type <statementList> opt_ELSE_statement ELSE_statement
+
 %type <statement>    statement
 %type <statement>    DIM_statement PRINT_statement WIDTH_statement
 %type <statement>    LET_statement FOR_statement GOTO_statement
+%type <statement>    IF_statement REM_statement
 %type <exprList>     dim_var_list
 %type <expr>         assign_expression 
+%type <ifcond>       conditional_clause 
 
 %type <exprList> print_expression_list 
 %type <expr>     print_expression
 
-%type <sval>        opt_line_number line_number
+%type <sval>        opt_line_number line_number  opt_COMMENT
 %type <ival>        integer
 
 %type <numvarref>  numeric_var_ref numeric_var_name 
@@ -190,6 +193,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <numexpr>    numeric_value array_or_func_arg 
 %type <numexpr>    AND_expression NOT_expression numeric_compare_expression ADD_expression
 %type <numexpr>    MULT_expression NEGATE_expression POWER_expression string_compare_expression 
+%type <numexpr>    if_expression
 
 %type <strvarref>  string_var_ref string_var_name
 %type <strexpr>    string_value string_expression string_const_expr 
@@ -323,7 +327,7 @@ statement:     CLEAR_statement
                   }
                | IF_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | INPUT_statement
                   {
@@ -351,7 +355,7 @@ statement:     CLEAR_statement
                   }
                | REM_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | RUN_statement
                   {
@@ -498,21 +502,48 @@ GOTO_statement: GOTO_TOKEN line_number
  *********************************************************/ 
 
 IF_statement: IF_TOKEN if_expression THEN_TOKEN conditional_clause opt_ELSE_statement
+                {
+                  $$ = new AST::IfStatement($2, $4, $5);
+                }
               ;
 
 if_expression:  expression 
+                  {
+                    $$ = $1;
+                  }
                 | string_compare_expression 
+                  {
+                    $$ = $1;
+                  }
                 ;              
 
 opt_ELSE_statement:   /* empty */
+                        {
+                          $$ = nullptr;
+                        }
                       | ELSE_statement
+                        {
+                          $$ = $1;
+                        }
                       ;              
 
 ELSE_statement: ELSE_TOKEN conditional_clause
+                  {
+                    $$ = $2->m_statements;
+                    delete $2;
+                  }
                 ;
 
 conditional_clause:   line_number
-                      | statement_list 
+                        {
+                          $$ = new AST::IfConditional();
+                          $$->m_lineNumber = *$1;
+                        }
+                      | statement_list
+                        {
+                          $$ = new AST::IfConditional();
+                          $$->m_statements = $1;
+                        } 
                       ; 
 
 /********************************************************* 
@@ -648,13 +679,26 @@ print_expression:      expression
  
  *********************************************************/ 
 
-REM_statement: rem_keyword
+REM_statement: rem_keyword 
                   {
                     MBASIC_SetRemMode();
                   }
+                opt_COMMENT
+                  {
+                    if ($3 == nullptr)
+                      $$ = nullptr;
+                    else   
+                      $$ = new AST::Rem(*$3);
+                  }  
                ;
 
- rem_keyword: REM_TOKEN
+opt_COMMENT:   /* empty */
+                  { $$ = nullptr; }
+                | COMMENT
+                  { $$ = $1; }
+                ;                    
+
+rem_keyword: REM_TOKEN
               | '\''
                 { 
                   Warning(eWarning_RemUsingQuote, "single quote REM not supported in selected language profile"); 

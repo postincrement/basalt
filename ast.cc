@@ -62,6 +62,9 @@ int SourceLine::Generate(CodeGenerator & gen) const
 int End::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
+int Rem::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
 ////////////////////////////////////////////////////////////////////////////
 
 Expr::Expr(VarType type)
@@ -516,3 +519,18 @@ Goto::Goto(const std::string & ref, unsigned sourceLineNumber)
 
 int Goto::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
+
+/////////////////////////////////////////
+
+IfStatement::IfStatement(const NumericExpr * cond, 
+                         const IfConditional * trueStatements,
+                         const StatementList * falseStatements)
+  : m_cond(cond)
+  , m_trueStatements(trueStatements)
+  , m_falseStatements(falseStatements)
+{}
+
+int IfStatement::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}

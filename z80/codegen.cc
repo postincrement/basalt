@@ -47,7 +47,7 @@ static AsmTypeInfoRec g_varTypeInfo[] = {
 Z80_CodeGenerator::Z80_CodeGenerator ()
   : CodeGenerator(
     {
-      ".asm", TEMP_PREFIX, "", ""
+      ".asm", TEMP_PREFIX, "", "", 4, 0
     })
 {
 }
@@ -405,6 +405,13 @@ int Z80_CodeGenerator::Generate(const AST::End & expr)
   return 0;
 }
 
+int Z80_CodeGenerator::Generate(const AST::Rem & expr)
+{
+  TopOutput() << "; " << expr.m_comment << endl;
+  return 0;
+}
+
+
 ///////////////////////////////////////////////////////////////////
 
 void Z80_CodeGenerator::LoadRegPair(const std::string & regPair, const std::string & val)
@@ -418,7 +425,7 @@ void Z80_CodeGenerator::LoadRegPair(const std::string & regPair, const std::stri
     m_regs[regPair] = val;
     m_regs.erase(std::string(regPair[0], 1));
     m_regs.erase(std::string(regPair[1], 1));
-    TopOutput(false) << "    ld    " << regPair << "," << val << "\n";
+    TopOutput() << "ld    " << regPair << "," << val << "\n";
   //}
 }
 
@@ -447,7 +454,7 @@ void Z80_CodeGenerator::LoadReg(char reg, const std::string & val)
   //if (m_regs[regStr] != val) {
     m_regs.erase(regPair);
     m_regs[regStr] = val;
-    TopOutput(false) << "    ld    " << reg << "," << val << "\n";
+    TopOutput() << "ld    " << reg << "," << val << "\n";
   //}
 }
 
@@ -463,12 +470,12 @@ int Z80_CodeGenerator::Print(const AST::StringConstant & expr)
 
   if (len < 0x100) {
     LoadC(lenStr);
-    TopOutput(false) << "    call  " PrintStrc_FUNC "\n"
+    TopOutput() << "call  " PrintStrc_FUNC "\n"
                      ;
   }
   else {
     LoadBC(lenStr);
-    TopOutput(false) << "    call  " PrintStr_FUNC "\n"
+    TopOutput() << "call  " PrintStr_FUNC "\n"
                      ;
   }
 
@@ -483,7 +490,7 @@ int Z80_CodeGenerator::Print(const AST::Int16Constant & expr)
 {
   STRM_STR_DECL(val, expr.GetValue());
   LoadHL(val);
-  TopOutput(false) << "    call  " PrintI16s_FUNC "\n"
+  TopOutput() << "call  " PrintI16s_FUNC "\n"
                    ;
 
   m_funcsUsed.insert(PrintI16s_FUNC);
@@ -500,7 +507,7 @@ int Z80_CodeGenerator::Generate(const AST::Print & expr)
   }
 
   if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon()) {
-    TopOutput(false) << "    call  " << PrintNewline_FUNC << "\n";
+    TopOutput() << "call  " << PrintNewline_FUNC << "\n";
     m_funcsUsed.insert(PrintNewline_FUNC);
   }
   
@@ -514,7 +521,7 @@ int Z80_CodeGenerator::Print(const AST::NumericExpr & expr)
 
   std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
   m_funcsUsed.insert(funcName);
-  TopOutput(false) << "    call  " << funcName << "\n"
+  TopOutput() << "call  " << funcName << "\n"
                    ;  
   return 0;  
 }
@@ -531,14 +538,14 @@ int Z80_CodeGenerator::Print(const AST::NumericVarRef & expr)
   m_funcsUsed.insert(funcName);
   STRM_STR_DECL(val, "(" << avar.m_aname << ")");
   LoadHL(val);
-  TopOutput(false) << "    call  " << funcName << "\n"
+  TopOutput() << "call  " << funcName << "\n"
                    ;  
   return 0;  
 }
 
 int Z80_CodeGenerator::Print(const AST::PrintComma & expr)
 {
-  TopOutput(false) << "    call  print_tab\n";
+  TopOutput() << "call  print_tab\n";
   m_funcsUsed.insert(PrintTab_FUNC);
   return 0;
 }
@@ -553,7 +560,7 @@ int Z80_CodeGenerator::Generate(const AST::Goto & expr)
     return 1;
   }
 
-  TopOutput(false) << "    jp    line_" << line << "\n"; 
+  TopOutput() << "jp    line_" << line << "\n"; 
   return 0;
 }
 
@@ -572,7 +579,7 @@ void Z80_CodeGenerator::AssignExprToRegPair(const std::string & regPair, const A
         STRM_STR_DECL(val, "(" << exprVal << ")");
         LoadHL(val);
         if (regPair != "hl") {
-          TopOutput(false) << "    ex  hl," << regPair << "\n"; 
+          TopOutput() << "ex  hl," << regPair << "\n"; 
         }
       }
       break;
@@ -639,13 +646,13 @@ int Z80_CodeGenerator::EvaluateBinaryOperands(const AST::NumericBinaryOperation 
   else if (expr.m_lhs->IsConstant()) {
     AssignExprToHL(*expr.m_rhs);
     AssignExprToRegPair("de", *expr.m_lhs);
-    TopOutput(false) << "    ex    de,hl\n";
+    TopOutput() << "ex    de,hl\n";
   }
   else {
     AssignExprToHL(*expr.m_rhs);
-    TopOutput(false) << "    push  hl\n";
+    TopOutput() << "push  hl\n";
     AssignExprToHL(*expr.m_lhs);
-    TopOutput(false) << "    pop   de\n";
+    TopOutput() << "pop   de\n";
   }
 
   return 0;
@@ -657,7 +664,7 @@ int Z80_CodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string &
 
   switch (expr.GetType()) {
     case VarType::eInt16:
-      TopOutput(false) << "    add   hl,de\n";
+      TopOutput() << "add   hl,de\n";
       break;
     default:
       cerr << "error: numeric type not supported for binary op +" << endl;
@@ -673,8 +680,8 @@ int Z80_CodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & res
 
   switch (expr.GetType()) {
     case VarType::eInt16:
-      TopOutput(false) << "    or    a\n"
-                       << "    sbc   hl,de\n";
+      TopOutput() << "or    a\n";
+      TopOutput() << "sbc   hl,de\n";
       break;
     default:
       cerr << "error: numeric type not supported for binary op -" << endl;
@@ -694,7 +701,7 @@ int Z80_CodeGenerator::NumericComparisonOperator(const AST::NumericBinaryOperati
       {
         std::string typeFuncName = funcBase + "_i16";
         m_funcsUsed.insert(typeFuncName);
-        TopOutput(false) << "    call  " << typeFuncName << "\n";
+        TopOutput() << "call  " << typeFuncName << "\n";
       }
       break;
     default:
@@ -735,3 +742,35 @@ int Z80_CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::str
   return NumericComparisonOperator(expr, "lte");
 }
 
+////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::Generate(const AST::IfStatement & expr)
+{
+  if (expr.m_cond == nullptr)
+    return -1;
+  if (expr.m_trueStatements == nullptr)
+    return -1;
+
+  std::string temp1 = GetGlobalTempName();  
+  std::string temp2;
+
+  std::string str;    
+  expr.m_cond->Evaluate(*this, str);
+  TopOutput(false) << "    ld    a,h\n"
+                   << "    or    l\n"
+                   << "    jp    z," << temp1 << "\n";
+  Push();
+  expr.m_trueStatements->Generate(*this);
+  Pop();
+  if (expr.m_falseStatements) {
+    temp2 = GetGlobalTempName();  
+    TopOutput(true) << "jp    " << temp2 << "\n";
+  }
+  TopOutput(false) << temp1 << ":\n";
+  if (expr.m_falseStatements) {
+    Push();
+    expr.m_falseStatements->Generate(*this);
+    Pop();
+    TopOutput(false) << temp2 << ":\n";
+  }
+}

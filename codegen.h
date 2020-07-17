@@ -15,6 +15,8 @@ class CodeGenerator
       const char * m_tempPrefix = "";
       const char * m_open = "";
       const char * m_close = "";
+      int m_indent = 2;
+      int m_indentInc = 2;
     };
 
     CodeGenerator(const Config & config);
@@ -39,6 +41,8 @@ class CodeGenerator
     virtual int Generate(const AST::StringAssign & expr) { return 0; }
     virtual int Generate(const AST::Goto & expr) { return 0; }
     virtual int Generate(const AST::End & expr) { return 0; }
+    virtual int Generate(const AST::Rem & expr) { return 0; }
+    virtual int Generate(const AST::IfStatement & expr) { return 0; }
 
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result);
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) { return 0; }
@@ -109,6 +113,8 @@ class CodeGenerator
     void Push();
     std::string Pop();
 
+    std::string GetGlobalTempName();
+
     int ResolveGotoDestination(const std::string & ref);
 
   protected:
@@ -116,8 +122,9 @@ class CodeGenerator
 
     Config m_config;
 
-    std::string m_tempPrefix;
     std::string m_inputFilename;
+
+    unsigned m_globalTempIndex = 1;
 
     const AST::Program * m_program;
     std::ostream * m_outputStream;

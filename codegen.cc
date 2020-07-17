@@ -48,13 +48,13 @@ std::stringstream &CodeGenerator::TopOutput(bool indent)
 
 void CodeGenerator::Push()
 {
-  int indent = (m_stack.size() < 1) ? 2 : (Top().GetIndent() + 2);
+  int indent = (m_stack.size() < 1) ? m_config.m_indent : (Top().GetIndent() + m_config.m_indentInc);
   m_stack.push_back(CreateClosure(indent));
   if (m_stack.size() > 1)
   {
     std::string str = GetConfig().m_open;
     if (!str.empty())
-      TopOutput(false) << Top().Indent(-2) << "{\n";
+      TopOutput(false) << Top().Indent(-m_config.m_indentInc) << "{\n";
   }
 }
 
@@ -78,6 +78,13 @@ std::string CodeGenerator::Pop()
     TopOutput(false) << str;
   }
   return str;
+}
+
+std::string CodeGenerator::GetGlobalTempName()
+{
+  std::stringstream strm;
+  strm << "g" << m_config.m_tempPrefix << m_globalTempIndex++;
+  return strm.str();
 }
 
 ///////////////////////////////////////////////////////
@@ -146,11 +153,12 @@ int CodeGenerator::Evaluate(const AST::Node &expr, std::string &result)
 
 CodeGenerator::Closure *CodeGenerator::CreateClosure(int indent) const
 {
-  return new Closure(m_tempPrefix, indent);
+  return new Closure(m_config.m_tempPrefix, indent);
 }
 
 CodeGenerator::Closure::Closure(const std::string &tempPrefix, int indent)
-    : m_tempPrefix(tempPrefix), m_indent(indent)
+    : m_tempPrefix(tempPrefix)
+    , m_indent(indent)
 {
 }
 

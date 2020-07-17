@@ -149,8 +149,6 @@ class StringExpr : public Expr
     StringExpr()
       : Expr(VarType::eString)
     {}
-
-
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -493,7 +491,7 @@ class StringConstant : public StringExpr
     { return true; }
 
     std::string GetValue() const
-    { return m_value; } 
+    { return m_value; }
 
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 
@@ -549,6 +547,18 @@ class End : public Statement
     {}
 
     virtual int Generate(CodeGenerator & gen) const override;
+};
+
+class Rem : public Statement
+{
+  public:
+    Rem(const std::string & comment)
+      : m_comment(comment)
+    {}
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    std::string m_comment;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -751,8 +761,25 @@ class RightFunction : public StringExpr
 
 ////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////
+struct IfConditional : public Expr
+{
+  StatementList * m_statements = nullptr;
+  std::string m_lineNumber;
+};
 
+class IfStatement : public Statement 
+{
+  public:
+    IfStatement(const NumericExpr * cond, 
+                const IfConditional * trueStatements,
+                const StatementList * falseStatements);
+
+    virtual int Generate(CodeGenerator & gen) const;
+
+    const NumericExpr * m_cond; 
+    const IfConditional * m_trueStatements;
+    const StatementList * m_falseStatements;
+};
 
 ////////////////////////////////////////////////////////////////////////////
 
