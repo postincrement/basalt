@@ -54,7 +54,7 @@ class Z80_CodeGenerator : public CodeGenerator
     void AssignExprToRegPair(const std::string & regPair, const AST::Expr & expr);
 
     int EvaluateBinaryOperands(const AST::NumericBinaryOperation & expr, bool commutative);
-    int NumericComparisonOperator(const AST::NumericEquality & expr, const std::string & funcBase);
+    int NumericComparisonOperator(const AST::NumericBinaryOperation & expr, const std::string & funcBase);
 
   protected:
     typedef std::map<std::string, AsmVarDef> GlobalVarMap;
@@ -91,12 +91,12 @@ class Z80_CodeGenerator : public CodeGenerator
     virtual int Evaluate(const AST::Division & expr, std::string & result) override;
 */
     virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) override;
-/*
     virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) override;
+/*
     virtual int Evaluate(const AST::Negation & expr, std::string & result) override;
     virtual int Evaluate(const AST::Power & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericCast & expr, std::string & result) override;

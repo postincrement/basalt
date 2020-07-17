@@ -304,26 +304,27 @@ bool Z80_CodeGenerator::Body()
                     ;
   }
 
-  if (USED(NotEquals16)) {
-    *m_outputStream << "; Compare HL and DE for not equality\n"
+  if (USED(NotEquals16) || USED(Equals16)) {
+    *m_outputStream << "; Compare HL and DE: -1 = not, 0 equal\n"
                     << NotEquals16_FUNC ":\n"
                     << "    or    a\n"
                     << "    sbc   hl,de\n"
-                    << "    dec   hl\n"
-                    << "    ld    hl,0\n"
-                    << "    ret   nc\n"
-                    << "    dec   hl\n"
+                    << "    ld    a,h\n"
+                    << "    or    l\n"
+                    << "    ret   z\n"
+                    << NotEquals16_FUNC "2:\n"
+                    << "    ld    hl,-1\n"
                     << "    ret\n"
                     << "\n";
-  if (USED(Equals16)) {
-    *m_outputStream << "; Compare HL and DE for equality\n" 
+
+    *m_outputStream << "; Compare HL and DE: 0 = not, -1 equal\n" 
                     << Equals16_FUNC ":\n"
                     << "    or    a\n"
                     << "    sbc   hl,de\n"
-                    << "    dec   hl\n"
+                    << "    ld    a,h\n"
+                    << "    or    l\n"
+                    << "    jr    z," << NotEquals16_FUNC "2\n"
                     << "    ld    hl,0\n"
-                    << "    ret   c\n"
-                    << "    dec   hl\n"
                     << "    ret\n"
                     << "\n";
   }
@@ -397,7 +398,6 @@ int Z80_CodeGenerator::Generate(const AST::SourceLine & line)
   TopOutput(false) << "; " << line.GetLine() << "\n";
   return CodeGenerator::Generate(line);
 }
-
 
 int Z80_CodeGenerator::Generate(const AST::End & expr)
 {
@@ -685,7 +685,7 @@ int Z80_CodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & res
 }
 
 
-int Z80_CodeGenerator::NumericComparisonOperator(const AST::NumericEquality & expr, const std::string & funcBase)
+int Z80_CodeGenerator::NumericComparisonOperator(const AST::NumericBinaryOperation & expr, const std::string & funcBase)
 {
   EvaluateBinaryOperands(expr, false);
 
@@ -693,9 +693,9 @@ int Z80_CodeGenerator::NumericComparisonOperator(const AST::NumericEquality & ex
     case VarType::eInt16:
       {
         std::string typeFuncName = funcBase + "_i16";
+        m_funcsUsed.insert(typeFuncName);
+        TopOutput(false) << "    call  " << typeFuncName << "\n";
       }
-      m_funcsUsed.insert(funcname);
-      TopOutput(false) << "    call  " << funcname << "\n";
       break;
     default:
       cerr << "error: numeric type not supported for binary op " << funcBase << endl;
@@ -710,27 +710,27 @@ int Z80_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string &
   return NumericComparisonOperator(expr, "equal");
 }
 
-int C_CodeGenerator::Evaluate(const AST::NumericNotEquality & expr, std::string & result)
+int Z80_CodeGenerator::Evaluate(const AST::NumericNotEquality & expr, std::string & result)
 {
-  return NumericComparisonOperator(expr, "equal");
+  return NumericComparisonOperator(expr, "nequal");
 }
 
-int C_CodeGenerator::Evaluate(const AST::NumericGreaterThan & expr, std::string & result)
+int Z80_CodeGenerator::Evaluate(const AST::NumericGreaterThan & expr, std::string & result)
 {
   return NumericComparisonOperator(expr, "gt");
 }
 
-int C_CodeGenerator::Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result)
+int Z80_CodeGenerator::Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result)
 {
   return NumericComparisonOperator(expr, "gte");
 }
 
-int C_CodeGenerator::Evaluate(const AST::NumericLessThan & expr, std::string & result)
+int Z80_CodeGenerator::Evaluate(const AST::NumericLessThan & expr, std::string & result)
 {
   return NumericComparisonOperator(expr, "lt");
 }
 
-int C_CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::string & result)
+int Z80_CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::string & result)
 {
   return NumericComparisonOperator(expr, "lte");
 }
