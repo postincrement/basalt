@@ -139,6 +139,8 @@ class NumericExpr : public Expr
     NumericExpr(VarType type = VarType::eNone)
       : Expr(type)
     {}
+
+    virtual int Print(CodeGenerator & gen) const override;
 };
 
 class StringExpr : public Expr
@@ -318,6 +320,11 @@ class NumericOperator : public NumericExpr
 class NumericBinaryOperation : public NumericOperator
 {
   public:
+    NumericBinaryOperation(VarType type, const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericOperator(type)
+      , m_lhs(lhs)
+      , m_rhs(rhs)
+    { }
     NumericBinaryOperation(const NumericExpr * lhs, const NumericExpr * rhs)
       : m_lhs(lhs)
       , m_rhs(rhs)
@@ -331,45 +338,37 @@ class NumericBinaryOperation : public NumericOperator
     const NumericExpr * m_rhs;
 };
 
-class NumericAddition : public NumericBinaryOperation
-{
-  public:
-    NumericAddition(const NumericExpr * lhs, const NumericExpr * rhs)
-      : NumericBinaryOperation(lhs, rhs)
-    { }  
-
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+#define DEFINE_NUMERICBINARYOP(name) \
+class name : public NumericBinaryOperation \
+{ \
+  public: \
+    name(const NumericExpr * lhs, const NumericExpr * rhs) \
+      : NumericBinaryOperation(lhs, rhs) \
+    { }  \
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override; \
 };
 
-class Subtraction : public NumericBinaryOperation
-{
-  public:
-    Subtraction(const NumericExpr * lhs, const NumericExpr * rhs)
-      : NumericBinaryOperation(lhs, rhs)
-    { }  
+DEFINE_NUMERICBINARYOP(NumericAddition)
+DEFINE_NUMERICBINARYOP(Subtraction)
+DEFINE_NUMERICBINARYOP(Multiplication)
+DEFINE_NUMERICBINARYOP(Division)
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+#define DEFINE_NUMERICCOMPARISONOP(name) \
+class name : public NumericBinaryOperation \
+{ \
+  public: \
+    name(const NumericExpr * lhs, const NumericExpr * rhs) \
+      : NumericBinaryOperation(VarType::eInt16, lhs, rhs) \
+    { }  \
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override; \
 };
 
-class Multiplication : public NumericBinaryOperation
-{
-  public:
-    Multiplication(const NumericExpr * lhs, const NumericExpr * rhs)
-      : NumericBinaryOperation(lhs, rhs)
-    { }  
-
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
-};
-
-class Division : public NumericBinaryOperation
-{
-  public:
-    Division(const NumericExpr * lhs, const NumericExpr * rhs)
-      : NumericBinaryOperation(lhs, rhs)
-    { }  
-
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
-};
+DEFINE_NUMERICCOMPARISONOP(NumericEquality)
+DEFINE_NUMERICCOMPARISONOP(NumericNotEquality)
+DEFINE_NUMERICCOMPARISONOP(NumericGreaterThan)
+DEFINE_NUMERICCOMPARISONOP(NumericGreaterThanEqual)
+DEFINE_NUMERICCOMPARISONOP(NumericLessThan)
+DEFINE_NUMERICCOMPARISONOP(NumericLessThanEqual)
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -749,6 +748,11 @@ class RightFunction : public StringExpr
     const StringExpr * m_arg1;
     const NumericExpr * m_arg2;
 };
+
+////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////
+
 
 ////////////////////////////////////////////////////////////////////////////
 

@@ -28,6 +28,7 @@ struct AsmTypeInfoRec {
 #define PrintStr_FUNC       "print_str"
 #define PrintStrc_FUNC      "print_strc"
 #define Div10_FUNC          "div10"
+#define Equals16_FUNC       "equals_i16"
 
 
 // must be indexed by VarType
@@ -302,6 +303,19 @@ bool Z80_CodeGenerator::Body()
                     ;
   }
 
+  if (USED(Equals16)) {
+    *m_outputStream << "; Compare HL and DE\n" 
+                    << Equals16_FUNC ":\n"
+                    << "    or    a\n"
+                    << "    sbc   hl,de\n"
+                    << "    dec   hl\n"
+                    << "    ld    hl,0\n"
+                    << "    ret   c\n"
+                    << "    dec   hl\n"
+                    << "    ret\n"
+                    << "\n";
+  }
+
   if (AST::g_stringConstants.size() > 0) {
     *m_outputStream << ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n"
                     << "; String constants\n"
@@ -481,7 +495,34 @@ int Z80_CodeGenerator::Generate(const AST::Print & expr)
   return 0;
 }
 
-////////////////////////////////////////////////////////////////
+int Z80_CodeGenerator::Print(const AST::NumericExpr & expr) 
+{
+  std::string str;    
+  expr.Evaluate(*this, str);
+
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
+  m_funcsUsed.insert(funcName);
+  TopOutput(false) << "    call  " << funcName << "\n"
+                   ;  
+  return 0;  
+}
+
+int Z80_CodeGenerator::Print(const AST::NumericVarRef & expr)
+{
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    return -1;
+  }
+  AsmVarDef & avar = m_globalVars[expr.GetName()];
+
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
+  m_funcsUsed.insert(funcName);
+  STRM_STR_DECL(val, "(" << avar.m_aname << ")");
+  LoadHL(val);
+  TopOutput(false) << "    call  " << funcName << "\n"
+                   ;  
+  return 0;  
+}
 
 int Z80_CodeGenerator::Print(const AST::PrintComma & expr)
 {
@@ -572,24 +613,6 @@ int Z80_CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & r
   return 0;
 }
 
-int Z80_CodeGenerator::Print(const AST::NumericVarRef & expr)
-{
-  if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
-    return -1;
-  }
-  AsmVarDef & avar = m_globalVars[expr.GetName()];
-  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
-
-  m_funcsUsed.insert(funcName);
-
-  STRM_STR_DECL(val, "(" << avar.m_aname << ")");
-  LoadHL(val);
-  TopOutput(false) << "    call  " << funcName << "\n"
-                   ;  
-  return 0;  
-}
-
 ////////////////////////////////////////////////////////////////
 
 int Z80_CodeGenerator::EvaluateBinaryOperands(const AST::NumericBinaryOperation & expr, bool commutative)
@@ -643,6 +666,23 @@ int Z80_CodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & res
       break;
     default:
       cerr << "error: numeric type not supported for binary op -" << endl;
+      exit(-1);  
+  }
+
+  return 0;
+}
+
+int Z80_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & result)
+{
+  EvaluateBinaryOperands(expr, false);
+
+  switch (expr.GetType()) {
+    case VarType::eInt16:
+      m_funcsUsed.insert(Equals16_FUNC);
+      TopOutput(false) << "    call  " << Equals16_FUNC << "\n";
+      break;
+    default:
+      cerr << "error: numeric type not supported for binary op =" << endl;
       exit(-1);  
   }
 

@@ -52,6 +52,12 @@ class CodeGenerator
     virtual int Evaluate(const AST::Subtraction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Multiplication & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Division & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Negation & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Power & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericCast & expr, std::string & result) { return 0; }
@@ -65,6 +71,7 @@ class CodeGenerator
     virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::StringAddition & expr, std::string & result) { return 0; }
 
+    virtual int Print(const AST::NumericExpr & expr) = 0;
     virtual int Print(const AST::StringConstant & expr) { return 0; }
     virtual int Print(const AST::Int16Constant & expr) { return 0; }
     virtual int Print(const AST::Int32Constant & expr) { return 0; }

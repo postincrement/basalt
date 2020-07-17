@@ -220,7 +220,68 @@ int C_CodeGenerator::Generate(const AST::Print & expr)
   return 0;
 }
 
-////////////////////////////////////////////////////////////////
+int C_CodeGenerator::Print(const AST::NumericVarRef & expr)
+{
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    return -1;
+  }
+  CVarDef & cvar = m_globalVars[expr.GetName()];
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
+  TopOutput(true) << funcName << "(" << cvar.m_cname << ");\n";  
+  return 0;
+}
+
+
+int C_CodeGenerator::Print(const AST::NumericExpr & expr) 
+{ 
+  std::string str;    
+  expr.Evaluate(*this, str);
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
+  TopOutput(true) << funcName << "(" << str << ");\n";  
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::StringVarRef & expr)
+{
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    return -1;
+  }
+  CVarDef & cvar = m_globalVars[expr.GetName()];
+  TopOutput(true) << "basalt_print_string(" <<  cvar.m_cname << ");\n";  
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::StringConstant & expr)
+{
+  TopOutput(true) << "basalt_print_string(" << QuoteLiteral(expr.GetValue()) << ");\n";
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::Int16Constant & expr)
+{
+  TopOutput(true) << "basalt_print_int16(" << expr.GetValue() << ");\n";
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::Int32Constant & expr)
+{
+  TopOutput(true) << "basalt_print_int32(" << expr.GetValue() << ");\n";
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::SingleConstant & expr)
+{
+  TopOutput(true) << "basalt_print_single(" << std::setprecision(10) << expr.GetValue() << ");\n";
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
+{
+  TopOutput(true) << "basalt_print_double(" << std::setprecision(10) << expr.GetValue() << ");\n";
+  return 0;
+}
 
 int C_CodeGenerator::Print(const AST::PrintComma & expr)
 {
@@ -441,33 +502,6 @@ int C_CodeGenerator::Evaluate(const AST::StringVarRef & expr, std::string & resu
   return 0;  
 }
 
-int C_CodeGenerator::Print(const AST::StringVarRef & expr)
-{
-  if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
-    return -1;
-  }
-  CVarDef & cvar = m_globalVars[expr.GetName()];
-  TopOutput(true) << "basalt_print_string(" <<  cvar.m_cname << ");\n";  
-  return 0;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Print(const AST::StringConstant & expr)
-{
-  TopOutput(true) << "basalt_print_string(" << QuoteLiteral(expr.GetValue()) << ");\n";
-  return 0;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Print(const AST::Int16Constant & expr)
-{
-  TopOutput(true) << "basalt_print_int16(" << expr.GetValue() << ");\n";
-  return 0;
-}
-
 ////////////////////////////////////////////////////////////////
 
 int C_CodeGenerator::Evaluate(const AST::Int32Constant & expr, std::string & result)
@@ -475,12 +509,6 @@ int C_CodeGenerator::Evaluate(const AST::Int32Constant & expr, std::string & res
   stringstream strm;
   strm << expr.GetValue();
   result = strm.str();
-  return 0;
-}
-
-int C_CodeGenerator::Print(const AST::Int32Constant & expr)
-{
-  TopOutput(true) << "basalt_print_int32(" << expr.GetValue() << ");\n";
   return 0;
 }
 
@@ -494,12 +522,6 @@ int C_CodeGenerator::Evaluate(const AST::SingleConstant & expr, std::string & re
   return 0;
 }
 
-int C_CodeGenerator::Print(const AST::SingleConstant & expr)
-{
-  TopOutput(true) << "basalt_print_single(" << std::setprecision(10) << expr.GetValue() << ");\n";
-  return 0;
-}
-
 ////////////////////////////////////////////////////////////////
 
 int C_CodeGenerator::Evaluate(const AST::DoubleConstant & expr, std::string & result)
@@ -507,12 +529,6 @@ int C_CodeGenerator::Evaluate(const AST::DoubleConstant & expr, std::string & re
   stringstream strm;
   strm << std::setprecision(10) << expr.GetValue();
   result = strm.str();
-  return 0;
-}
-
-int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
-{
-  TopOutput(true) << "basalt_print_double(" << std::setprecision(10) << expr.GetValue() << ");\n";
   return 0;
 }
 
@@ -535,18 +551,6 @@ int C_CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & res
   }
   CVarDef & cvar = m_globalVars[expr.GetName()];
   result = cvar.m_cname;  
-  return 0;
-}
-
-int C_CodeGenerator::Print(const AST::NumericVarRef & expr)
-{
-  if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
-    return -1;
-  }
-  CVarDef & cvar = m_globalVars[expr.GetName()];
-  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
-  TopOutput(true) << funcName << "(" << cvar.m_cname << ");\n";  
   return 0;
 }
 
@@ -597,6 +601,27 @@ int C_CodeGenerator::NumericBinaryOperator(const std::string & op, const AST::Nu
   return 0;
 }
 
+int C_CodeGenerator::NumericComparisonOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result)
+{
+  if ((expr == nullptr) || (expr->m_lhs == nullptr) || (expr->m_rhs == nullptr)) {
+    cerr << "numeric comparison failed" << endl;
+    return -1;
+  }
+
+  std::string temp1 = Top().GetTempName();
+  CTypeInfoRec & info = g_varTypeInfo[(int)expr->GetType()];
+
+  std::string lhs, rhs;
+  expr->m_lhs->Evaluate(*this, lhs);
+  expr->m_rhs->Evaluate(*this, rhs);
+
+  TopOutput() << info.m_ctype << " " << temp1 << " = (" << lhs << " " << op << " " << rhs << ") ? -1 : 0;\n";
+
+  result = temp1;
+
+  return 0;
+}
+
 int C_CodeGenerator::UnaryOperator(const std::string & op, const AST::UnaryOperation * expr, std::string & result)
 {
   if (expr->m_expr == nullptr)
@@ -641,6 +666,11 @@ int C_CodeGenerator::Evaluate(const AST::Negation & expr, std::string & result)
 int C_CodeGenerator::Evaluate(const AST::Power & expr, std::string & result)
 {
   return UnaryOperator("^", &expr, result);
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & result)
+{
+  return NumericComparisonOperator("==", &expr, result);
 }
 
 ////////////////////////////////////////////////////////////////

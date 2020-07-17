@@ -85,6 +85,9 @@ int PrintComma::Print(CodeGenerator & gen) const
 int PrintSemiColon::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
+int NumericExpr::Print(CodeGenerator & gen) const
+{ return gen.Print(*this); }
+
 /////////////////////////////////////////
 
 StringAssign::StringAssign(const StringVarRef * lhs, const StringExpr * rhs)
@@ -339,6 +342,36 @@ int ChrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 }
 
 int StrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int NumericEquality::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int NumericNotEquality::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int NumericGreaterThan::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int NumericGreaterThanEqual::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int NumericLessThan::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int NumericLessThanEqual::Evaluate(CodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }

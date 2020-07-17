@@ -744,27 +744,27 @@ NOT_expression: '-' numeric_compare_expression
 
 numeric_compare_expression: ADD_expression '=' numeric_compare_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::NumericEquality($1, $3);
                       }
                     | ADD_expression NOT_EQUAL numeric_compare_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::NumericNotEquality($1, $3);
                       }
                     | ADD_expression '>' numeric_compare_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::NumericGreaterThan($1, $3);
                       }
                     | ADD_expression GREATERTHANEQUAL numeric_compare_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::NumericGreaterThanEqual($1, $3);
                       }
                     | ADD_expression '<' numeric_compare_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::NumericLessThan($1, $3);
                       }
                     | ADD_expression LESSTHANEQUAL numeric_compare_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::NumericLessThanEqual($1, $3);
                       }
                     | ADD_expression 
                       {
@@ -780,7 +780,7 @@ ADD_expression: ADD_expression '+' MULT_expression
                   }
                 | ADD_expression '-' MULT_expression
                   { 
-                    AST::Subtraction * op = new AST::Subtraction($1, $3);;
+                    AST::Subtraction * op = new AST::Subtraction($1, $3);
                     op->Validate();
                     $$ = op;
                   }

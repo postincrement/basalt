@@ -32,6 +32,10 @@ bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputSt
 
 CodeGenerator::Closure &CodeGenerator::Top()
 {
+  if (m_stack.size() < 1) {
+    cerr << "error: closure stack smashed" << endl;
+    exit(-1);
+  }
   return *m_stack[m_stack.size() - 1];
 }
 
@@ -131,13 +135,6 @@ int CodeGenerator::Generate(const AST::Node &expr)
   return 1;
 }
 
-int CodeGenerator::Print(const AST::Node &expr)
-{
-  const std::type_info &r = typeid(expr);
-  cerr << "warning: unimplemented Print for " << DemangleTypeName(typeid(expr)) << "\n";
-  return 1;
-}
-
 int CodeGenerator::Evaluate(const AST::Node &expr, std::string &result)
 {
   const std::type_info &r = typeid(expr);
@@ -205,11 +202,24 @@ int CodeGenerator::Generate(const AST::SourceLine &line)
 
 int CodeGenerator::Generate(const AST::Statement &statement)
 {
-  for (auto &r : statement.m_list)
-  {
+  for (auto &r : statement.m_list) {
     r->Generate(*this);
     TopOutput() << TopOutput().str();
   }
+  return 0;
+}
+
+///////////////////////////////////////////////////////
+
+int CodeGenerator::Print(const AST::Node &expr)
+{
+  const std::type_info &r = typeid(expr);
+  cerr << "warning: unimplemented Print for " << DemangleTypeName(typeid(expr)) << "\n";
+  return 1;
+}
+
+int CodeGenerator::Print(const AST::PrintSemiColon & expr)
+{
   return 0;
 }
 
@@ -231,10 +241,6 @@ int CodeGenerator::Evaluate(const AST::Int16Constant & expr, std::string & resul
 
 ///////////////////////////////////////////////////////
 
-int CodeGenerator::Print(const AST::PrintSemiColon & expr)
-{
-  return 0;
-}
 
 
 

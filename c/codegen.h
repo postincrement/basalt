@@ -21,7 +21,8 @@ class C_CodeGenerator : public CodeGenerator
     );
 
   protected:
-    int NumericBinaryOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
+    int NumericBinaryOperator    (const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
+    int NumericComparisonOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
     int UnaryOperator        (const std::string & op, const AST::UnaryOperation * expr,         std::string & result);
     int NumericExpr          (const std::string & op, const AST::NumericExpr * expr,            std::string & result);
     int StringExpr           (const std::string & op, const AST::StringExpr * expr,             std::string & result);
@@ -60,6 +61,14 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Evaluate(const AST::Subtraction & expr, std::string & result) override;
     virtual int Evaluate(const AST::Multiplication & expr, std::string & result) override;
     virtual int Evaluate(const AST::Division & expr, std::string & result) override;
+    virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) override;
+/*
+    virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result) override;
+    virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result) override;
+    virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) override;
+    virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) override;
+    virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) override;
+*/
     virtual int Evaluate(const AST::Negation & expr, std::string & result) override;
     virtual int Evaluate(const AST::Power & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericCast & expr, std::string & result) override;
@@ -73,13 +82,13 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) override;
     virtual int Evaluate(const AST::StringAddition & expr, std::string & result) override;
 
+    virtual int Print(const AST::NumericExpr & expr) override;
     virtual int Print(const AST::StringConstant & expr) override;
     virtual int Print(const AST::Int16Constant & expr) override;
     virtual int Print(const AST::Int32Constant & expr) override;
     virtual int Print(const AST::SingleConstant & expr) override;
     virtual int Print(const AST::DoubleConstant & expr) override;
     virtual int Print(const AST::PrintComma & expr) override;
-    //virtual int Print(const AST::PrintSemiColon & expr) override;
     virtual int Print(const AST::NumericVarRef & expr) override;
     virtual int Print(const AST::StringVarRef & expr) override;
 };
