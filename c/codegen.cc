@@ -673,6 +673,31 @@ int C_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & r
   return NumericComparisonOperator("==", &expr, result);
 }
 
+int C_CodeGenerator::Evaluate(const AST::NumericNotEquality & expr, std::string & result)
+{
+  return NumericComparisonOperator("!=", &expr, result);
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericGreaterThan & expr, std::string & result)
+{
+  return NumericComparisonOperator(">", &expr, result);
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result)
+{
+  return NumericComparisonOperator(">=", &expr, result);
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericLessThan & expr, std::string & result)
+{
+  return NumericComparisonOperator("<", &expr, result);
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::string & result)
+{
+  return NumericComparisonOperator("<=", &expr, result);
+}
+
 ////////////////////////////////////////////////////////////////
 
 int C_CodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)

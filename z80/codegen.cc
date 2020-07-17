@@ -28,7 +28,8 @@ struct AsmTypeInfoRec {
 #define PrintStr_FUNC       "print_str"
 #define PrintStrc_FUNC      "print_strc"
 #define Div10_FUNC          "div10"
-#define Equals16_FUNC       "equals_i16"
+#define Equals16_FUNC       "equal_i16"
+#define NotEquals16_FUNC    "nequal_i16"
 
 
 // must be indexed by VarType
@@ -303,8 +304,19 @@ bool Z80_CodeGenerator::Body()
                     ;
   }
 
+  if (USED(NotEquals16)) {
+    *m_outputStream << "; Compare HL and DE for not equality\n"
+                    << NotEquals16_FUNC ":\n"
+                    << "    or    a\n"
+                    << "    sbc   hl,de\n"
+                    << "    dec   hl\n"
+                    << "    ld    hl,0\n"
+                    << "    ret   nc\n"
+                    << "    dec   hl\n"
+                    << "    ret\n"
+                    << "\n";
   if (USED(Equals16)) {
-    *m_outputStream << "; Compare HL and DE\n" 
+    *m_outputStream << "; Compare HL and DE for equality\n" 
                     << Equals16_FUNC ":\n"
                     << "    or    a\n"
                     << "    sbc   hl,de\n"
@@ -672,20 +684,54 @@ int Z80_CodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & res
   return 0;
 }
 
-int Z80_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & result)
+
+int Z80_CodeGenerator::NumericComparisonOperator(const AST::NumericEquality & expr, const std::string & funcBase)
 {
   EvaluateBinaryOperands(expr, false);
 
   switch (expr.GetType()) {
     case VarType::eInt16:
-      m_funcsUsed.insert(Equals16_FUNC);
-      TopOutput(false) << "    call  " << Equals16_FUNC << "\n";
+      {
+        std::string typeFuncName = funcBase + "_i16";
+      }
+      m_funcsUsed.insert(funcname);
+      TopOutput(false) << "    call  " << funcname << "\n";
       break;
     default:
-      cerr << "error: numeric type not supported for binary op =" << endl;
+      cerr << "error: numeric type not supported for binary op " << funcBase << endl;
       exit(-1);  
   }
 
   return 0;
+}
+
+int Z80_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & result)
+{
+  return NumericComparisonOperator(expr, "equal");
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericNotEquality & expr, std::string & result)
+{
+  return NumericComparisonOperator(expr, "equal");
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericGreaterThan & expr, std::string & result)
+{
+  return NumericComparisonOperator(expr, "gt");
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result)
+{
+  return NumericComparisonOperator(expr, "gte");
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericLessThan & expr, std::string & result)
+{
+  return NumericComparisonOperator(expr, "lt");
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::string & result)
+{
+  return NumericComparisonOperator(expr, "lte");
 }
 

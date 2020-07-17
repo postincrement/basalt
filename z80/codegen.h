@@ -54,6 +54,7 @@ class Z80_CodeGenerator : public CodeGenerator
     void AssignExprToRegPair(const std::string & regPair, const AST::Expr & expr);
 
     int EvaluateBinaryOperands(const AST::NumericBinaryOperation & expr, bool commutative);
+    int NumericComparisonOperator(const AST::NumericEquality & expr, const std::string & funcBase);
 
   protected:
     typedef std::map<std::string, AsmVarDef> GlobalVarMap;

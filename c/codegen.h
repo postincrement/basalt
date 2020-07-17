@@ -62,13 +62,12 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Evaluate(const AST::Multiplication & expr, std::string & result) override;
     virtual int Evaluate(const AST::Division & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) override;
-/*
     virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) override;
-*/
+    
     virtual int Evaluate(const AST::Negation & expr, std::string & result) override;
     virtual int Evaluate(const AST::Power & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericCast & expr, std::string & result) override;
