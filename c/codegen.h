@@ -20,7 +20,17 @@ class C_CodeGenerator : public CodeGenerator
       CVarDef & cvar
     );
 
+    struct CodeBlock
+    {
+      std::stringstream m_body;
+      bool m_endsWithGoto = false;
+      std::string m_ref;
+    };
+
   protected:
+    void StartBlock(const std::string & basicLineNumber);
+    void EndBlock();
+
     int NumericBinaryOperator    (const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
     int NumericComparisonOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
     int UnaryOperator        (const std::string & op, const AST::UnaryOperation * expr,         std::string & result);
@@ -36,6 +46,10 @@ class C_CodeGenerator : public CodeGenerator
     typedef std::map<std::string, CVarDef> GlobalVarMap;
     std::set<std::string> m_cnames;
     GlobalVarMap m_globalVars;  
+    int m_forIndex = 0;
+
+    std::vector<CodeBlock> m_codeBlocks;
+    std::queue
 
   public:   
     virtual bool Body() override;
@@ -46,7 +60,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::Print & expr) override;
     virtual int Generate(const AST::NumericAssign & expr) override;
     virtual int Generate(const AST::StringAssign & expr) override;
-    virtual int Generate(const AST::Goto & expr) override;
+    virtual int Generate(const AST::GotoStatement & expr) override;
     virtual int Generate(const AST::End & expr) override;
     virtual int Generate(const AST::Rem & expr) override;
     virtual int Generate(const AST::IfStatement & expr) override;

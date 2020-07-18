@@ -79,6 +79,7 @@ static bool CreateCVar(const std::string & name,
 
 bool C_CodeGenerator::Body()
 {
+  // map names of all variables to C
   for (auto & r : AST::g_globalVars) {
     AST::VarInfo & info = r.second;
     int tag = 0;
@@ -96,6 +97,35 @@ bool C_CodeGenerator::Body()
     m_cnames.insert(cvar.m_cname);
   }
 
+  // create list of code blocks
+  {
+    for (size_t i = 0; i < m_program->m_list.size(); ++i) {
+      if (!m_program->m_list[i])
+        continue;
+
+      const AST::SourceLine & r = *m_program->m_list[i];
+
+      if (AST::g_gotoDestinationInfo.count(r.GetBasicLineNumber()) || (m_codeBlocks.size() == 0)) {
+        StartBlock(r.GetBasicLineNumber());
+      }
+
+      TopOutput(false) << "\n  /* " << r.GetLine() << " */\n";
+ 
+      if (!r.m_statements)
+        continue;
+
+     const AST::StatementList & s = *r.m_statements;
+     if (s.m_list.size() == 0)
+       continue;
+
+      for (auto & t : s.m_list) {
+       t->Generate(*this);
+     }
+    }
+    EndBlock();
+  }
+
+  // output code
   *m_outputStream
            << "/* C generator by basalt */\n"
            << "#include <stdlib.h>\n"
@@ -133,118 +163,100 @@ bool C_CodeGenerator::Body()
   }
   *m_outputStream << "\n";
 
-  *m_outputStream << "struct BlockFunction {\n"
-                  << "  struct BlockFunction (* m_func)();\n"
-                  << "};\n"
-                  ;
+  if (!m_forUsed && (m_codeBlocks.size() == 1)) {
+    *m_outputStream 
+            << "int main(int argc, char * argv[])\n"
+            << "{\n"
+            << "  basalt_init();\n"
+            << m_codeBlocks[0].m_body.str()
+            << "  exit(0);\n"
+            << "}\n"
+            ;
 
-  std::stringstream body;
-
-  int blockIndex = 1;
-  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
-    if (!m_program->m_list[i])
-      continue;
-
-    StartBlock(body, blockIndex);
-
-    const AST::SourceLine & r = *m_program->m_list[i];
-    if (!r.m_statements)
-      continue;
-    const AST::StatementList & s = *r.m_statements;
-    if (s.m_list.size() == 0)
-      continue;
-    for (auto & t : s.m_list) {
-      
-/////////////////////////////////
-
-/////////////////////////////////
-
-      }
-      body << TopOutput().str();
-    }
   }
-
-  EndBlock(body, blockIndex);
-
-/////////////////////////////////
-#if 0
-    unsigned nextLine = 0;
-    if (i < m_program->m_list.size()-1)
-      nextLine = m_program->m_list[i+1]->GetSourceLineNumber();
-
-    *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r->GetSourceLineNumber() << "() /* " << r->GetBasicLineNumber() << " */\n"
-                    << "{\n"                    
-                    << "  struct BlockFunction nextBlock;\n";
-    Push();
-    r->Generate(*this);
-    bool hasGoto = Top().HasGoto();
-    *m_outputStream << Pop();
-
-    if (!hasGoto) {
-      *m_outputStream << "  nextBlock.m_func = ";
-      if (nextLine > 0) 
-        *m_outputStream << "&" << BLOCKFN_PREFIX << nextLine;
-      else
-        *m_outputStream << "0";
-      *m_outputStream << ";\n";
-    }
-
-    *m_outputStream << "  return nextBlock;\n"
-                    << "}\n"
+  else {
+    *m_outputStream << "/* declare structure used for GOTO, GOSUB etc */\n"
+                    << "struct BlockFunction {\n"
+                    << "  struct BlockFunction (* m_func)();\n"
+                    << "};\n"
                     << "\n"
-                   ;
-  }
-#endif
+                    ;
 
-  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
-    auto & r = m_program->m_list[i];
-    *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r->GetSourceLineNumber() << "(); /* " << r->GetBasicLineNumber() << " */\n";
+    if (m_forUsed) {
+      *m_outputStream << "/* FOR stack */\n"
+                      << "struct ForBlock {\n"
+                      << "  struct BlockFunction (* m_for)();\n"
+                      << "  struct ForBlock * m_next;\n"
+                      << "} * g_forStack = NULL;\n"
+                      << "\n"
+                    ;
+    }
+    
+    *m_outputStream << "/* forward declare each block of code */\n";
+    for (auto & r : m_codeBlocks) {
+      *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r.m_ref << "();\n";
+    }
+    *m_outputStream << "\n";
+
+    for (size_t i = 0; i < m_codeBlocks.size(); ++i) {
+      CodeBlock & block = m_codeBlocks[i];
+
+      *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << block.m_ref << "()\n"
+                      << "{\n"                    
+                      << "  struct BlockFunction nextBlock;\n"
+                      ;
+
+      if (!block.m_endsWithGoto) {
+        *m_outputStream << "  nextBlock.m_func = ";
+        if (i < m_codeBlocks.size()-1)
+          *m_outputStream << "&" << BLOCKFN_PREFIX << m_codeBlocks[i+1].m_ref;
+        else
+          *m_outputStream << "0";
+        *m_outputStream << ";\n";
+      }
+
+      *m_outputStream << block.m_body.str()
+                      << "  return nextBlock;\n"
+                      << "}\n"
+                      << "\n"
+                      ;                      
+    }
+    *m_outputStream 
+            << "int main(int argc, char * argv[])\n"
+            << "{\n"
+            << "  basalt_init();\n"
+            << "  struct BlockFunction block;\n"
+            << "  block.m_func = &" BLOCKFN_PREFIX << 1 << ";\n"
+            << "  while (block.m_func != 0) {\n" 
+            << "    block = (*block.m_func)();\n"
+            << "  }\n"
+            << "  exit(0);\n"
+            << "}\n"
+            ;
   }
 
-  *m_outputStream 
-           << "int main(int argc, char * argv[])\n"
-           << "{\n"
-           << "  basalt_init();\n"
-           << "  struct BlockFunction line;\n"
-           << "  line.m_func = &" LINEFN_PREFIX << 1 << ";\n"
-           << "  while (line.m_func != 0) {\n" 
-           << "    line = (*line.m_func)();\n"
-           << "  }\n"
-           << "  exit(0);\n"
-           << "}\n"
-           ;
   return true;
 }
 
-void C_CodeGenerator::StartBlock(ostream & strm, int & blockIndex)
+void C_CodeGenerator::StartBlock(const std::string & ref)
 {
-  if (blockIndex != 0) {
-    EndBlock(strm, blockIndex);
-  }
-  strm << "struct BlockFunction " BLOCKFN_PREFIX << blockIndex << "() /* " << r->GetBasicLineNumber() << " */\n"
-       << "{\n"                    
-       << "  struct BlockFunction nextBlock;\n";
+  EndBlock();
+
+  CodeBlock block;
+  block.m_ref = ref;
+  m_codeBlocks.push_back(std::move(block));
+
   Push();
 }
 
-void C_CodeGenerator::EndBlock(ostream & strm, int & blockIndex)
+void C_CodeGenerator::EndBlock()
 {
-  bool hasGoto = Top().HasGoto();
-  strm << Pop();
+  if (m_codeBlocks.size() == 0)
+    return;
 
-  if (!hasGoto) {
-    strm << "  nextBlock.m_func = ";
-    if (nextLine > 0) 
-      strm << "&" << BLOCKFN_PREFIX << blockIndex+1;
-    else
-      strm << "0";
-    strm << ";\n";
-  }
-
-  strm << "  return nextBlock;\n"
-       << "}\n"
-       << "\n"
-       ;
+  CodeBlock & block = m_codeBlocks[m_codeBlocks.size()-1];  
+  block.m_endsWithGoto = Top().HasGoto();
+  block.m_body << Pop();
 }
 
 int C_CodeGenerator::Generate(const AST::SourceLine & line)
@@ -356,15 +368,10 @@ int C_CodeGenerator::Print(const AST::PrintComma & expr)
 
 ////////////////////////////////////////////////////////////////
 
-int C_CodeGenerator::Generate(const AST::Goto & expr)
+int C_CodeGenerator::Generate(const AST::GotoStatement & expr)
 {
   Top().SetGoto(true);
-  int line = ResolveGotoDestination(expr.GetRef());
-  if (line < 0) {
-    cerr << "internal error: cannot resolve goto destination '" << expr.GetRef() << "'" << endl;
-    return 1;
-  }
-  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << line << ";\n";  
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";  
   return 0;
 }
 
@@ -871,13 +878,8 @@ int C_CodeGenerator::Generate(const AST::IfStatement & expr)
 
   std::string gotoLine = expr.m_trueStatements->m_lineNumber;
   if (!gotoLine.empty()) {
-    int line = ResolveGotoDestination(gotoLine);
-    if (line < 0) {
-      cerr << "internal error: cannot resolve goto destination '" << gotoLine << "'" << endl;
-      return 1;
-    }
     Push();
-    TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << line << ";\n";  
+    TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << gotoLine << ";\n";  
     TopOutput() << "return nextBlock;\n";
     Pop();  
   }
@@ -896,6 +898,7 @@ int C_CodeGenerator::Generate(const AST::IfStatement & expr)
   if (gotoLine.empty()) {
     Pop();
   }
+  return 0;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -907,13 +910,10 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
     return -1;
 
-  // get from value
+  // set initial value of index
   std::string fromValue;
   expr.m_fromVal->Evaluate(*this, fromValue);
-
-  // get to value
-  std::string toValue;
-  expr.m_toVal->Evaluate(*this, toValue);
+  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
 
   // get step value
   std::string stepValue;
@@ -922,19 +922,55 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   else
     stepValue = "1";  
 
-  expr.m_toVal->Evaluate(*this, toValue);
-  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
-  TopOutput() << "while (" << cvar.m_cname << " <= " << toValue << ")\n";
-  Push();
-    if (expr.m)
-    expr.m_trueStatements->m_statements->Generate(*this);
+  // create symbols
+  STRM_STR_DECL(fref,  "fors_"  << m_forIndex);
+  STRM_STR_DECL(fvref, "vfors_" << m_forIndex);
 
-    TopOutput() << cvar.m_cname << " += " << stepValue << ";\n";
-  Pop();
+  STRM_STR_DECL(eref,  "fore_"  << m_forIndex);
+
+  STRM_STR_DECL(nref,  "next1_"  << m_forIndex);
+
+  STRM_STR_DECL(n1ref,  "next_"  << m_forIndex);
+
+  m_forIndex++;
+
+  // generate FOR statement
+  TopOutput() << "ForBlock * " << fvref << " = (ForBlock *)malloc(sizeof(ForBlock));\n";
+  TopOutput() << fvref << "->m_func = &" << nref << ";\n";
+  TopOutput() << fvref << "->m_next = g_forStack;\n";
+  TopOutput() << "g_forStack = " << fvref << ";\n\n";
+  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << n1ref << ";\n";  
+  TopOutput() << "return nextBlock;\n";
+
+  // generate conditional for FOR code
+  StartBlock(n1ref);
+  std::string toValue;
+  expr.m_toVal->Evaluate(*this, toValue);
+  TopOutput() << "if (" << cvar.m_cname << " <= " << toValue << ")\n";
+  Push();
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << fref << ";\n";  
+  TopOutput() << "return nextBlock;\n";
+  Pop();  
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << n1ref << ";\n";  
+  TopOutput() << "return nextBlock;\n";
+
+  // generate NEXT code
+  StartBlock(nref);
+  TopOutput() << cvar.m_cname << " += " << stepValue << ";\n";
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << n1ref << ";\n";  
+  TopOutput() << "return nextBlock;\n";
+
+  // generate start of FOR body
+  StartBlock(fref);
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << fref << ";\n";  
+  TopOutput() << "return nextBlock;\n";
+
   return 0;
 }
 
 int C_CodeGenerator::Generate(const AST::NextStatement & expr)
 {
+  EndBlock();
   return 0;
 }

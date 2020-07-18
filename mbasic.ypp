@@ -178,6 +178,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <statement>    DIM_statement PRINT_statement WIDTH_statement
 %type <statement>    LET_statement FOR_statement GOTO_statement
 %type <statement>    IF_statement REM_statement NEXT_statement
+%type <statement>    GOSUB_statement RETURN_statement
 %type <exprList>     dim_var_list
 %type <expr>         assign_expression 
 %type <ifcond>       conditional_clause 
@@ -320,7 +321,7 @@ statement:     CLEAR_statement
                   }
                | GOSUB_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | IF_statement
                   {
@@ -360,7 +361,7 @@ statement:     CLEAR_statement
                   }
                | RETURN_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | STOP_statement
                   {
@@ -489,9 +490,15 @@ opt_STEP_statement: /* empty */
  *********************************************************/ 
               
 GOSUB_statement:  GOSUB_TOKEN line_number
+                    {
+                      $$ = new AST::GosubStatement(*$2, g_lineNumber);
+                    }
                 ;
 
 RETURN_statement:  RETURN_TOKEN
+                    {
+                      $$ = new AST::ReturnStatement();
+                    }
                 ;
 
 /*********************************************************
@@ -502,7 +509,7 @@ RETURN_statement:  RETURN_TOKEN
               
 GOTO_statement: GOTO_TOKEN line_number
                   {
-                    $$ = new AST::Goto(*$2, g_lineNumber);
+                    $$ = new AST::GotoStatement(*$2, g_lineNumber);
                     delete $2;
                   }
                 ;
@@ -515,7 +522,7 @@ GOTO_statement: GOTO_TOKEN line_number
 
 IF_statement: IF_TOKEN if_expression THEN_TOKEN conditional_clause opt_ELSE_statement
                 {
-                  $$ = new AST::IfStatement($2, $4, $5);
+                  $$ = new AST::IfStatement($2, $4, $5, g_lineNumber);
                 }
               ;
 

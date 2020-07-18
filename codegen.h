@@ -39,12 +39,14 @@ class CodeGenerator
     virtual int Generate(const AST::Print & expr) { return 0; }
     virtual int Generate(const AST::NumericAssign & expr) { return 0; }
     virtual int Generate(const AST::StringAssign & expr) { return 0; }
-    virtual int Generate(const AST::Goto & expr) { return 0; }
+    virtual int Generate(const AST::GotoStatement & expr) { return 0; }
     virtual int Generate(const AST::End & expr) { return 0; }
     virtual int Generate(const AST::Rem & expr) { return 0; }
     virtual int Generate(const AST::IfStatement & expr) { return 0; }
     virtual int Generate(const AST::ForStatement & expr) { return 0; }
     virtual int Generate(const AST::NextStatement & expr) { return 0; }
+    virtual int Generate(const AST::GosubStatement & expr) { return 0; }
+    virtual int Generate(const AST::ReturnStatement & expr) { return 0; }
 
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result);
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) { return 0; }
@@ -119,6 +121,9 @@ class CodeGenerator
 
     int ResolveGotoDestination(const std::string & ref);
 
+    void SetFORUsed() 
+    { m_forUsed = true; }
+
   protected:
     bool CheckVars();
     bool CheckGotos();
@@ -129,10 +134,9 @@ class CodeGenerator
     std::string m_inputFilename;
 
     unsigned m_globalTempIndex = 1;
+    bool m_forUsed = false;
 
     const AST::Program * m_program;
-
-    std::vector<AST::StatementList> m_blocks; 
 
     std::ostream * m_outputStream;
     std::deque<Closure *> m_stack;

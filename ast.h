@@ -136,6 +136,12 @@ class Expr : public Node
     virtual bool IsNext() const
     { return false; }
 
+    virtual bool IsGosub() const
+    { return false; }
+
+    virtual bool IsReturn() const
+    { return false; }
+
   protected:
     VarType m_type;
 };
@@ -580,21 +586,55 @@ struct GotoDestinationInfo {
 typedef std::map<std::string, GotoDestinationInfo> GotoDestinationList;
 extern GotoDestinationList g_gotoDestinationInfo;
 
-class Goto : public Statement
+class JumpStatement : public Statement
 {
   public:
-    Goto(const std::string & ref, unsigned sourceLineNumber);
-
-    virtual bool IsGoto() const
-    { return true; }
+    JumpStatement(const std::string & ref, unsigned sourceLineNumber);
 
     std::string GetRef() const
     { return m_ref; } 
 
-    virtual int Generate(CodeGenerator & gen) const override;
-
     std::string m_ref;
     unsigned m_sourceLineNumber;
+};
+
+class GotoStatement : public JumpStatement
+{
+  public:
+    GotoStatement(const std::string & ref, unsigned sourceLineNumber)
+      : JumpStatement(ref, sourceLineNumber)
+    { }
+
+    virtual bool IsGoto() const
+    { return true; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+
+class GosubStatement : public JumpStatement
+{
+  public:
+    GosubStatement(const std::string & ref, unsigned sourceLineNumber)
+      : JumpStatement(ref, sourceLineNumber)
+    { }
+
+    virtual bool IsGosub() const
+    { return true; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+class ReturnStatement : public Statement
+{
+  public:
+    ReturnStatement()
+    {}
+
+    virtual bool IsReturn() const
+    { return true; }
+
+    virtual int Generate(CodeGenerator & gen) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -784,7 +824,8 @@ class IfStatement : public Statement
   public:
     IfStatement(const NumericExpr * cond, 
                 const IfConditional * trueStatements,
-                const StatementList * falseStatements);
+                const StatementList * falseStatements,
+                unsigned sourceLineNumber);
 
     virtual int Generate(CodeGenerator & gen) const;
 
@@ -822,6 +863,7 @@ class NextStatement : public Statement
     virtual int Generate(CodeGenerator & gen) const;
 
     virtual bool IsNext() const
+    { return true; }
 
     const NumericVarRef * m_var;
 };

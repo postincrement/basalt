@@ -75,7 +75,7 @@ class Z80_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::Print & expr) override;
     virtual int Generate(const AST::NumericAssign & expr) override;
     //virtual int Generate(const AST::StringAssign & expr) override;    
-    virtual int Generate(const AST::Goto & expr) override;
+    virtual int Generate(const AST::GotoStatement & expr) override;
     virtual int Generate(const AST::IfStatement & expr) override;
 
     //virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;

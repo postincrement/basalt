@@ -550,7 +550,7 @@ int Z80_CodeGenerator::Print(const AST::PrintComma & expr)
 
 ///////////////////////////////////////////////////////////////////
 
-int Z80_CodeGenerator::Generate(const AST::Goto & expr)
+int Z80_CodeGenerator::Generate(const AST::GotoStatement & expr)
 {
   int line = ResolveGotoDestination(expr.GetRef());
   if (line < 0) {

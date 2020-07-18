@@ -508,7 +508,7 @@ int DoubleConstant::Print(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-Goto::Goto(const std::string & ref, unsigned sourceLineNumber)
+JumpStatement::JumpStatement(const std::string & ref, unsigned sourceLineNumber)
   : m_ref(ref)
   , m_sourceLineNumber(sourceLineNumber)
 {
@@ -517,18 +517,31 @@ Goto::Goto(const std::string & ref, unsigned sourceLineNumber)
   info.m_usedLine.insert(sourceLineNumber);
 }
 
-int Goto::Generate(CodeGenerator & gen) const
+int GotoStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+int GosubStatement::Generate(CodeGenerator & gen) const
+{  return gen.Generate(*this); }
+
+int ReturnStatement::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 /////////////////////////////////////////
 
 IfStatement::IfStatement(const NumericExpr * cond, 
                          const IfConditional * trueStatements,
-                         const StatementList * falseStatements)
+                         const StatementList * falseStatements,
+                         unsigned sourceLineNumber)
   : m_cond(cond)
   , m_trueStatements(trueStatements)
   , m_falseStatements(falseStatements)
-{}
+{
+  if (!m_trueStatements->m_lineNumber.empty()) {
+    auto & info = g_gotoDestinationInfo[m_trueStatements->m_lineNumber];
+    info.m_count++;
+    info.m_usedLine.insert(sourceLineNumber);
+  }
+}
 
 int IfStatement::Generate(CodeGenerator & gen) const
 {
@@ -549,6 +562,7 @@ ForStatement::ForStatement(const NumericVarRef * var,
 
 int ForStatement::Generate(CodeGenerator & gen) const
 {
+  gen.SetFORUsed();
   return gen.Generate(*this);
 }
 

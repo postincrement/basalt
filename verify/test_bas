@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RUN_CPM="${HOME}/gratze/emulator/gratze --type cpm80 --turbo "
+RUN_CPM="${HOME}/gratze/emulator/gratze.exe --type cpm80 --turbo "
 MBASIC_CPM="${RUN_CPM} ${HOME}/gratze/emulator/mbasic.com"
 BASALT="${HOME}/basalt/basalt"
 
