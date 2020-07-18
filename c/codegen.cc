@@ -10,8 +10,8 @@ using namespace std;
 
 #define STRING_CTYPE    "char *"
 #define TEMP_PREFIX     "temp_"
-#define LINEFN_PREFIX   "Line_"
-#define ENDLINE_FN      "Line_end"
+#define BLOCKFN_PREFIX  "Block_"
+#define BLOCK_FN        "Block_end"
 
 struct CTypeInfoRec {
   const char * m_ctype; 
@@ -133,51 +133,79 @@ bool C_CodeGenerator::Body()
   }
   *m_outputStream << "\n";
 
-  *m_outputStream << "struct LineFunction {\n"
-                  << "  struct LineFunction (* m_func)();\n"
+  *m_outputStream << "struct BlockFunction {\n"
+                  << "  struct BlockFunction (* m_func)();\n"
                   << "};\n"
                   ;
 
+  std::stringstream body;
+
+  int blockIndex = 1;
   for (size_t i = 0; i < m_program->m_list.size(); ++i) {
-    auto & r = m_program->m_list[i];
-    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << r->GetSourceLineNumber() << "(); /* " << r->GetBasicLineNumber() << " */\n";
+    if (!m_program->m_list[i])
+      continue;
+
+    StartBlock(body, blockIndex);
+
+    const AST::SourceLine & r = *m_program->m_list[i];
+    if (!r.m_statements)
+      continue;
+    const AST::StatementList & s = *r.m_statements;
+    if (s.m_list.size() == 0)
+      continue;
+    for (auto & t : s.m_list) {
+      
+/////////////////////////////////
+
+/////////////////////////////////
+
+      }
+      body << TopOutput().str();
+    }
   }
 
-  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
-    auto & r = m_program->m_list[i];
+  EndBlock(body, blockIndex);
 
+/////////////////////////////////
+#if 0
     unsigned nextLine = 0;
     if (i < m_program->m_list.size()-1)
       nextLine = m_program->m_list[i+1]->GetSourceLineNumber();
 
-    *m_outputStream << "struct LineFunction " LINEFN_PREFIX << r->GetSourceLineNumber() << "() /* " << r->GetBasicLineNumber() << " */\n"
+    *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r->GetSourceLineNumber() << "() /* " << r->GetBasicLineNumber() << " */\n"
                     << "{\n"                    
-                    << "  struct LineFunction nextLine;\n";
+                    << "  struct BlockFunction nextBlock;\n";
     Push();
     r->Generate(*this);
     bool hasGoto = Top().HasGoto();
     *m_outputStream << Pop();
 
     if (!hasGoto) {
-      *m_outputStream << "  nextLine.m_func = ";
+      *m_outputStream << "  nextBlock.m_func = ";
       if (nextLine > 0) 
-        *m_outputStream << "&" << LINEFN_PREFIX << nextLine;
+        *m_outputStream << "&" << BLOCKFN_PREFIX << nextLine;
       else
         *m_outputStream << "0";
       *m_outputStream << ";\n";
     }
 
-    *m_outputStream << "  return nextLine;\n"
+    *m_outputStream << "  return nextBlock;\n"
                     << "}\n"
                     << "\n"
                    ;
+  }
+#endif
+
+  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
+    auto & r = m_program->m_list[i];
+    *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r->GetSourceLineNumber() << "(); /* " << r->GetBasicLineNumber() << " */\n";
   }
 
   *m_outputStream 
            << "int main(int argc, char * argv[])\n"
            << "{\n"
            << "  basalt_init();\n"
-           << "  struct LineFunction line;\n"
+           << "  struct BlockFunction line;\n"
            << "  line.m_func = &" LINEFN_PREFIX << 1 << ";\n"
            << "  while (line.m_func != 0) {\n" 
            << "    line = (*line.m_func)();\n"
@@ -186,6 +214,37 @@ bool C_CodeGenerator::Body()
            << "}\n"
            ;
   return true;
+}
+
+void C_CodeGenerator::StartBlock(ostream & strm, int & blockIndex)
+{
+  if (blockIndex != 0) {
+    EndBlock(strm, blockIndex);
+  }
+  strm << "struct BlockFunction " BLOCKFN_PREFIX << blockIndex << "() /* " << r->GetBasicLineNumber() << " */\n"
+       << "{\n"                    
+       << "  struct BlockFunction nextBlock;\n";
+  Push();
+}
+
+void C_CodeGenerator::EndBlock(ostream & strm, int & blockIndex)
+{
+  bool hasGoto = Top().HasGoto();
+  strm << Pop();
+
+  if (!hasGoto) {
+    strm << "  nextBlock.m_func = ";
+    if (nextLine > 0) 
+      strm << "&" << BLOCKFN_PREFIX << blockIndex+1;
+    else
+      strm << "0";
+    strm << ";\n";
+  }
+
+  strm << "  return nextBlock;\n"
+       << "}\n"
+       << "\n"
+       ;
 }
 
 int C_CodeGenerator::Generate(const AST::SourceLine & line)
@@ -203,7 +262,7 @@ int C_CodeGenerator::Generate(const AST::SourceLine & line)
 int C_CodeGenerator::Generate(const AST::End & expr)
 {
   Top().SetGoto(true);
-  TopOutput() << "nextLine.m_func = 0;\n";
+  TopOutput() << "nextBlock.m_func = 0;\n";
   return 0;
 }
 
@@ -305,7 +364,7 @@ int C_CodeGenerator::Generate(const AST::Goto & expr)
     cerr << "internal error: cannot resolve goto destination '" << expr.GetRef() << "'" << endl;
     return 1;
   }
-  TopOutput() << "nextLine.m_func = &Line_" << line << ";\n";  
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << line << ";\n";  
   return 0;
 }
 
@@ -818,8 +877,8 @@ int C_CodeGenerator::Generate(const AST::IfStatement & expr)
       return 1;
     }
     Push();
-    TopOutput() << "nextLine.m_func = &Line_" << line << ";\n";  
-    TopOutput() << "return nextLine;\n";
+    TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << line << ";\n";  
+    TopOutput() << "return nextBlock;\n";
     Pop();  
   }
   else {
@@ -837,4 +896,45 @@ int C_CodeGenerator::Generate(const AST::IfStatement & expr)
   if (gotoLine.empty()) {
     Pop();
   }
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::ForStatement & expr)
+{
+  // get index variable
+  CVarDef cvar;
+  if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
+    return -1;
+
+  // get from value
+  std::string fromValue;
+  expr.m_fromVal->Evaluate(*this, fromValue);
+
+  // get to value
+  std::string toValue;
+  expr.m_toVal->Evaluate(*this, toValue);
+
+  // get step value
+  std::string stepValue;
+  if (expr.m_stepVal)
+    expr.m_stepVal->Evaluate(*this, stepValue);
+  else
+    stepValue = "1";  
+
+  expr.m_toVal->Evaluate(*this, toValue);
+  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
+  TopOutput() << "while (" << cvar.m_cname << " <= " << toValue << ")\n";
+  Push();
+    if (expr.m)
+    expr.m_trueStatements->m_statements->Generate(*this);
+
+    TopOutput() << cvar.m_cname << " += " << stepValue << ";\n";
+  Pop();
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::NextStatement & expr)
+{
+  return 0;
 }

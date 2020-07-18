@@ -410,7 +410,6 @@ int Z80_CodeGenerator::Generate(const AST::Rem & expr)
   return 0;
 }
 
-
 ///////////////////////////////////////////////////////////////////
 
 void Z80_CodeGenerator::LoadRegPair(const std::string & regPair, const std::string & val)
@@ -749,10 +748,6 @@ int Z80_CodeGenerator::Generate(const AST::IfStatement & expr)
     return -1;
   if (expr.m_trueStatements == nullptr)
     return -1;
-
-  if (expr.m_cond->IsConstant()) {
-
-  }  
 
   std::string temp2;
   AssignExprToHL(*expr.m_cond);    

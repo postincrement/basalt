@@ -127,6 +127,15 @@ class Expr : public Node
     virtual bool IsPrintSemiColon() const
     { return false; }
 
+    virtual bool IsGoto() const
+    { return false; }
+
+    virtual bool IsFor() const
+    { return false; }
+
+    virtual bool IsNext() const
+    { return false; }
+
   protected:
     VarType m_type;
 };
@@ -576,6 +585,9 @@ class Goto : public Statement
   public:
     Goto(const std::string & ref, unsigned sourceLineNumber);
 
+    virtual bool IsGoto() const
+    { return true; }
+
     std::string GetRef() const
     { return m_ref; } 
 
@@ -779,6 +791,39 @@ class IfStatement : public Statement
     const NumericExpr * m_cond; 
     const IfConditional * m_trueStatements;
     const StatementList * m_falseStatements;
+};
+
+////////////////////////////////////////////////////////////////////////////
+
+class ForStatement : public Statement 
+{
+  public:
+    ForStatement(const NumericVarRef * var, 
+                 const NumericExpr * fromVal,
+                 const NumericExpr * toVal,
+                 const NumericExpr * stepVal);
+
+    virtual int Generate(CodeGenerator & gen) const;
+
+    virtual bool IsFor() const
+    { return true; }
+
+    const NumericVarRef * m_var;
+    const NumericExpr * m_fromVal;
+    const NumericExpr * m_toVal;
+    const NumericExpr * m_stepVal;                 
+};
+
+class NextStatement : public Statement 
+{
+  public:
+    NextStatement(const NumericVarRef * var);
+
+    virtual int Generate(CodeGenerator & gen) const;
+
+    virtual bool IsNext() const
+
+    const NumericVarRef * m_var;
 };
 
 ////////////////////////////////////////////////////////////////////////////

@@ -534,3 +534,30 @@ int IfStatement::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
+
+/////////////////////////////////////////
+
+ForStatement::ForStatement(const NumericVarRef * var, 
+              const NumericExpr * fromVal,
+              const NumericExpr * toVal,
+              const NumericExpr * stepVal)
+  : m_var(var)
+  , m_fromVal(fromVal)
+  , m_toVal(toVal)
+  , m_stepVal(stepVal)
+{ }             
+
+int ForStatement::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+
+NextStatement::NextStatement(const NumericVarRef * var)
+  : m_var(var)
+{ }
+
+int NextStatement::Generate(CodeGenerator & gen) const
+{
+  return gen.Generate(*this);
+}
+

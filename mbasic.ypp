@@ -177,7 +177,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <statement>    statement
 %type <statement>    DIM_statement PRINT_statement WIDTH_statement
 %type <statement>    LET_statement FOR_statement GOTO_statement
-%type <statement>    IF_statement REM_statement
+%type <statement>    IF_statement REM_statement NEXT_statement
 %type <exprList>     dim_var_list
 %type <expr>         assign_expression 
 %type <ifcond>       conditional_clause 
@@ -188,12 +188,12 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <sval>        opt_line_number line_number  opt_COMMENT
 %type <ival>        integer
 
-%type <numvarref>  numeric_var_ref numeric_var_name 
+%type <numvarref>  numeric_var_ref numeric_var_name opt_varname 
 %type <numexpr>    expression subexpression numeric_const_expr 
 %type <numexpr>    numeric_value array_or_func_arg 
 %type <numexpr>    AND_expression NOT_expression numeric_compare_expression ADD_expression
 %type <numexpr>    MULT_expression NEGATE_expression POWER_expression string_compare_expression 
-%type <numexpr>    if_expression
+%type <numexpr>    if_expression opt_STEP_statement
 
 %type <strvarref>  string_var_ref string_var_name
 %type <strexpr>    string_value string_expression string_const_expr 
@@ -452,19 +452,34 @@ END_statement:  END_TOKEN
 
 FOR_statement: FOR_TOKEN numeric_var_ref '=' expression TO_TOKEN expression opt_STEP_statement
                 {
-                  $$ = nullptr;
+                  $$ = new AST::ForStatement($2, $4, $6, $7);
                 }
                 ;
 
 NEXT_statement: NEXT_TOKEN opt_varname
+                {   
+                  $$ = new AST::NextStatement($2);
+                }
                 ;
 
 opt_varname:    /* empty */
+                  {
+                    $$ = nullptr;
+                  }
                 | numeric_var_ref
+                  {
+                    $$ = $1;
+                  }
                 ;                
 
 opt_STEP_statement: /* empty */
+                      {
+                        $$ = nullptr;
+                      }
                     | STEP_TOKEN expression
+                      {
+                        $$ = $2;
+                      }
                     ;
 
 /*********************************************************

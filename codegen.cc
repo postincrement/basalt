@@ -26,6 +26,8 @@ bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputSt
   m_program = &program;
 
   CheckVars();
+  CheckGotos();
+
   Body();
   return true;
 }
@@ -100,6 +102,13 @@ bool CodeGenerator::CheckVars()
     }
   }
 
+  return true;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+bool CodeGenerator::CheckGotos()
+{
   // goto list is indexed by goto destination
   for (auto & r : AST::g_gotoDestinationInfo) {
 
@@ -124,7 +133,7 @@ int CodeGenerator::ResolveGotoDestination(const std::string & ref)
   return r->second;  
 }
 
-///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 
 static std::string DemangleTypeName(const std::type_info &r)
 {

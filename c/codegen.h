@@ -50,6 +50,8 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::End & expr) override;
     virtual int Generate(const AST::Rem & expr) override;
     virtual int Generate(const AST::IfStatement & expr) override;
+    virtual int Generate(const AST::ForStatement & expr) override;
+    virtual int Generate(const AST::NextStatement & expr) override;
 
     //virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) override;
