@@ -1,6 +1,8 @@
 #ifndef C_CODEGEN_H_
 #define C_CODEGEN_H_
 
+#include <queue>
+
 #include "../codegen.h"
 
 class C_CodeGenerator : public CodeGenerator
@@ -50,6 +52,8 @@ class C_CodeGenerator : public CodeGenerator
 
     std::vector<CodeBlock> m_codeBlocks;
     int m_currentBlock = -1;
+
+    std::queue<std::string> m_forQueue;
 
   public:   
     virtual bool Body() override;

@@ -227,7 +227,6 @@ bool C_CodeGenerator::Body()
                       << "    case " << (int)VarType::eDouble << ":\n"
                       << "      break;\n"
                       << "  }\n"
-                      << "  "
                       << "}\n"
                       << "\n"
                       ;
@@ -983,7 +982,6 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   // set initial value of index
   std::string fromValue;
   expr.m_fromVal->Evaluate(*this, fromValue);
-  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
 
   // get step value
   std::string stepValue;
@@ -997,41 +995,44 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   expr.m_toVal->Evaluate(*this, toValue);
 
   // create symbols
-  STRM_STR_DECL(nextRef, "next_"  << m_forIndex);
   STRM_STR_DECL(forRef,  "for_"   << m_forIndex);
-  STRM_STR_DECL(fvref,   "vfors_" << m_forIndex);
-  STRM_STR_DECL(feref,   "endf_"  << m_forIndex);
+  STRM_STR_DECL(fvRef,   "fv_"    << m_forIndex);
+  STRM_STR_DECL(feRef,   "endf_"  << m_forIndex);
   //STRM_STR_DECL(nref,  "next1_"  << m_forIndex);
 
   m_forIndex++;
 
   // generate FOR statement
-  TopOutput() << "struct ForBlock * " << fvref << " = (struct ForBlock *)malloc(sizeof(struct ForBlock));\n";
-  TopOutput() << fvref << "->m_for  = &" << BLOCKFN_PREFIX << forRef << ";\n";
-  TopOutput() << fvref << "->m_type = " << (int)expr.m_var->GetType() << ";\n";
-  TopOutput() << fvref << "->m_var  = &" << cvar.m_cname << ";\n";
+  TopOutput() << "struct ForBlock * " << fvRef << " = (struct ForBlock *)malloc(sizeof(struct ForBlock));\n";
+  TopOutput() << fvRef << "->m_for  = &" << BLOCKFN_PREFIX << forRef << ";\n";
+  TopOutput() << fvRef << "->m_type = " << (int)expr.m_var->GetType() << ";\n";
+  TopOutput() << fvRef << "->m_var  = &" << cvar.m_cname << ";\n";
+  TopOutput() << fvRef << "->m_next = g_forStack;\n";
 
-  STRM_STR_DECL(var, fvref << "->var." << g_varTypeInfo[(int)cvar.m_type].m_suffix);
+  STRM_STR_DECL(var, fvRef << "->var." << g_varTypeInfo[(int)cvar.m_type].m_suffix);
 
-  TopOutput() << var << ".m_name  = &" << cvar.m_cname << ";\n";
+  TopOutput() << var << ".m_name = &" << cvar.m_cname << ";\n";
   TopOutput() << var << ".m_to   = " << toValue << ";\n";
   TopOutput() << var << ".m_step = " << stepValue << ";\n";
+  TopOutput() << "g_forStack = " << fvRef << ";\n";  
+  TopOutput() << "\n";  
 
-  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
   TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forRef << ";\n";  
+  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
+  TopOutput() << "\n";  
+
   Top().SetGoto(true);
 
   StartBlock(forRef);
-
+  m_forQueue.push(feRef);
+  TopOutput() << "\n";  
   return 0;
 }
 
 int C_CodeGenerator::Generate(const AST::NextStatement & expr)
 {
-  // get information from FOR stack
-  TopOutput() << "\n";
-
   // get optional index variable
+  TopOutput(false) << "\n";
   TopOutput() << "nextBlock = ";
   if (expr.m_var == nullptr) {
     TopOutput(false) << "ForNext();\n";
@@ -1040,9 +1041,11 @@ int C_CodeGenerator::Generate(const AST::NextStatement & expr)
     CVarDef cvar;
     if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
       return -1;
-    TopOutput(false) << "ForNextVar(&" << cvar.m_cname << ");";
+    TopOutput(false) << "ForNextVar(&" << cvar.m_cname << ");\n";
   }
-  TopOutput(false) << "\n";
+
+  StartBlock(m_forQueue.back());
+  m_forQueue.pop();
 
   return 0;
 }
