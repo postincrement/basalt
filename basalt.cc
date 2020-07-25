@@ -25,6 +25,14 @@ static Factory<LanguageProfile> g_languageProfileFactory;
 
 static LanguageProfileDef g_basicVariants[] = { 
 // name      varlen tab defnum              defint
+{ "BasicEx",   40,  14, VarType::eSingle,  VarType::eInt16  },
+{ "Basic8k",    2,  14, VarType::eSingle,  VarType::eInt16  },
+{ "DiskBasic", 40,  14, VarType::eSingle,  VarType::eInt16  },
+{ 0 }
+};
+
+static LanguageProfileDef g_basicZ80Variants[] = { 
+// name      varlen tab defnum              defint
 { "BasicEx",   40,  14, VarType::eInt16,  VarType::eInt16  },
 { "Basic8k",    2,  14, VarType::eInt16,  VarType::eInt16  },
 { "DiskBasic", 40,  14, VarType::eInt16,  VarType::eInt16  },
@@ -268,25 +276,34 @@ int Basalt::Main(int argc, char const *argv[])
     return 0;
   }
 
-  // set language profile 
-  if (m_languageProfileName.empty())
-    m_languageProfileName = g_basicVariants[0].m_name;
+  // create code generator
+  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch);
+  if (codeGen == nullptr) {
+    cerr << "error: unknown arch '" << m_arch << "'" << endl;
+    return -1;
+  }
 
-  // see if the language profile exists
-  int i = 0;
+  // set language profile 
+  LanguageProfileDef * profiles = (m_arch == "z80") ? g_basicZ80Variants : g_basicVariants;
+  int languageProfileIndex = 0;
+  m_languageProfileName = profiles[languageProfileIndex].m_name;
   g_languageProfile = nullptr;
-  while (g_basicVariants[i].m_name != 0) {
-    if (m_languageProfileName == g_basicVariants[i].m_name) {
-      g_languageProfile = new LanguageProfile(&g_basicVariants[i]);
+  int i = 0;
+  while (profiles[i].m_name != 0) {
+    if (m_languageProfileName == profiles[i].m_name) {
+      g_languageProfile = new LanguageProfile(&profiles[i]);
+      languageProfileIndex = i;
       break;
     }
+    ++i;
   }
 
   if (!g_languageProfile) {
-    cerr << "error: language profile " << m_languageProfileName << "not known.\n";
+    cerr << "error: language profile '" << m_languageProfileName << "' not known.\n";
     Usage(true);
     exit(1);
   }
+  
  
   // see if using stdin or file as input  
   if (index == argc) {
@@ -319,12 +336,6 @@ int Basalt::Main(int argc, char const *argv[])
     }
   }
 
-  // create code generator
-  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch);
-  if (codeGen == nullptr) {
-    cerr << "error: unknown arch '" << m_arch << "'" << endl;
-    return -1;
-  }
 
   std::ostream * outputStream = nullptr;
   std::ofstream outputFile;

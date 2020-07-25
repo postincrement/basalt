@@ -13,6 +13,7 @@
 
 // if changed, change g_varTypeInfo in c_codegen.cc
 // and g_basicVarSuffixes below
+// must be in order of precision
 enum class VarType {
   eNone,
   eInt16,
@@ -849,6 +850,7 @@ class ForStatement : public Statement
     virtual bool IsFor() const
     { return true; }
 
+    VarType m_type;
     const NumericVarRef * m_var;
     const NumericExpr * m_fromVal;
     const NumericExpr * m_toVal;
@@ -886,7 +888,7 @@ struct SingleFloat
     m_value = atof(str.c_str());
   }
   std::string m_lexeme;
-  double m_value;
+  float m_value;
 };
 
 struct DoubleFloat 

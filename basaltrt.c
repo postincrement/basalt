@@ -42,7 +42,7 @@ int basalt_print_int32(int32_t value)
 int basalt_print_single(float value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "% .10g ", value);
+  int len = sprintf(buffer, "% .7g ", value);
   write(STDOUT_FILENO, buffer, len);
   g_outputColumn += len;
   return 0;
@@ -51,7 +51,7 @@ int basalt_print_single(float value)
 int basalt_print_double(double value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "% .10lg ", value);
+  int len = sprintf(buffer, "% lg ", value);
   write(STDOUT_FILENO, buffer, len);
   g_outputColumn += len;
   return 0;

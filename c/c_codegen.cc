@@ -349,13 +349,13 @@ int C_CodeGenerator::Print(const AST::Int32Constant & expr)
 
 int C_CodeGenerator::Print(const AST::SingleConstant & expr)
 {
-  TopOutput(true) << "basalt_print_single(" << std::setprecision(10) << expr.GetValue() << ");\n";
+  TopOutput(true) << "basalt_print_single(" << std::setprecision(7) << expr.GetValue() << ");\n";
   return 0;
 }
 
 int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
 {
-  TopOutput(true) << "basalt_print_double(" << std::setprecision(10) << expr.GetValue() << ");\n";
+  TopOutput(true) << "basalt_print_double(" << /* std::setprecision(10) << */ expr.GetValue() << ");\n";
   return 0;
 }
 
@@ -588,7 +588,7 @@ int C_CodeGenerator::Evaluate(const AST::Int32Constant & expr, std::string & res
 int C_CodeGenerator::Evaluate(const AST::SingleConstant & expr, std::string & result)
 {
   stringstream strm;
-  strm << std::setprecision(10) << expr.GetValue();
+  strm << /* std::setprecision(7) << */ expr.GetValue();
   result = strm.str();
   return 0;
 }
@@ -598,7 +598,7 @@ int C_CodeGenerator::Evaluate(const AST::SingleConstant & expr, std::string & re
 int C_CodeGenerator::Evaluate(const AST::DoubleConstant & expr, std::string & result)
 {
   stringstream strm;
-  strm << std::setprecision(10) << expr.GetValue();
+  strm << /* std::setprecision(10) << */ expr.GetValue();
   result = strm.str();
   return 0;
 }
@@ -1027,7 +1027,7 @@ int C_CodeGenerator::Generate(const AST::NextStatement & expr)
     Pop();
   }
   else {
-    
+
   }
   return 0;
 }

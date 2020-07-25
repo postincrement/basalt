@@ -1110,6 +1110,7 @@ numeric_const_expr: INTEGER
               }
             | SINGLE
               {
+                cout << "single constant = " << $1->m_value << endl;
                 $$ = new AST::SingleConstant($1->m_value);
                 delete $1;
               }

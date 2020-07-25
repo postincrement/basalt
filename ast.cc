@@ -558,7 +558,18 @@ ForStatement::ForStatement(const NumericVarRef * var,
   , m_fromVal(fromVal)
   , m_toVal(toVal)
   , m_stepVal(stepVal)
-{ }             
+{ 
+  m_type = (VarType)std::max<int>(
+      (int)m_var->GetType(),
+      (int)m_fromVal->GetType()
+  );
+  m_type = (VarType)std::max<int>((int)m_type, 
+      (int)m_toVal->GetType()
+  );
+  m_type = (VarType)std::max<int>((int)m_type, 
+      (m_stepVal ? (int)m_stepVal->GetType() : 0)
+  );
+}             
 
 int ForStatement::Generate(CodeGenerator & gen) const
 {
