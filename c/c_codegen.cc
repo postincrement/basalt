@@ -1,6 +1,6 @@
 #include "../basalt.h"
 
-#include "codegen.h"
+#include "c_codegen.h"
 #include <iostream>
 #include <iomanip>
 #include <typeinfo>

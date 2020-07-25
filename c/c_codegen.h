@@ -49,7 +49,6 @@ class C_CodeGenerator : public CodeGenerator
     int m_forIndex = 0;
 
     std::vector<CodeBlock> m_codeBlocks;
-    std::queue
 
   public:   
     virtual bool Body() override;

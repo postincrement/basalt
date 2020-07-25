@@ -8,8 +8,8 @@ using namespace std;
 
 #include "basalt.h"
 
-#include "c/codegen.h"
-#include "z80/codegen.h"
+#include "c/c_codegen.h"
+#include "z80/z80_codegen.h"
 
 int  g_lexLineNumber     = 1;
 int  g_errorCount        = 0;

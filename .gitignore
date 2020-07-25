@@ -28,3 +28,6 @@ verify/test_*.bas
 bdos_debug.txt
 verify/z80_*
 
+mbasic.lex.cc
+mbasic.tab.cc
+mbasic.tab.hh
