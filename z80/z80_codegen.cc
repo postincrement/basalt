@@ -749,11 +749,11 @@ int Z80_CodeGenerator::Generate(const AST::IfStatement & expr)
   if (expr.m_trueStatements == nullptr)
     return -1;
 
-  std::string temp2;
   AssignExprToHL(*expr.m_cond);    
   TopOutput(false) << "    ld    a,h\n"
                    << "    or    l\n";
 
+  std::string temp2;
   std::string gotoLine = expr.m_trueStatements->m_lineNumber;
   if (!gotoLine.empty()) {
     int line = ResolveGotoDestination(gotoLine);
@@ -781,5 +781,89 @@ int Z80_CodeGenerator::Generate(const AST::IfStatement & expr)
   if (gotoLine.empty()) {
     TopOutput(false) << temp2 << ":\n";
   }
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int Z80_CodeGenerator::Generate(const AST::ForStatement & expr)
+{
+  // get index variable
+  AsmVarDef avar;
+  if (!LookupGlobalVar(expr.m_var->GetName(), avar))
+    return -1;
+
+  // set initial value of index
+  AssignExprToHL(*expr.m_fromVal);
+  TopOutput(true) << "ld    (" << avar.m_aname << "),hl\n";
+
+  std::string forRef = GetGlobalTempName();
+
+  // create FOR queue entry
+  ForBlock forBlock;
+  forBlock.m_ref   = forRef; 
+  forBlock.m_type  = expr.m_var->GetType();
+  forBlock.m_index = avar.m_aname; 
+
+  // get STEP value
+  forBlock.m_step = expr.m_stepVal;
+
+  // get TO value
+  forBlock.m_to = expr.m_toVal;
+
+  m_forQueue.push_back(forBlock);
+
+  // output symbol for start of FOR block
+  TopOutput(false) << forRef << ":\n";
+
+  return 0;
+}
+
+int Z80_CodeGenerator::Generate(const AST::NextStatement & expr)
+{
+  // ensure we are in a FOR loop
+  if (m_forQueue.size() == 0) {
+    cerr << "Mismatched next\n";
+    exit(-1);
+  }
+
+  // get information for topmost FOR
+  ForBlock forBlock = m_forQueue.back();
+  m_forQueue.pop_back();
+
+  // increment index
+  LoadHL("(" + forBlock.m_index + ")");
+  TopOutput() << "push  hl\n";
+  if (forBlock.m_step == nullptr) {
+    TopOutput() << "inc   hl\n";
+  }
+  else {
+    AssignExprToRegPair("de", *forBlock.m_step);
+    TopOutput() << "add   hl,de\n";
+  }
+  TopOutput() << "ld    (" + forBlock.m_index + "),hl\n";
+
+  // compare index to TO, and increment and jump if not yet reached
+  TopOutput() << "pop   hl\n";
+  AssignExprToRegPair("de", *forBlock.m_to);
+  TopOutput() << "or    a\n";
+  TopOutput() << "sbc   hl,de\n";
+  TopOutput() << "jp    c," << forBlock.m_ref << "\n";
+  TopOutput(false) << "\n";
+
+  /*
+  AssignETopOutput() << "    nc," << forBlock.m_ref << "\n";
+
+
+  TopOutput() << "if (" << forBlock.m_index << " <= " << forBlock.m_to << ")\n";
+  Push();
+  TopOutput() << forBlock.m_index << " += " << forBlock.m_step << ";\n";
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forBlock.m_ref << ";\n";
+  TopOutput() << "return nextBlock;\n";
+  Pop();
+
+  // get the index variable and compare to the 
+*/
+
   return 0;
 }

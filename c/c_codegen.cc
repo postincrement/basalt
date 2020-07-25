@@ -163,7 +163,7 @@ bool C_CodeGenerator::Body()
   }
   *m_outputStream << "\n";
 
-  if (!m_forUsed && (m_codeBlocks.size() == 1)) {
+  if (m_codeBlocks.size() == 1) {
     *m_outputStream 
             << "int main(int argc, char * argv[])\n"
             << "{\n"
@@ -172,7 +172,6 @@ bool C_CodeGenerator::Body()
             << "  exit(0);\n"
             << "}\n"
             ;
-
   }
   else {
     *m_outputStream << "/* declare structure used for GOTO, GOSUB etc */\n"
@@ -181,72 +180,6 @@ bool C_CodeGenerator::Body()
                     << "};\n"
                     << "\n"
                     ;
-
-    if (m_forUsed) {
-      *m_outputStream << "/* FOR stack */\n"
-                      << "struct ForBlock {\n"
-                      << "  struct BlockFunction (* m_for)();\n"
-                      << "  struct BlockFunction (* m_end)();\n"
-                      << "  struct ForBlock * m_next;\n"
-                      << "  uint8_t m_type;\n"
-                      << "  void * m_var;\n"
-                      << "  union {\n"
-                      << "     struct int16 {\n"
-                      << "       int16_t * m_name;\n"
-                      << "       int16_t m_to;\n"
-                      << "       int16_t m_step;\n"
-                      << "     } int16;\n"
-                      << "     struct int32 {\n"
-                      << "       int32_t * m_name;\n"
-                      << "       int32_t m_to;\n"
-                      << "       int32_t m_step;\n"
-                      << "     } int32;\n"
-                      << "  } var;\n"
-                      << "} * g_forStack = NULL;\n"
-                      << "\n"
-                    ;
-      *m_outputStream << "#include <stdio.h>\n"
-                      << "struct BlockFunction ForNext()\n"
-                      << "{\n"
-                      << "  struct ForBlock * loop = g_forStack;\n"
-                      << "  struct BlockFunction next;\n"
-                      << "  if (loop == 0) {\n"
-                      << "    printf(\"Mismatched next\\n\");\n"
-                      << "    exit(-1);\n"
-                      << "  }\n"
-                      << "  switch (loop->m_type) {\n"
-                      << "    case " << (int)VarType::eInt16 << ":\n"
-                      << "      if (*loop->var.int16.m_name < loop->var.int16.m_to) {\n"
-                      << "        *loop->var.int16.m_name += loop->var.int16.m_step;\n"
-                      << "        next.m_func = loop->m_for;\n"
-                      << "        return next;\n"
-                      << "      }\n"
-                      << "      break;\n"
-                      << "    case " << (int)VarType::eInt32 << ":\n"
-                      << "    case " << (int)VarType::eSingle << ":\n"
-                      << "    case " << (int)VarType::eDouble << ":\n"
-                      << "      break;\n"
-                      << "  }\n"
-                      << "}\n"
-                      << "\n"
-                      ;
-      *m_outputStream << "struct BlockFunction ForNextVar(void * var)\n"
-                      << "{\n"
-                      << "  struct ForBlock * loop = g_forStack;\n"
-                      << "  struct ForBlock * prev;\n"
-                      << "  while (loop != 0) {\n"
-                      << "    if (loop->m_var == var)\n"
-                      << "      break;\n"
-                      << "    prev = loop;\n"
-                      << "    loop = loop->m_next;\n"
-                      << "    g_forStack = loop;\n"
-                      << "    free(prev);\n"
-                      << "  }\n"
-                      << "  return ForNext();\n"
-                      << "}\n"
-                      << "\n"
-                      ;
-    }
     
     *m_outputStream << "/* forward declare each block of code */\n";
     for (auto & r : m_codeBlocks) {
@@ -971,81 +904,130 @@ int C_CodeGenerator::Generate(const AST::IfStatement & expr)
 
 int C_CodeGenerator::Generate(const AST::ForStatement & expr)
 {
+  // create symbol
+  STRM_STR_DECL(forRef,  "for_"   << m_forIndex);
+  m_forIndex++;
+
   // get index variable
   CVarDef cvar;
   if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
     return -1;
 
-  // save reference to current code block
-  std::string currentRef = m_codeBlocks[m_currentBlock].m_ref;
+  // create FOR queue entry
+  ForBlock forBlock;
+  forBlock.m_ref   = forRef;
+  forBlock.m_type  = expr.m_var->GetType();
+  forBlock.m_index = cvar.m_cname;
+  forBlock.m_isConst = false;
 
-  // set initial value of index
+  // get initial value
   std::string fromValue;
   expr.m_fromVal->Evaluate(*this, fromValue);
 
-  // get step value
-  std::string stepValue;
-  if (expr.m_stepVal)
-    expr.m_stepVal->Evaluate(*this, stepValue);
-  else
-    stepValue = "1";  
-
-  // get to value
+  // get TO value
   std::string toValue;
   expr.m_toVal->Evaluate(*this, toValue);
 
-  // create symbols
-  STRM_STR_DECL(forRef,  "for_"   << m_forIndex);
-  STRM_STR_DECL(fvRef,   "fv_"    << m_forIndex);
-  STRM_STR_DECL(feRef,   "endf_"  << m_forIndex);
-  //STRM_STR_DECL(nref,  "next1_"  << m_forIndex);
+  // get STEP value
+  std::string stepValue;
+  if (expr.m_stepVal)
+    expr.m_stepVal->Evaluate(*this, stepValue);
 
-  m_forIndex++;
+  // compare initial and final values
+  bool fromIsConst = expr.m_fromVal->IsConstant();
+  bool toIsConst   = expr.m_toVal->IsConstant();
+  bool stepIsConst = stepValue.empty() || expr.m_stepVal->IsConstant();
 
-  // generate FOR statement
-  TopOutput() << "struct ForBlock * " << fvRef << " = (struct ForBlock *)malloc(sizeof(struct ForBlock));\n";
-  TopOutput() << fvRef << "->m_for  = &" << BLOCKFN_PREFIX << forRef << ";\n";
-  TopOutput() << fvRef << "->m_type = " << (int)expr.m_var->GetType() << ";\n";
-  TopOutput() << fvRef << "->m_var  = &" << cvar.m_cname << ";\n";
-  TopOutput() << fvRef << "->m_next = g_forStack;\n";
+  if (fromIsConst && toIsConst && stepIsConst) {
+    int dir;
+    switch (forBlock.m_type) {
+      case VarType::eInt16:
+      case VarType::eInt32:
+        {
+          unsigned long from = strtoul(fromValue.c_str(), NULL, 10);
+          unsigned long to   = strtoul(toValue.c_str(), NULL, 10);
+          dir = (from <= to) ? 1 : -1;
+        }
+        break;
+      case VarType::eSingle:
+        {
+          float from = strtof(fromValue.c_str(), NULL);
+          float to   = strtof(toValue.c_str(), NULL);
+          dir = (from <= to) ? 1 : -1;
+        }
+        break;
+      case VarType::eDouble:
+        {
+          double from = strtod(fromValue.c_str(), NULL);
+          double to   = strtod(toValue.c_str(), NULL);
+          dir = (from <= to) ? 1 : -1;
+        }
+        break;
+    }
+    if (stepValue.empty()) {
+      stepValue = (dir < 0) ? "-1" : "1";
+    }
+    forBlock.m_step    = stepValue;
+    forBlock.m_to      = toValue;
+    forBlock.m_isConst = true;
+  }
+  else {
+    TopOutput() << "if (" << toValue << " <= " << fromValue << ")";
+    Push();
+    if (stepValue.empty()) {
+      stepValue = "1";
+    }
+    else {
+    }
+    Pop();
+    TopOutput() << "else";
+    Push();
+    if (stepValue.empty()) {
+      stepValue = "-1";
+    }
+    else {
+    }
+    Pop();
+  }
 
-  STRM_STR_DECL(var, fvRef << "->var." << g_varTypeInfo[(int)cvar.m_type].m_suffix);
-
-  TopOutput() << var << ".m_name = &" << cvar.m_cname << ";\n";
-  TopOutput() << var << ".m_to   = " << toValue << ";\n";
-  TopOutput() << var << ".m_step = " << stepValue << ";\n";
-  TopOutput() << "g_forStack = " << fvRef << ";\n";  
-  TopOutput() << "\n";  
-
-  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forRef << ";\n";  
+  // assign initial value of index variable
   TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
-  TopOutput() << "\n";  
 
+  // jump to start of FOR block
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forRef << ";\n";  
+
+  // finish this block
   Top().SetGoto(true);
+  m_forQueue.push_back(forBlock);
 
+  // start new block
   StartBlock(forRef);
-  m_forQueue.push(feRef);
-  TopOutput() << "\n";  
   return 0;
 }
 
 int C_CodeGenerator::Generate(const AST::NextStatement & expr)
 {
-  // get optional index variable
-  TopOutput(false) << "\n";
-  TopOutput() << "nextBlock = ";
-  if (expr.m_var == nullptr) {
-    TopOutput(false) << "ForNext();\n";
-  }
-  else {  
-    CVarDef cvar;
-    if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
-      return -1;
-    TopOutput(false) << "ForNextVar(&" << cvar.m_cname << ");\n";
+  // ensure we are in a FOR loop
+  if (m_forQueue.size() == 0) {
+    cerr << "Mismatched next\n";
+    exit(-1);
   }
 
-  StartBlock(m_forQueue.back());
-  m_forQueue.pop();
+  // get information for topmost FOR
+  ForBlock forBlock = m_forQueue.back();
+  m_forQueue.pop_back();
 
+  // output simple code when using constants
+  if (forBlock.m_isConst) {
+    TopOutput() << forBlock.m_index << " += " << forBlock.m_step << ";\n";
+    TopOutput() << "if (" << forBlock.m_index << " <= " << forBlock.m_to << ")\n";
+    Push();
+    TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forBlock.m_ref << ";\n";
+    TopOutput() << "return nextBlock;\n";
+    Pop();
+  }
+  else {
+    
+  }
   return 0;
 }

@@ -1,7 +1,7 @@
 #ifndef C_CODEGEN_H_
 #define C_CODEGEN_H_
 
-#include <queue>
+#include <deque>
 
 #include "../codegen.h"
 
@@ -53,7 +53,17 @@ class C_CodeGenerator : public CodeGenerator
     std::vector<CodeBlock> m_codeBlocks;
     int m_currentBlock = -1;
 
-    std::queue<std::string> m_forQueue;
+    struct ForBlock {
+      std::string m_ref;
+      VarType m_type;
+      bool m_isConst;
+      std::string m_index;  // name of index variable
+      std::string m_to;
+      std::string m_step;
+      bool m_inc;
+    };
+
+    std::deque<ForBlock> m_forQueue;
 
   public:   
     virtual bool Body() override;

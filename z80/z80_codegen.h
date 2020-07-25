@@ -64,6 +64,16 @@ class Z80_CodeGenerator : public CodeGenerator
     std::set<std::string> m_funcsUsed;
     std::map<std::string, std::string> m_regs;
 
+    struct ForBlock {
+      std::string m_ref;
+      VarType m_type;
+      std::string m_index;
+      const AST::Expr * m_to;
+      const AST::Expr * m_step;
+    };
+
+    std::deque<ForBlock> m_forQueue;    
+
   public:
     virtual bool Body() override;
 
@@ -77,6 +87,8 @@ class Z80_CodeGenerator : public CodeGenerator
     //virtual int Generate(const AST::StringAssign & expr) override;    
     virtual int Generate(const AST::GotoStatement & expr) override;
     virtual int Generate(const AST::IfStatement & expr) override;
+    virtual int Generate(const AST::ForStatement & expr) override;
+    virtual int Generate(const AST::NextStatement & expr) override;
 
     //virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;
     //virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) override;
