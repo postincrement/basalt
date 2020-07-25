@@ -28,7 +28,7 @@ class C_CodeGenerator : public CodeGenerator
     };
 
   protected:
-    void StartBlock(const std::string & basicLineNumber);
+    void StartBlock(const std::string & ref, bool autoEnd = true);
     void EndBlock();
 
     int NumericBinaryOperator    (const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
@@ -49,6 +49,7 @@ class C_CodeGenerator : public CodeGenerator
     int m_forIndex = 0;
 
     std::vector<CodeBlock> m_codeBlocks;
+    int m_currentBlock = -1;
 
   public:   
     virtual bool Body() override;
