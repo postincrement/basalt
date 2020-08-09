@@ -128,19 +128,10 @@ class Expr : public Node
     virtual bool IsPrintSemiColon() const
     { return false; }
 
-    virtual bool IsGoto() const
-    { return false; }
-
     virtual bool IsFor() const
     { return false; }
 
     virtual bool IsNext() const
-    { return false; }
-
-    virtual bool IsGosub() const
-    { return false; }
-
-    virtual bool IsReturn() const
     { return false; }
 
   protected:
@@ -580,6 +571,16 @@ class End : public Statement
     virtual int Generate(CodeGenerator & gen) const override;
 };
 
+class System : public Statement
+{
+  public:
+    System(unsigned lineNumber)
+      : Statement(lineNumber)
+    {}
+
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
 class Rem : public Statement
 {
   public:
@@ -595,13 +596,13 @@ class Rem : public Statement
 
 ////////////////////////////////////////////////////////////////////////////
 
-struct GotoDestinationInfo {
+struct JumpDestinationInfo {
   unsigned m_count = 0;
   std::set<unsigned> m_usedLine;
 };
 
-typedef std::map<std::string, GotoDestinationInfo> GotoDestinationList;
-extern GotoDestinationList g_gotoDestinationInfo;
+typedef std::map<std::string, JumpDestinationInfo> JumpDestinationList;
+extern JumpDestinationList g_jumpDestinationInfo;
 
 class JumpStatement : public Statement
 {
@@ -621,9 +622,6 @@ class GotoStatement : public JumpStatement
       : JumpStatement(lineNumber, ref)
     { }
 
-    virtual bool IsGoto() const
-    { return true; }
-
     virtual int Generate(CodeGenerator & gen) const override;
 };
 
@@ -635,9 +633,6 @@ class GosubStatement : public JumpStatement
       : JumpStatement(lineNumber, ref)
     { }
 
-    virtual bool IsGosub() const
-    { return true; }
-
     virtual int Generate(CodeGenerator & gen) const override;
 };
 
@@ -647,9 +642,6 @@ class ReturnStatement : public Statement
     ReturnStatement(unsigned lineNumber)
       : Statement(lineNumber)
     {}
-
-    virtual bool IsReturn() const
-    { return true; }
 
     virtual int Generate(CodeGenerator & gen) const override;
 };

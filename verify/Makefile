@@ -4,30 +4,45 @@ RUN_CPM			= $(HOME)/gratze/emulator/gratze --type cpm80 --turbo
 MBASIC_CPM	= $(RUN_CPM) ${HOME}/gratze/emulator/mbasic.com
 BASALT			= $(HOME)/basalt/basalt
 
-all: test_1 test_2 test_3 test_4 test_5 test_6 test_7 test_8
+all: test_1 test_2 test_4 test_5 test_6 test_7 test_9
 
-test_1: test_1.out test_1.c_out test_1.z_out 
+skipped: test_3 test_8
+
+# PRINT string constants
+test_1: test_1.out test_1.c_out test_1.z_out $(BASALT)
 	diff test_1.out test_1.c_out && diff test_1.out test_1.z_out
 
-test_2: test_2.out test_2.c_out test_2.z_out 
+# PRINT integers
+test_2: test_2.out test_2.c_out test_2.z_out $(BASALT) 
 	diff test_2.out test_2.c_out && diff test_2.out test_2.z_out
 
-test_3: #test_3.out
+# single expressions
+test_3: test_3.out test_3.c_out test_3.z_out $(BASALT) 
+	diff test_3.out test_3.c_out && diff test_3.out test_3.z_out
 
-test_4: test_4.out test_4.c_out test_4.z_out 
+# GOTO
+test_4: test_4.out test_4.c_out test_4.z_out $(BASALT) 
 	diff test_4.out test_4.c_out && diff test_4.out test_4.z_out
 
-test_5: test_5.out test_5.c_out test_5.z_out 
+# integer expressions
+test_5: test_5.out test_5.c_out test_5.z_out $(BASALT) 
 	diff test_5.out test_5.c_out && diff test_5.out test_5.z_out
 
-test_6: test_6.out test_6.c_out test_6.z_out 
+# IF / THEN
+test_6: test_6.out test_6.c_out test_6.z_out $(BASALT) 
 	diff test_6.out test_6.c_out && diff test_6.out test_6.z_out
 
-test_7: test_7.out test_7.c_out test_7.z_out 
+# simple FOR
+test_7: test_7.out test_7.c_out test_7.z_out $(BASALT) 
 	diff test_7.out test_7.c_out && diff test_7.out test_7.z_out
 
-test_8: test_8.out test_8.c_out test_8.z_out 
+# complex FOR
+test_8: test_8.out test_8.c_out test_8.z_out $(BASALT) 
 	diff test_8.out test_8.c_out && diff test_8.out test_8.z_out
+
+# GOSUB
+test_9: test_9.out test_9.c_out test_9.z_out $(BASALT) 
+	diff test_9.out test_9.c_out && diff test_9.out test_9.z_out
 
 %.out : %.bas
 	$(MBASIC_CPM) $< | sed "0,/^--START/d" > $@

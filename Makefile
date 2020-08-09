@@ -15,12 +15,15 @@ DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
 SRCS_CC = basalt.cc \
           mbasic.lex.cc mbasic.tab.cc \
-	      ast.cc \
-	      codegen.cc common.cc \
-	      c/c_codegen.cc \
-	      z80/z80_codegen.cc 
+	        ast.cc \
+	        codegen.cc common.cc \
+	        c/c_codegen.cc \
+	        z80/z80_codegen.cc 
 
 ############################################################
+
+COMPILE.c  = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) -c
+COMPILE.cc = $(CXX) $(DEPFLAGS) $(CXXFLAGS) $(CPPFLAGS) -c
 
 ifeq ($(VERBOSE),1)
 
@@ -46,7 +49,7 @@ $(OBJDIR)/%.o : %.cc | $(DEPDIR) $(OBJDIR)
 endif
 
 FILENAMES := $(notdir $(basename $(SRCS_C) $(SRCS_CC)))
-OBJS	  := $(addsuffix .o,$(addprefix $(OBJDIR)/,$(FILENAMES)))
+OBJS	    := $(addsuffix .o,$(addprefix $(OBJDIR)/,$(FILENAMES)))
 DEPFILES  := $(addsuffix .d,$(addprefix $(DEPDIR)/,$(FILENAMES)))
 
 vpath %.c  $(sort $(dir $(SRCS_C)))
@@ -82,3 +85,4 @@ mbasic.lex.cc: mbasic.l
 mbasic.tab.cc mbasic.tab.hpp: mbasic.ypp
 	$(BISON) -o mbasic.tab.cc -v -d mbasic.ypp	
 
+include $(wildcard $(DEPFILES))

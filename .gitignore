@@ -24,10 +24,15 @@ test.lst
 a.bin
 verify/ansic_*
 verify/cpm_*
-verify/test_*.bas
 bdos_debug.txt
 verify/z80_*
-
+.deps/*
 mbasic.lex.cc
 mbasic.tab.cc
 mbasic.tab.hh
+verify/*.c
+verify/*.asm
+verify/*out
+verify/*.com
+verify/*.bin
+

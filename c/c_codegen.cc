@@ -105,7 +105,10 @@ bool C_CodeGenerator::Body()
 
       const AST::SourceLine & r = *m_program->m_list[i];
 
-      if (AST::g_gotoDestinationInfo.count(r.GetBasicLineNumber()) || (m_codeBlocks.size() == 0)) {
+      if (
+        AST::g_jumpDestinationInfo.count(r.GetBasicLineNumber()) || 
+        (m_codeBlocks.size() == 0)
+        ) {
         StartBlock(r.GetBasicLineNumber());
       }
 
@@ -114,13 +117,18 @@ bool C_CodeGenerator::Body()
       if (!r.m_statements)
         continue;
 
-     const AST::StatementList & s = *r.m_statements;
-     if (s.m_list.size() == 0)
-       continue;
+      const AST::StatementList & s = *r.m_statements;
+      if (s.m_list.size() == 0)
+        continue;
 
+      int j = 1;
       for (auto & t : s.m_list) {
-       t->Generate(*this);
-     }
+        if ((m_codeBlocks.size() == 0) || m_codeBlocks[m_currentBlock].m_ended) {
+          STRM_STR_DECL(ref, r.GetBasicLineNumber() << "_" << j++);
+          StartBlock(ref);
+        }
+        t->Generate(*this);
+      }
     }
     EndBlock();
   }
@@ -174,13 +182,48 @@ bool C_CodeGenerator::Body()
             ;
   }
   else {
-    *m_outputStream << "/* declare structure used for GOTO, GOSUB etc */\n"
+    *m_outputStream << "/* declare structure used to link code blocks */\n"
                     << "struct BlockFunction {\n"
                     << "  struct BlockFunction (* m_func)();\n"
                     << "};\n"
                     << "\n"
                     ;
-    
+    if (m_blockQueueUsed) {
+      *m_outputStream << "/* declare structure for GOSUB */\n"
+                      << "struct BlockQueue {\n"
+                      << "  struct BlockQueue * m_next;\n"
+                      << "  struct BlockFunction (m_return)();\n"
+                      << "};\n"
+                      << "\n"
+                      << "/* declare queue for GOSUB */\n"
+                      << "struct BlockQueue * g_blockQueue;\n" 
+                      << "\n"
+                      << "/* GOSUB function */\n"
+                      << "void Gosub(struct BlockFunction ret)\n"
+                      << "{\n"
+                      << "  struct BlockQueue * block = (struct BlockQueue *)malloc(sizeof(struct BlockQueue));\n"
+                      << "  block->m_next = g_blockQueue;\n"
+                      << "  block->m_return = ret;\n"
+                      << "  g_blockQueue = block;\n"
+                      << "}\n"
+                      << "\n"
+                      << "/* RETURN function */\n"
+                      << "struct BlockFunction Return()\n"
+                      << "{\n"
+                      << "  if ((g_blockQueue == 0) || (g_blockQueue->m_return == 0)) {\n"
+                      << "    /* mismatched return */;\n"
+                      << "  }"
+                      << "  struct BlockFunction ret;\n"
+                      << "  ret.m_func = g_blockQueue->m_return;\n"
+                      << "  struct BlockQueue * next = g_blockQueue->next;\n"
+                      << "  free(g_blockQueue);\n"
+                      << "  g_blockQueue = next;\n"
+                      << "  return ret;\n"
+                      << "}\n"
+                      << "\n"
+                      ;
+    }
+
     *m_outputStream << "/* forward declare each block of code */\n";
     for (auto & r : m_codeBlocks) {
       *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r.m_ref << "();\n";
@@ -195,7 +238,7 @@ bool C_CodeGenerator::Body()
                       << "  struct BlockFunction nextBlock;\n"
                       ;
 
-      if (!block.m_endsWithGoto) {
+      if (!block.m_endsWithJump) {
         *m_outputStream << "  nextBlock.m_func = ";
         if (i < m_codeBlocks.size()-1)
           *m_outputStream << "&" << BLOCKFN_PREFIX << m_codeBlocks[i+1].m_ref;
@@ -254,8 +297,9 @@ void C_CodeGenerator::EndBlock()
     return;
 
   CodeBlock & block = m_codeBlocks[m_currentBlock];  
-  block.m_endsWithGoto = Top().HasGoto();
+  block.m_endsWithJump = Top().HasJump();
   block.m_body << Pop();
+  block.m_ended = true;
 }
 
 int C_CodeGenerator::Generate(const AST::SourceLine & line)
@@ -266,7 +310,14 @@ int C_CodeGenerator::Generate(const AST::SourceLine & line)
 
 int C_CodeGenerator::Generate(const AST::End & expr)
 {
-  Top().SetGoto(true);
+  Top().SetHasJump(true);
+  TopOutput() << "nextBlock.m_func = 0;\n";
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::System & expr)
+{
+  Top().SetHasJump(true);
   TopOutput() << "nextBlock.m_func = 0;\n";
   return 0;
 }
@@ -363,8 +414,42 @@ int C_CodeGenerator::Print(const AST::PrintComma & expr)
 
 int C_CodeGenerator::Generate(const AST::GotoStatement & expr)
 {
-  Top().SetGoto(true);
+  Top().SetHasJump(true);
   TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";  
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////
+
+int C_CodeGenerator::Generate(const AST::GosubStatement & expr)
+{
+  // create symbol for return entry
+  std::string returnRef = GetGlobalTempName();
+
+  // create a new entry for the block queue
+  m_blockQueueUsed = true;
+  TopOutput() << "struct BlockFunction target;\n";
+  TopOutput() << "target.m_func = &" BLOCKFN_PREFIX << returnRef << ";\n";
+  TopOutput() << "Gosub(target);\n";
+  
+  // set "gosub" to routine
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";  
+
+  // finish this block
+  Top().SetHasJump(true);
+
+  // start new block for return
+  StartBlock(returnRef);
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::ReturnStatement & expr)
+{
+  TopOutput() << "nextBlock = Return();\n";
+  Top().SetHasJump(true);
+
+  //EndBlock();
+
   return 0;
 }
 
@@ -896,9 +981,7 @@ int C_CodeGenerator::Generate(const AST::IfStatement & expr)
 
 int C_CodeGenerator::Generate(const AST::ForStatement & expr)
 {
-  // create symbol
-  STRM_STR_DECL(forRef,  "for_"   << m_forIndex);
-  m_forIndex++;
+  std::string forRef = GetGlobalTempName();
 
   // get index variable
   CVarDef cvar;
@@ -989,7 +1072,7 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forRef << ";\n";  
 
   // finish this block
-  Top().SetGoto(true);
+  Top().SetHasJump(true);
   m_forQueue.push_back(forBlock);
 
   // start new block

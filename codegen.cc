@@ -31,7 +31,7 @@ bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputSt
   m_program = &program;
 
   CheckVars();
-  CheckGotos();
+  CheckJumps();
 
   Body();
   return true;
@@ -112,10 +112,10 @@ bool CodeGenerator::CheckVars()
 
 ///////////////////////////////////////////////////////////////////////////
 
-bool CodeGenerator::CheckGotos()
+bool CodeGenerator::CheckJumps()
 {
   // goto list is indexed by goto destination
-  for (auto & r : AST::g_gotoDestinationInfo) {
+  for (auto & r : AST::g_jumpDestinationInfo) {
 
     // get the destination of the goto
     const std::string & lineNumber = r.first;
@@ -201,14 +201,14 @@ std::string CodeGenerator::Closure::GetTempName()
   return name.str();
 }
 
-bool CodeGenerator::Closure::HasGoto() const
+bool CodeGenerator::Closure::HasJump() const
 {
-  return m_hasGoto;
+  return m_hasJump;
 }
 
-void CodeGenerator::Closure::SetGoto(bool v)
+void CodeGenerator::Closure::SetHasJump(bool v)
 {
-  m_hasGoto = v;
+  m_hasJump = v;
 }
 
 ///////////////////////////////////////////////////////

@@ -52,6 +52,7 @@ class CodeGenerator
     virtual int Generate(const AST::StringAssign & expr) { return 0; }
     virtual int Generate(const AST::GotoStatement & expr) { return 0; }
     virtual int Generate(const AST::End & expr) { return 0; }
+    virtual int Generate(const AST::System & expr) { return 0; }
     virtual int Generate(const AST::Rem & expr) { return 0; }
     virtual int Generate(const AST::IfStatement & expr) { return 0; }
     virtual int Generate(const AST::ForStatement & expr) { return 0; }
@@ -112,15 +113,15 @@ class CodeGenerator
         std::stringstream & Output();
         std::string GetTempName();
 
-        bool HasGoto() const;
-        void SetGoto(bool v);
+        bool HasJump() const;
+        void SetHasJump(bool v);
 
       protected:
         std::string m_tempPrefix;
         int m_indent;
         std::stringstream m_output;
         int m_tempIndex = 1;
-        bool m_hasGoto = false;
+        bool m_hasJump = false;
     };
 
     Closure & Top();
@@ -139,7 +140,7 @@ class CodeGenerator
     void CompilerErrorInternal(ErrorCode code, unsigned len, const std::string & msg);
 
     bool CheckVars();
-    bool CheckGotos();
+    bool CheckJumps();
     bool CreateBlocks();
 
     Config m_config;

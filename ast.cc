@@ -10,7 +10,7 @@ using namespace AST;
 Program AST::g_program;
 VarList AST::g_globalVars;
 LineNumberInfo AST::g_lineNumberInfo;
-GotoDestinationList AST::g_gotoDestinationInfo;
+JumpDestinationList AST::g_jumpDestinationInfo;
 StringConstantList AST::g_stringConstants;
 unsigned AST::g_stringConstantIndex = 0;
 
@@ -60,6 +60,9 @@ int SourceLine::Generate(CodeGenerator & gen) const
 ////////////////////////////////////////////////////////////////////////////
 
 int End::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+int System::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 int Rem::Generate(CodeGenerator & gen) const
@@ -513,9 +516,10 @@ JumpStatement::JumpStatement(unsigned lineNumber, const std::string & ref)
   : Statement(lineNumber)
   , m_ref(ref)
 {
-  auto & info = g_gotoDestinationInfo[ref];
+  auto & info = g_jumpDestinationInfo[ref];
   info.m_count++;
   info.m_usedLine.insert(lineNumber);
+  cerr << "jump destination " << ref << " on line " << lineNumber << endl;
 }
 
 int GotoStatement::Generate(CodeGenerator & gen) const
@@ -539,7 +543,7 @@ IfStatement::IfStatement(unsigned lineNumber,
   , m_falseStatements(falseStatements)
 {
   if (!m_trueStatements->m_lineNumber.empty()) {
-    auto & info = g_gotoDestinationInfo[m_trueStatements->m_lineNumber];
+    auto & info = g_jumpDestinationInfo[m_trueStatements->m_lineNumber];
     info.m_count++;
     info.m_usedLine.insert(lineNumber);
   }

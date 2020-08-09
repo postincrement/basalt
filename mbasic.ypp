@@ -381,7 +381,7 @@ statement:     CLEAR_statement
                   }
                | SYSTEM_statement
                   {
-                    $$ = nullptr;
+                    $$ = new AST::System(g_lexLineNumber);
                   }
                | WIDTH_statement
                   {
@@ -762,8 +762,6 @@ STOP_statement: STOP_TOKEN
  *********************************************************/ 
 
 SYSTEM_statement: SYSTEM_TOKEN
-                  {
-                  }
                 ;
 
 /********************************************************* 

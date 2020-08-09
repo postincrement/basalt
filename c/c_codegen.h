@@ -25,8 +25,9 @@ class C_CodeGenerator : public CodeGenerator
     struct CodeBlock
     {
       std::stringstream m_body;
-      bool m_endsWithGoto = false;
+      bool m_endsWithJump = false;
       std::string m_ref;
+      bool m_ended = false;
     };
 
   protected:
@@ -48,7 +49,6 @@ class C_CodeGenerator : public CodeGenerator
     typedef std::map<std::string, CVarDef> GlobalVarMap;
     std::set<std::string> m_cnames;
     GlobalVarMap m_globalVars;  
-    int m_forIndex = 0;
 
     std::vector<CodeBlock> m_codeBlocks;
     int m_currentBlock = -1;
@@ -64,6 +64,7 @@ class C_CodeGenerator : public CodeGenerator
     };
 
     std::deque<ForBlock> m_forQueue;
+    bool m_blockQueueUsed = false;
 
   public:   
     virtual bool Body() override;
@@ -76,10 +77,13 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::StringAssign & expr) override;
     virtual int Generate(const AST::GotoStatement & expr) override;
     virtual int Generate(const AST::End & expr) override;
+    virtual int Generate(const AST::System & expr) override;
     virtual int Generate(const AST::Rem & expr) override;
     virtual int Generate(const AST::IfStatement & expr) override;
     virtual int Generate(const AST::ForStatement & expr) override;
     virtual int Generate(const AST::NextStatement & expr) override;
+    virtual int Generate(const AST::GosubStatement & expr) override;
+    virtual int Generate(const AST::ReturnStatement & expr) override;
 
     //virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) override;
