@@ -19,6 +19,17 @@ void Tokenize(std::vector<std::string> & tokens, const std::string & str, char s
 #define STRM_STR(x, v) do { std::stringstream strm; strm << v; x = strm.str(); } while(0)
 #define STRM_STR_DECL(x, v) std::string x; do { std::stringstream strm; strm << v; x = strm.str(); } while(0)
 
+#include <iostream>
+#include <iomanip>
+
+#define   HEXFORMAT2(val) std::hex << std::setw(2) << std::setfill('0') << ((unsigned int)(val) & 0xff) << std::dec
+#define   HEXFORMAT4(val) std::hex << std::setw(4) << std::setfill('0') << ((unsigned int)(val) & 0xffff) << std::dec
+#define   HEXFORMAT8(val) std::hex << std::setw(8) << std::setfill('0') << ((unsigned int)(val)) << std::dec
+
+#define   HEXFORMAT0x2(val) "0x" << HEXFORMAT2(val)
+#define   HEXFORMAT0x4(val) "0x" << HEXFORMAT4(val)
+#define   HEXFORMAT0x8(val) "0x" << HEXFORMAT8(val)
+
 //////////////////////////////////////////////////////////////////
 
 class Filename : public std::string

@@ -11,17 +11,21 @@ using namespace std;
 #include "c/c_codegen.h"
 #include "z80/z80_codegen.h"
 
-int  g_lexLineNumber     = 1;
+// declared as extern in basalt.h
+Basalt g_application;
 int  g_errorCount        = 0;
-int  g_warningCount      = 0;
 bool g_disableWarnings   = false;
 bool g_enableLineNumbers = false;
+std::string g_printableInputFilename;
+
+// declared as extern in ast.h
+LanguageProfile * g_languageProfile = nullptr;
 
 //////////////////////////////////////////////////////////
 
-LanguageProfile * g_languageProfile = nullptr;
+static int  g_warningCount      = 0;
 static Factory<LanguageProfile> g_languageProfileFactory;
-
+static Factory<CodeGenerator>   g_codeGenerators;
 
 static LanguageProfileDef g_basicVariants[] = { 
 // name      varlen tab defnum              defint
@@ -41,10 +45,6 @@ static LanguageProfileDef g_basicZ80Variants[] = {
 
 //////////////////////////////////////////////////////////
 
-static Factory<CodeGenerator> g_codeGenerators;
-
-Basalt g_application;
-
 void OptionError(const ArgDef * def)
 {
   cerr << "warning: no data for option ";
@@ -55,32 +55,6 @@ void OptionError(const ArgDef * def)
       cerr << "/";
     cerr << "--" << def->m_long << endl;
   }
-}
-
-void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str)
-{
-  cerr << "warning: error " << fn << "(" << ln << ") - " << str << endl;
-}
-
-void SourceWarningFunc(WarningCode code, unsigned line, const std::string & str)
-{
-  std::stringstream strm;
-  strm << "line " << line << ": warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
-  cerr << strm.str();
-}
-
-void SourceErrorFunc(ErrorCode code, unsigned line, const std::string & str)
-{
-  std::stringstream strm;
-  strm << "line " << line << ": error " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
-  cerr << strm.str();
-}
-
-void WarningFunc(WarningCode code, const std::string & str)
-{
-  std::stringstream strm;
-  strm << "warning " << setw(4) << setfill('0') << hex << code << " - " << str << endl;
-  cerr << strm.str();
 }
 
 void Basalt::DecodeOpt(ArgDef * def, int & index, int argc, const char **argv)
@@ -247,21 +221,15 @@ int Basalt::Main(int argc, char const *argv[])
   g_codeGenerators.Register<Z80_CodeGenerator>("z80");
 
   m_arch           = "ansi-c";
-  m_dump = false;
-  m_compileOnly = false;
-  m_enableDebugging = false;
   g_disableWarnings = false;
   g_enableLineNumbers = false;
   
   std::vector<ArgDef> argDefs = {
-    { 'c',   "",          "b",  &m_compileOnly,         "compile only" },
-    { 'd',   "dump",      "b",  &m_dump,                "dump output" },
     { 'v',   "verbose",   "",   &m_verbose,             "enable verbosity" },
     { 't',   "target",    "s",  &m_codeGeneratorName,   "set code generator" },
     { 'o',   "output",    "s",  &m_outputFilename,      "set output filename" },
     { 'p',   "profile",   "s",  &m_languageProfileName, "set language profile" },
     { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
-    { 'g',   "debug",     "b",  &m_enableDebugging,     "add debugging information to output file"},
     { 'h',   "help",      "",   &m_displayHelp,         "display help message"},
     { 'W',   "warnings",  "b",  &g_disableWarnings,     "disable warnings"},
     { 'L',   "linenum",   "b",  &g_enableLineNumbers,   "enable line numbers"},
@@ -307,19 +275,17 @@ int Basalt::Main(int argc, char const *argv[])
  
   // see if using stdin or file as input  
   if (index == argc) {
-    m_interactive = true;
     if (m_verbose)
       cerr << "info: parsing stdin" << endl;
     m_inputStream = &std::cin;
-    m_printableInputFilename = "<stdin>";
+    g_printableInputFilename = "<stdin>";
   }
   else {
-    m_interactive = false;
     m_inputStream = &m_inputFile;
     
     // open input file
     m_inputFilename = Filename(argv[index]);
-    m_printableInputFilename = m_inputFilename;
+    g_printableInputFilename = m_inputFilename;
     std::string ext = m_inputFilename.GetExtension();
     for (auto & r : ext) {
       r = tolower(r);
@@ -363,7 +329,7 @@ int Basalt::Main(int argc, char const *argv[])
   }
 
   if (m_verbose)
-    cerr << "info: parsing '" << m_printableInputFilename << "'" << endl;
+    cerr << "info: parsing '" << g_printableInputFilename << "'" << endl;
 
   m_lineOffs = 2;
   MBASIC_parse();
@@ -377,7 +343,7 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  if (!codeGen->Run(m_printableInputFilename, outputStream, AST::g_program)) {
+  if (!codeGen->Run(g_printableInputFilename, outputStream, AST::g_program)) {
     cerr << "error: code generation failed" << endl;
   }
 
@@ -410,30 +376,53 @@ char Basalt::ReadNextChar()
   return m_line[m_lineOffs++];
 }
 
-void Basalt::OnError(unsigned lineNumber, const std::string & msg)
+std::string Basalt::FormatError(ErrorCode code, 
+                                unsigned ln, 
+                                int pos)
 {
-  g_errorCount++;
-  DisplayError(lineNumber, msg, "error");
+  std::string type;
+  if (code < ErrorCode::eWarning_First) {
+    m_errorCount++;
+    type = "internal error";
+  }
+  else if (code <= ErrorCode::eError_First) {
+    m_warningCount++;
+    type = "warning";
+  }
+  else {
+    m_errorCount++;
+    type = "error";
+  }
+
+  stringstream strm;
+  strm << g_printableInputFilename << ":" << ln << ":";
+  if (pos >= 0)
+    strm << pos << ":";
+  strm << " " << type << " " << HEXFORMAT4(code) << " : ";
+  return strm.str();
 }
 
-void Basalt::OnWarning(unsigned lineNumber, const std::string & msg)
+void Basalt::CompilerErrorInternal(ErrorCode code, int ln, const std::string & msg)
 {
-  g_warningCount++;
-  DisplayError(lineNumber, msg, "error");
+  cerr << FormatError(code, ln) << msg << "\n";
 }
 
-void Basalt::DisplayError(unsigned lineNumber, const std::string & msg, const std::string & type)
+void Basalt::InternalErrorInternal(ErrorCode code, const std::string & msg)
+{
+  cerr << FormatError(code, 0) << msg << "\n";
+  exit(-1);
+}
+
+void Basalt::ParserErrorInternal(ErrorCode code, const std::string & msg)
 {
   size_t p = std::min(m_lineOffs, m_line.length());
-  cout << m_printableInputFilename << ":" << lineNumber << ":" << p << ": " << type << " - " << msg << "\n"
-       << m_line << "\n";
-
+  cerr << FormatError(code, g_lexLineNumber, p) << msg << "\n";
+  cerr << m_line << endl;
   size_t i;
   for (i = 0; i < p; i++)
     cout << " ";
   cout << "^" << endl;
 }
-
 
 void MBASIC_yyinput(char * buf, int * result, int maxSize)
 {

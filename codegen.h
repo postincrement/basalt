@@ -6,6 +6,17 @@
 #include <string>
 
 #include "ast.h"
+#include "errorcode.h"
+
+#define CompilerError(code, ln, expr) \
+do { std::stringstream strm; strm << expr; \
+  CompilerErrorInternal(ErrorCode::code, ln, strm.str()); \
+} while (0)
+
+#define InternalError(expr) \
+do { std::stringstream strm; strm << expr; \
+  g_application.InternalErrorInternal(ErrorCode::eInternalError, strm.str()); \
+} while (0)
 
 class CodeGenerator
 {
@@ -125,6 +136,8 @@ class CodeGenerator
     { m_forUsed = true; }
 
   protected:
+    void CompilerErrorInternal(ErrorCode code, unsigned len, const std::string & msg);
+
     bool CheckVars();
     bool CheckGotos();
     bool CreateBlocks();
@@ -132,6 +145,7 @@ class CodeGenerator
     Config m_config;
 
     std::string m_inputFilename;
+    unsigned m_currentStatementLine;
 
     unsigned m_globalTempIndex = 1;
     bool m_forUsed = false;

@@ -19,6 +19,11 @@ const CodeGenerator::Config &CodeGenerator::GetConfig() const
   return m_config;
 }
 
+void CodeGenerator::CompilerErrorInternal(ErrorCode code, unsigned ln, const std::string & msg)
+{
+  g_application.CompilerErrorInternal(code, ln, msg);
+}
+
 bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputStream, const AST::Program &program)
 {
   m_inputFilename = inputFilename;
@@ -35,7 +40,7 @@ bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputSt
 CodeGenerator::Closure &CodeGenerator::Top()
 {
   if (m_stack.size() < 1) {
-    cerr << "error: closure stack smashed" << endl;
+    InternalError("closure stack smashed");
     exit(-1);
   }
   return *m_stack[m_stack.size() - 1];
@@ -98,7 +103,7 @@ bool CodeGenerator::CheckVars()
   {
     AST::VarInfo &info = r.second;
     if ((info.m_lhsLine != 0) && (info.m_rhsLine == 0)) {
-      SourceWarning(eWarning_VarDefinedButNotUsed, info.m_lhsLine, r.first);
+      CompilerError(eWarning_VarDefinedButNotUsed, info.m_lhsLine, "variable '" << r.first << "' defined but not used");
     }
   }
 
@@ -118,7 +123,7 @@ bool CodeGenerator::CheckGotos()
     // print error if destination not found 
     if (AST::g_lineNumberInfo.count(lineNumber) == 0) {
       unsigned line = *r.second.m_usedLine.begin();
-      SourceError(eError_GotoDestinationNotFound, line, lineNumber);
+      CompilerError(eError_GotoDestinationNotFound, line, lineNumber);
     }
   }
 
@@ -147,14 +152,13 @@ static std::string DemangleTypeName(const std::type_info &r)
 
 int CodeGenerator::Generate(const AST::Node &expr)
 {
-  cerr << "warning: unimplemented Generate for " << DemangleTypeName(typeid(expr)) << "\n";
+  InternalError("unimplemented Generate for " << DemangleTypeName(typeid(expr)));
   return 1;
 }
 
 int CodeGenerator::Evaluate(const AST::Node &expr, std::string &result)
 {
-  const std::type_info &r = typeid(expr);
-  cerr << "warning: unimplemented Evaluate for " << DemangleTypeName(typeid(expr)) << "\n";
+  InternalError("unimplemented Evaluate for " << DemangleTypeName(typeid(expr)));
   return 1;
 }
 
@@ -219,6 +223,7 @@ int CodeGenerator::Generate(const AST::SourceLine &line)
 
 int CodeGenerator::Generate(const AST::Statement &statement)
 {
+  m_currentStatementLine = statement.m_lineNumber;
   for (auto &r : statement.m_list) {
     r->Generate(*this);
     TopOutput() << TopOutput().str();
@@ -230,8 +235,7 @@ int CodeGenerator::Generate(const AST::Statement &statement)
 
 int CodeGenerator::Print(const AST::Node &expr)
 {
-  const std::type_info &r = typeid(expr);
-  cerr << "warning: unimplemented Print for " << DemangleTypeName(typeid(expr)) << "\n";
+  InternalError("unimplemented Print for " << DemangleTypeName(typeid(expr)));
   return 1;
 }
 

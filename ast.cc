@@ -76,7 +76,8 @@ VarType Expr::GetType() const
 
 /////////////////////////////////////////
 
-Print::Print(ExprList * list)
+Print::Print(unsigned lineNumber, ExprList * list)
+  : Statement(lineNumber)
 { Append(list); }
 
 int Print::Generate(CodeGenerator & gen) const
@@ -508,13 +509,13 @@ int DoubleConstant::Print(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-JumpStatement::JumpStatement(const std::string & ref, unsigned sourceLineNumber)
-  : m_ref(ref)
-  , m_sourceLineNumber(sourceLineNumber)
+JumpStatement::JumpStatement(unsigned lineNumber, const std::string & ref)
+  : Statement(lineNumber)
+  , m_ref(ref)
 {
   auto & info = g_gotoDestinationInfo[ref];
   info.m_count++;
-  info.m_usedLine.insert(sourceLineNumber);
+  info.m_usedLine.insert(lineNumber);
 }
 
 int GotoStatement::Generate(CodeGenerator & gen) const
@@ -528,18 +529,19 @@ int ReturnStatement::Generate(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-IfStatement::IfStatement(const NumericExpr * cond, 
+IfStatement::IfStatement(unsigned lineNumber,
+                         const NumericExpr * cond, 
                          const IfConditional * trueStatements,
-                         const StatementList * falseStatements,
-                         unsigned sourceLineNumber)
-  : m_cond(cond)
+                         const StatementList * falseStatements)
+  : Statement(lineNumber)
+  , m_cond(cond)
   , m_trueStatements(trueStatements)
   , m_falseStatements(falseStatements)
 {
   if (!m_trueStatements->m_lineNumber.empty()) {
     auto & info = g_gotoDestinationInfo[m_trueStatements->m_lineNumber];
     info.m_count++;
-    info.m_usedLine.insert(sourceLineNumber);
+    info.m_usedLine.insert(lineNumber);
   }
 }
 
@@ -550,11 +552,13 @@ int IfStatement::Generate(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
-ForStatement::ForStatement(const NumericVarRef * var, 
+ForStatement::ForStatement(unsigned lineNumber,
+              const NumericVarRef * var, 
               const NumericExpr * fromVal,
               const NumericExpr * toVal,
               const NumericExpr * stepVal)
-  : m_var(var)
+  : Statement(lineNumber)
+  , m_var(var)
   , m_fromVal(fromVal)
   , m_toVal(toVal)
   , m_stepVal(stepVal)
@@ -577,8 +581,9 @@ int ForStatement::Generate(CodeGenerator & gen) const
   return gen.Generate(*this);
 }
 
-NextStatement::NextStatement(const NumericVarRef * var)
-  : m_var(var)
+NextStatement::NextStatement(unsigned lineNumber, const NumericVarRef * var)
+  : Statement(lineNumber)
+  , m_var(var)
 { }
 
 int NextStatement::Generate(CodeGenerator & gen) const

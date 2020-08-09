@@ -149,6 +149,23 @@ class Expr : public Node
 
 using ExprList = NodeList<Expr>;
 
+////////////////////////////////////////////////////////////////////////////
+
+class Statement : public NodeList<Expr>
+{
+  public:
+    Statement(unsigned lineNumber)
+      : m_lineNumber(lineNumber)
+    { }
+
+    unsigned m_lineNumber;
+};
+
+
+using StatementList = NodeList<Statement>;
+
+////////////////////////////////////////////////////////////////////////////
+
 class NumericExpr : public Expr
 {
   public:
@@ -169,10 +186,10 @@ class StringExpr : public Expr
 
 ////////////////////////////////////////////////////////////////////////////
 
-class Print : public NodeList<Expr>
+class Print : public Statement
 {
   public:
-    Print(NodeList<Expr> * exprList = nullptr);
+    Print(unsigned lineNumber, NodeList<Expr> * exprList = nullptr);
     virtual int Generate(CodeGenerator & gen) const override;
 };
 
@@ -520,9 +537,6 @@ class StringConstant : public StringExpr
 
 ////////////////////////////////////////////////////////////////////////////
 
-using Statement     = NodeList<Expr>;
-using StatementList = NodeList<Statement>;
-
 class SourceLine : public Node
 {
   public:
@@ -559,7 +573,8 @@ extern LineNumberInfo g_lineNumberInfo;
 class End : public Statement
 {
   public:
-    End()
+    End(unsigned lineNumber)
+      : Statement(lineNumber)
     {}
 
     virtual int Generate(CodeGenerator & gen) const override;
@@ -568,8 +583,9 @@ class End : public Statement
 class Rem : public Statement
 {
   public:
-    Rem(const std::string & comment)
-      : m_comment(comment)
+    Rem(unsigned lineNumber, const std::string & comment)
+      : Statement(lineNumber)
+      , m_comment(comment)
     {}
 
     virtual int Generate(CodeGenerator & gen) const override;
@@ -590,20 +606,19 @@ extern GotoDestinationList g_gotoDestinationInfo;
 class JumpStatement : public Statement
 {
   public:
-    JumpStatement(const std::string & ref, unsigned sourceLineNumber);
+    JumpStatement(unsigned lineNumber, const std::string & ref);
 
     std::string GetRef() const
     { return m_ref; } 
 
     std::string m_ref;
-    unsigned m_sourceLineNumber;
 };
 
 class GotoStatement : public JumpStatement
 {
   public:
-    GotoStatement(const std::string & ref, unsigned sourceLineNumber)
-      : JumpStatement(ref, sourceLineNumber)
+    GotoStatement(unsigned lineNumber, const std::string & ref)
+      : JumpStatement(lineNumber, ref)
     { }
 
     virtual bool IsGoto() const
@@ -616,8 +631,8 @@ class GotoStatement : public JumpStatement
 class GosubStatement : public JumpStatement
 {
   public:
-    GosubStatement(const std::string & ref, unsigned sourceLineNumber)
-      : JumpStatement(ref, sourceLineNumber)
+    GosubStatement(unsigned lineNumber, const std::string & ref)
+      : JumpStatement(lineNumber, ref)
     { }
 
     virtual bool IsGosub() const
@@ -629,7 +644,8 @@ class GosubStatement : public JumpStatement
 class ReturnStatement : public Statement
 {
   public:
-    ReturnStatement()
+    ReturnStatement(unsigned lineNumber)
+      : Statement(lineNumber)
     {}
 
     virtual bool IsReturn() const
@@ -823,10 +839,11 @@ struct IfConditional : public Expr
 class IfStatement : public Statement 
 {
   public:
-    IfStatement(const NumericExpr * cond, 
+    IfStatement(unsigned lineNumber,
+                const NumericExpr * cond, 
                 const IfConditional * trueStatements,
-                const StatementList * falseStatements,
-                unsigned sourceLineNumber);
+                const StatementList * falseStatements
+                );
 
     virtual int Generate(CodeGenerator & gen) const;
 
@@ -840,7 +857,8 @@ class IfStatement : public Statement
 class ForStatement : public Statement 
 {
   public:
-    ForStatement(const NumericVarRef * var, 
+    ForStatement(unsigned lineNumber, 
+                 const NumericVarRef * var, 
                  const NumericExpr * fromVal,
                  const NumericExpr * toVal,
                  const NumericExpr * stepVal);
@@ -860,7 +878,7 @@ class ForStatement : public Statement
 class NextStatement : public Statement 
 {
   public:
-    NextStatement(const NumericVarRef * var);
+    NextStatement(unsigned lineNumber, const NumericVarRef * var);
 
     virtual int Generate(CodeGenerator & gen) const;
 

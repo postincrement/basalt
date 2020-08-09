@@ -86,7 +86,7 @@ bool C_CodeGenerator::Body()
     CVarDef cvar;
     for (;;) {
       if (!CreateCVar(r.first, info, cvar, tag)) {
-        cerr << "internal error: cannot map var to C type" << endl;
+        InternalError("cannot map var to C type");
         return false;
       }
       if (m_cnames.count(cvar.m_cname) == 0)
@@ -260,12 +260,6 @@ void C_CodeGenerator::EndBlock()
 
 int C_CodeGenerator::Generate(const AST::SourceLine & line)
 {
-  if (g_enableLineNumbers) {
-    TopOutput(false)  
-          << "\n"
-          << "#line " << line.GetSourceLineNumber() 
-          << " \"" << m_inputFilename << "\"\n";
-  }
   TopOutput(false) << "  /* " << line.GetLine() << " */\n";
   return CodeGenerator::Generate(line);
 }
@@ -299,7 +293,7 @@ int C_CodeGenerator::Generate(const AST::Print & expr)
 int C_CodeGenerator::Print(const AST::NumericVarRef & expr)
 {
   if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    CompilerError(Error_UndeclaredVariable, 0, "unknown variable \"" << expr.GetName() << "\"");
     return -1;
   }
   CVarDef & cvar = m_globalVars[expr.GetName()];
@@ -321,7 +315,7 @@ int C_CodeGenerator::Print(const AST::NumericExpr & expr)
 int C_CodeGenerator::Print(const AST::StringVarRef & expr)
 {
   if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    CompilerError(Error_UndeclaredVariable, 0, "variable \"" << expr.GetName() << "\" not declared");
     return -1;
   }
   CVarDef & cvar = m_globalVars[expr.GetName()];
@@ -394,8 +388,7 @@ int C_CodeGenerator::Generate(const AST::StringAssign & expr)
     return -1;
 
   if (expr.m_rhs == nullptr) {
-    if (!g_disableWarnings)
-      TopOutput() << "#warning \"missing rhs\"\n";
+    InternalError("expression missing rhs");
     return -1;
   }
 
@@ -548,8 +541,7 @@ int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
     return -1;
 
   if (expr.m_rhs == nullptr) {
-    if (!g_disableWarnings)
-      us.Output() << "#warning \"missing rhs\"\n";
+    InternalError("expression missing rhs");
     return -1;
   }
 
@@ -565,7 +557,7 @@ int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
 int C_CodeGenerator::Evaluate(const AST::StringVarRef & expr, std::string & result)
 {
   if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    CompilerError(Error_UndeclaredVariable, 0, "variable \"" << expr.GetName() << "\" not declared");
     return -1;
   }
   CVarDef & cvar = m_globalVars[expr.GetName()];
@@ -617,7 +609,7 @@ bool C_CodeGenerator::LookupGlobalVar(const std::string & varName, CVarDef & cva
 int C_CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & result)
 {
   if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    CompilerError(Error_UndeclaredVariable, 0, "variable \"" << expr.GetName() << "\" not declared");
     return -1;
   }
   CVarDef & cvar = m_globalVars[expr.GetName()];
@@ -675,7 +667,7 @@ int C_CodeGenerator::NumericBinaryOperator(const std::string & op, const AST::Nu
 int C_CodeGenerator::NumericComparisonOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result)
 {
   if ((expr == nullptr) || (expr->m_lhs == nullptr) || (expr->m_rhs == nullptr)) {
-    cerr << "numeric comparison failed" << endl;
+    InternalError("numeric comparison failed");
     return -1;
   }
 
@@ -795,7 +787,7 @@ int C_CodeGenerator::Evaluate(const AST::StrFunction & expr, std::string & resul
 {
   const char * funcName = g_varTypeInfo[(int)expr.GetArg1()->GetType()].m_strFn;
   if (funcName == 0) {
-    cerr << "error: cannot find str function for type " << (int)expr.GetArg1()->GetType() << endl;
+    InternalError("cannot find str function for type " << (int)expr.GetArg1()->GetType());
     return -1;
   }
 
@@ -1009,7 +1001,7 @@ int C_CodeGenerator::Generate(const AST::NextStatement & expr)
 {
   // ensure we are in a FOR loop
   if (m_forQueue.size() == 0) {
-    cerr << "Mismatched next\n";
+    CompilerError(Error_MismatchedNext, expr.m_lineNumber, "Mismatched next");
     exit(-1);
   }
 

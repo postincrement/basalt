@@ -7,6 +7,7 @@
 
 #include "codegen.h"
 #include "common.h"
+#include "errorcode.h"
 
 struct ArgDef 
 {
@@ -28,24 +29,16 @@ class Basalt
     void DisplayHelp(const std::vector<ArgDef> & argDefs);
     char ReadNextChar();
 
-    void OnError(unsigned lineNumber, const std::string & msg);
-    void OnWarning(unsigned lineNumber, const std::string & msg);
-    void DisplayError(unsigned lineNumber, const std::string & msg, const std::string & type);
+    void InternalErrorInternal(ErrorCode code, const std::string & msg);
+    void ParserErrorInternal(ErrorCode code, const std::string & msg);
+    void CompilerErrorInternal(ErrorCode code, int ln, const std::string & msg);
 
     std::string GetCurrentLine() const { return m_line; }
 
   protected:    
-
-    bool m_interactive;
+    std::string FormatError(ErrorCode code, unsigned ln, int pos = -1);
 
     std::string m_progname;
-    size_t m_lineOffs;
-    std::string m_line;
-
-    std::istream * m_inputStream = nullptr;
-    std::ifstream m_inputFile;
-    Filename m_inputFilename; 
-    std::string m_printableInputFilename;
 
     int m_verbose = 0;
     int m_displayHelp = 0;
@@ -53,9 +46,18 @@ class Basalt
     std::string m_outputFilename;
     std::string m_languageProfileName;
     std::string m_arch;
-    bool m_dump = false;
-    bool m_compileOnly = false;
-    bool m_enableDebugging = false;
+    bool g_disableWarnings = false;
+    bool g_enableLineNumbers = false;
+
+    // context for source files
+    size_t m_lineOffs;
+    std::string m_line;
+    std::istream * m_inputStream = nullptr;
+    std::ifstream m_inputFile;
+    Filename m_inputFilename; 
+    std::string g_printableInputFilename;
+    unsigned m_errorCount = 0;
+    unsigned m_warningCount = 0;
 };
 
 
@@ -66,58 +68,12 @@ extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-enum ErrorCode 
-{
-  eError_Unknown                 = 0x8000,
-  eError_GotoDestinationNotFound
-};
 
-extern void InternalErrorFunc(const char * fn, unsigned ln, const std::string & str);
-#define InternalError(expr) \
-do { std::stringstream strm; strm << expr; InternalErrorFunc(__FILE__, __LINE__, strm.str()); } while (0)
-
-extern void SourceErrorFunc(ErrorCode code, unsigned line, const std::string & str);
-#define SourceError(code, line, expr) \
-do { std::stringstream strm; strm << expr; \
-       SourceErrorFunc(code, line, strm.str()); \
-    } while (0)
-
-extern void ErrorFunc(ErrorCode code, const std::string & str);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-enum WarningCode {
-
-  eWarning_Unknown                = 0x0000,
-
-  // syntax warnings
-  eWarning_Syntax                 = 0x1000, 
-  eWarning_PrintUsingQuestionMark = eWarning_Syntax,
-  eWarning_RemUsingQuote,
-  eWarning_VarDefinedButNotUsed,
-  eWarning_VarIsSynonym,
-};
-
-extern void InternalWarningFunc(const char * fn, unsigned ln, const std::string & str);
-#define InternalWarning(expr) \
-do { std::stringstream strm; strm << expr; InternalWarningFunc(__FILE__, __LINE__, strm.str()); } while (0)
-
-extern void SourceWarningFunc(WarningCode code, unsigned line, const std::string & str); 
-#define SourceWarning(code, line, expr) \
-do { std::stringstream strm; strm << expr; \
-  SourceWarningFunc(code, line, strm.str()); \
-} while (0)
-
-extern void WarningFunc(WarningCode code, const std::string & str);
-#define Warning(code, expr) \
-do { std::stringstream strm; strm << expr; WarningFunc(code, strm.str()); } while (0)
-
+// declared in basalt.cc
 extern Basalt g_application;
-extern int g_lexLineNumber;
-extern bool g_compileOnly;
-extern bool g_dump;
-extern bool g_enableDebugging;
-extern bool g_disableWarnings;
-extern bool g_enableLineNumbers;
+
+// declared in mbasic.ypp
+extern unsigned g_lexLineNumber;
+extern std::string g_basicLineNumber;
 
 #endif // BASALT_H_

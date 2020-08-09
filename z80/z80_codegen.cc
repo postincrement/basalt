@@ -596,8 +596,7 @@ int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)
     return -1;
 
   if (expr.m_rhs == nullptr) {
-    if (!g_disableWarnings)
-      us.Output() << "#warning \"missing rhs\"\n";
+    InternalError("expression missing rhs");
     return -1;
   }
 
@@ -622,7 +621,7 @@ bool Z80_CodeGenerator::LookupGlobalVar(const std::string & varName,
 int Z80_CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & result)
 {
   if (m_globalVars.count(expr.GetName()) == 0) {
-    cerr << "error: unknown variable \"" << expr.GetName() << "\"" << endl;
+    CompilerError(Error_UndeclaredVariable, 0, "unknown variable \"" << expr.GetName() << "\"");
     return -1;
   }
   AsmVarDef & avar = m_globalVars[expr.GetName()];
