@@ -65,6 +65,9 @@ class C_CodeGenerator : public CodeGenerator
 
     std::deque<ForBlock> m_forQueue;
     bool m_blockQueueUsed = false;
+    bool m_isLastStatementOnLine = false;
+    bool m_isLastStatement = false;
+    std::string m_nextBlockRef;
 
   public:   
     virtual bool Body() override;

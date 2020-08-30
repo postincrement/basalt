@@ -149,7 +149,11 @@ class Statement : public NodeList<Expr>
       : m_lineNumber(lineNumber)
     { }
 
+    virtual bool IsJump() const
+    { return false; }
+
     unsigned m_lineNumber;
+    std::string m_text;
 };
 
 
@@ -568,6 +572,9 @@ class End : public Statement
       : Statement(lineNumber)
     {}
 
+    virtual bool IsJump() const override
+    { return true; }
+
     virtual int Generate(CodeGenerator & gen) const override;
 };
 
@@ -577,6 +584,9 @@ class System : public Statement
     System(unsigned lineNumber)
       : Statement(lineNumber)
     {}
+
+    virtual bool IsJump() const override
+    { return true; }
 
     virtual int Generate(CodeGenerator & gen) const override;
 };
@@ -622,6 +632,9 @@ class GotoStatement : public JumpStatement
       : JumpStatement(lineNumber, ref)
     { }
 
+    virtual bool IsJump() const override
+    { return true; }
+
     virtual int Generate(CodeGenerator & gen) const override;
 };
 
@@ -633,6 +646,9 @@ class GosubStatement : public JumpStatement
       : JumpStatement(lineNumber, ref)
     { }
 
+    virtual bool IsJump() const override
+    { return true; }
+
     virtual int Generate(CodeGenerator & gen) const override;
 };
 
@@ -642,6 +658,9 @@ class ReturnStatement : public Statement
     ReturnStatement(unsigned lineNumber)
       : Statement(lineNumber)
     {}
+
+    virtual bool IsJump() const override
+    { return true; }
 
     virtual int Generate(CodeGenerator & gen) const override;
 };

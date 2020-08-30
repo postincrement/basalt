@@ -138,3 +138,11 @@ cat << EOF | run_test 8
 40 next b 
 50 print b , "finished"
 EOF
+
+cat << EOF | run_test 8
+10 a = 1 : c = 2 : d = .1
+20 for b = a to c step d
+30     print b 
+40 next b 
+50 print b , "finished"
+EOF

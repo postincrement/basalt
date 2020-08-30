@@ -72,7 +72,7 @@ std::string Trim(const std::string & str_)
     ptr = start + str.length() - 1;
     while ((ptr > start) && isspace(*ptr))
       --ptr;
-    str = str.substr(0, ptr - start);
+    str = str.substr(0, ptr - start + 1);
   }
 
   return str;

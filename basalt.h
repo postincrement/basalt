@@ -35,6 +35,9 @@ class Basalt
 
     std::string GetCurrentLine() const { return m_line; }
 
+    void SetStatementStart();
+    std::string GetStatement();
+
   protected:    
     std::string FormatError(ErrorCode code, unsigned ln, int pos = -1);
 
@@ -51,6 +54,7 @@ class Basalt
 
     // context for source files
     size_t m_lineOffs;
+    size_t m_statementStart;
     std::string m_line;
     std::istream * m_inputStream = nullptr;
     std::ifstream m_inputFile;

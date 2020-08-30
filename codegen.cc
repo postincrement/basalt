@@ -201,16 +201,6 @@ std::string CodeGenerator::Closure::GetTempName()
   return name.str();
 }
 
-bool CodeGenerator::Closure::HasJump() const
-{
-  return m_hasJump;
-}
-
-void CodeGenerator::Closure::SetHasJump(bool v)
-{
-  m_hasJump = v;
-}
-
 ///////////////////////////////////////////////////////
 
 int CodeGenerator::Generate(const AST::SourceLine &line)

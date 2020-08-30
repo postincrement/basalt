@@ -519,7 +519,6 @@ JumpStatement::JumpStatement(unsigned lineNumber, const std::string & ref)
   auto & info = g_jumpDestinationInfo[ref];
   info.m_count++;
   info.m_usedLine.insert(lineNumber);
-  cerr << "jump destination " << ref << " on line " << lineNumber << endl;
 }
 
 int GotoStatement::Generate(CodeGenerator & gen) const

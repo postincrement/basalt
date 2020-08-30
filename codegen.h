@@ -113,15 +113,11 @@ class CodeGenerator
         std::stringstream & Output();
         std::string GetTempName();
 
-        bool HasJump() const;
-        void SetHasJump(bool v);
-
       protected:
         std::string m_tempPrefix;
         int m_indent;
         std::stringstream m_output;
         int m_tempIndex = 1;
-        bool m_hasJump = false;
     };
 
     Closure & Top();

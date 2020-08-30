@@ -185,7 +185,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <statementList> opt_statement_list statement_list
 %type <statementList> opt_ELSE_statement ELSE_statement
 
-%type <statement>    statement
+%type <statement>    statement statement2
 %type <statement>    DIM_statement PRINT_statement WIDTH_statement
 %type <statement>    LET_statement FOR_statement GOTO_statement
 %type <statement>    IF_statement REM_statement NEXT_statement
@@ -239,7 +239,8 @@ line:     opt_line_number
                       g_basicLineNumber, 
                       g_application.GetCurrentLine()
                       );
-                g_lineNumber = g_lexLineNumber;     
+                g_lineNumber = g_lexLineNumber;
+                g_application.SetStatementStart();
               }
           opt_statement_list 
             {
@@ -295,17 +296,33 @@ opt_statement_list : /* empty */
                       }
                    ;
 
-statement_list : statement
+statement_list : statement2
                   {
                     $$ = new AST::StatementList();
+                    $1->m_text = g_application.GetStatement();
                     $$->Append($1);
                   }   
-               | statement_list ':' statement
+               | statement_list ':'
                   {
-                    $1->Append($3);
+                    g_application.SetStatementStart();
+                  } 
+                 statement2
+                  {
+                    $4->m_text = g_application.GetStatement();
+                    $1->Append($4);
                     $$ = $1;
                   }   
                ;
+
+statement2:   { 
+              }
+              statement
+              {
+                //cerr << "statement: " << g_application.GetStatement() << endl; 
+                $$ = $2;
+              } 
+              ; 
+
 
 statement:     CLEAR_statement
                   {

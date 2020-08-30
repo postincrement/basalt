@@ -272,7 +272,7 @@ int Basalt::Main(int argc, char const *argv[])
     exit(1);
   }
   
- 
+
   // see if using stdin or file as input  
   if (index == argc) {
     if (m_verbose)
@@ -348,6 +348,17 @@ int Basalt::Main(int argc, char const *argv[])
   }
 
   return 0;
+}
+
+void Basalt::SetStatementStart()
+{
+  m_statementStart = m_lineOffs;
+}
+
+std::string Basalt::GetStatement()
+{
+  std::string str = Trim(m_line.substr(m_statementStart, m_lineOffs - m_statementStart));
+  return str;
 }
 
 ////////////////////////////////////////////////////////////////////////
