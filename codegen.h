@@ -129,9 +129,6 @@ class CodeGenerator
 
     int ResolveGotoDestination(const std::string & ref);
 
-    void SetFORUsed() 
-    { m_forUsed = true; }
-
   protected:
     void CompilerErrorInternal(ErrorCode code, unsigned len, const std::string & msg);
 
@@ -145,7 +142,6 @@ class CodeGenerator
     unsigned m_currentStatementLine;
 
     unsigned m_globalTempIndex = 1;
-    bool m_forUsed = false;
 
     const AST::Program * m_program;
 

@@ -452,14 +452,14 @@ int C_CodeGenerator::Print(const AST::Int32Constant & expr)
 int C_CodeGenerator::Print(const AST::SingleConstant & expr)
 {
   m_funcsUsed.insert("print_single");
-  TopOutput(true) << "print_single(" << std::setprecision(7) << expr.GetValue() << ");\n";
+  TopOutput(true) << "print_single(" << std::setprecision(13) << std::noshowpoint << expr.GetValue() << ");\n";
   return 0;
 }
 
 int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
 {
   m_funcsUsed.insert("print_double");
-  TopOutput(true) << "print_double(" << /* std::setprecision(10) << */ expr.GetValue() << ");\n";
+  TopOutput(true) << "print_double(" << std::setprecision(13) << std::noshowpoint << expr.GetValue() << ");\n";
   return 0;
 }
 
@@ -1132,6 +1132,9 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
 
   // start new block
   StartBlock(forRef);
+
+  m_funcsUsed.insert("for");
+
   return 0;
 }
 

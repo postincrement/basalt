@@ -21,6 +21,9 @@ void C_CodeGenerator::OutputRuntimeDecls(std::ostream & strm)
   if (m_funcsUsed.count("print_single")) 
    strm << "int print_single(float);\n";
 
+  if (m_funcsUsed.count("print_double")) 
+   strm << "int print_double(double);\n";
+
 #if 0
   if (m_funcsUsed.count("print_int32")) 
     strm << "int print_int32(int32_t);\n";
@@ -91,6 +94,17 @@ int print_single(float value)\n\
 }\n\n\
 ";
 
+static const char * g_printDouble = "\
+int print_double(double value)\n\
+{\n\
+  char buffer[40];\n\
+  int len = sprintf(buffer, \"% .13lg \", value);\n\
+  write(STDOUT_FILENO, buffer, len);\n\
+  g_outputColumn += len;\n\
+  return 0;\n\
+}\n\
+";
+
 static const char * g_printInt16 = "\
 int print_int16(int16_t value)\n\
 {\n\
@@ -113,6 +127,7 @@ void C_CodeGenerator::OutputRuntime(std::ostream & strm)
       || m_funcsUsed.count("print_string") 
       || m_funcsUsed.count("print_int16") 
       || m_funcsUsed.count("print_single") 
+      || m_funcsUsed.count("print_double") 
      ) {
     strm << "static int g_tabLen       = 14;\n"
         << "static int g_outputColumn = 0;\n\n"
@@ -138,6 +153,9 @@ void C_CodeGenerator::OutputRuntime(std::ostream & strm)
 
   if (m_funcsUsed.count("print_single")) 
     strm << g_printSingle;
+
+  if (m_funcsUsed.count("print_double")) 
+    strm << g_printDouble;
 }
 
 #if 0
@@ -181,7 +199,7 @@ int basalt_print_single(float value)
 int basalt_print_double(double value)
 {
   char buffer[20];
-  int len = sprintf(buffer, "% lg ", value);
+  int len = sprintf(buffer, "% lf ", value);
   write(STDOUT_FILENO, buffer, len);
   g_outputColumn += len;
   return 0;

@@ -580,7 +580,6 @@ ForStatement::ForStatement(unsigned lineNumber,
 
 int ForStatement::Generate(CodeGenerator & gen) const
 {
-  gen.SetFORUsed();
   return gen.Generate(*this);
 }
 

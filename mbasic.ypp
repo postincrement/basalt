@@ -1123,6 +1123,11 @@ numeric_const_expr: INTEGER
               }
             | DEF_INTEGER  
               {
+                // count significant digits
+                int s = 0;
+                for (auto & c : *$1)
+                  if (isdigit(c))
+                    s++;
                 int32_t v = strtoul($1->c_str(), nullptr, 10);
                 if (
                     (g_languageProfile->GetDefaultNumericType() == VarType::eInt16) && 
@@ -1138,8 +1143,11 @@ numeric_const_expr: INTEGER
                   ) {
                   $$ = CreateConstant(VarType::eInt32, *$1);
                 } 
-                else {
+                else if (s <= 7) {
                   $$ = CreateConstant(VarType::eSingle, *$1);
+                }
+                else {
+                  $$ = CreateConstant(VarType::eDouble, *$1);
                 }
                 delete $1;
               }
@@ -1150,7 +1158,6 @@ numeric_const_expr: INTEGER
               }
             | SINGLE
               {
-                cout << "single constant = " << $1->m_value << endl;
                 $$ = new AST::SingleConstant($1->m_value);
                 delete $1;
               }
