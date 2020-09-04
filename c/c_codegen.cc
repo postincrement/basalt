@@ -1100,8 +1100,11 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   bool toIsConst   = expr.m_toVal->IsConstant();
   bool stepIsConst = stepValue.empty() || expr.m_stepVal->IsConstant();
 
-  std::string forName;
+  // set initial value of index variable
+  TopOutput() << cvar.m_cname << " = " << fromValue.c_str() << ";\n";
 
+  // set up queue
+  std::string forName;
   if (AtTop()) {
     forName = "g_forQueue";
     TopOutput() << "g_forQueue = &g_forQueueEntry;\n";
@@ -1112,8 +1115,8 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
     TopOutput() << forName << "->next = g_forQueue;\n";
   }
 
-  if (fromIsConst && toIsConst && stepIsConst) {
-    forBlock.m_isConst = true;
+  forBlock.m_isConst = fromIsConst && toIsConst && stepIsConst;
+  if (forBlock.m_isConst) {
     int dir;
     switch (forType) {
       case VarType::eInt16:
@@ -1143,26 +1146,20 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
       stepValue = (dir < 0) ? "-1" : "1";
     }
   }
-  else {
-    forBlock.m_isConst = false;
-    std::string stepVar  = GetGlobalTempName();
-    TopOutput() << forBlock.m_ctype << " " << stepVar << " = ";
-    if (stepValue.empty()) {
-      TopOutput() << "(" << fromValue << " < " << toValue << ") ? 1 : -1";
-    }
-    else {
-      TopOutput() << Trim(stepValue);
-    }
-    TopOutput() << ";\n";
-    stepValue = stepVar;
-  }
 
-  TopOutput() << cvar.m_cname << " = " << fromValue.c_str() << ";\n";
-
+  // set TO value
   STRM_STR_DECL(forBase, forName << "->m_val.m_" << forBlock.m_ctype);
-
   TopOutput() << forBase << "[0] = " << toValue.c_str() << ";\n";
-  TopOutput() << forBase << "[1] = " << stepValue.c_str() << ";\n";
+
+  // set STEP value
+  TopOutput() << forBase << "[1] = ";
+  if (stepValue.empty()) {
+    TopOutput(false) << "(" << fromValue << " < " << toValue << ") ? 1 : -1";
+  }
+  else {
+    TopOutput(false) << Trim(stepValue);
+  }
+  TopOutput(false) << ";\n";
   
   // jump to start of FOR block
   TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forRef << ";\n";

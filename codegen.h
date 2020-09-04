@@ -130,7 +130,7 @@ class CodeGenerator
     int ResolveGotoDestination(const std::string & ref);
 
     bool AtTop() const
-    { return m_stack.size() == 1; }
+    { std::cerr << "AtTop() " << m_stack.size() << std::endl; return m_stack.size() == 1; }
 
   protected:
     void CompilerErrorInternal(ErrorCode code, unsigned len, const std::string & msg);

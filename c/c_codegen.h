@@ -63,11 +63,6 @@ class C_CodeGenerator : public CodeGenerator
       std::string m_ctype;
       bool m_isConst;
       std::string m_ref;
-
-      //bool m_inc;
-      //std::string m_to;
-      //std::string m_step;
-      //VarType m_type;
     };
 
     std::deque<ForBlock> m_forQueue;
