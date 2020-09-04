@@ -238,17 +238,40 @@ void C_CodeGenerator::OutputBlocks()
       << "#define END()  nextBlock.m_func = 0\n\n"
       ;
 
-  if (m_blockQueueUsed) {
-    *m_outputStream << "/* declare structure for GOSUB */\n"
-        << "struct BlockQueue {\n"
-        << "  struct BlockQueue * m_next;\n"
-        << "  struct BlockFunction m_return;\n"
-        << "};\n"
+  if (m_funcsUsed.count("for")) {
+    *m_outputStream 
+        << "/* declare structure for FOR */\n"
+        << "struct ForInfo {\n"
+        << "  struct BlockFunction (* m_func)();\n"
+        << "  struct ForInfo * g_next;\n"
+        << "  union {\n"
+        << "    int16_t m_int16[3];\n"
+        << "    float   m_float[3];\n"
+        << "    double  m_double[3];\n"
+        << "  } m_val;\n"
+        << "};\n\n"
+        << "/* declare queue for FOR */\n"
+        << "struct ForInfo g_forQueueEntry;\n"
+        << "struct ForInfo * g_forQueue = NULL;\n"
         << "\n";
   }
 
   if (m_funcsUsed.count("gosub")) {
-    *m_outputStream << "/* declare queue for GOSUB */\n"
+    *m_outputStream 
+        << "/* declare structure for GOSUB */\n"
+        << "struct BlockQueue {\n"
+        << "  struct BlockQueue * m_next;\n"
+        << "  struct BlockFunction m_return;\n"
+        ;
+    if (m_funcsUsed.count("for")) {
+      *m_outputStream 
+          << "  struct ForInfo * m_forQueue;\n"
+          ;
+    }     
+    *m_outputStream 
+        << "};\n"
+        << "\n"
+        << "/* declare queue for GOSUB */\n"
         << "struct BlockQueue * g_blockQueue;\n"
         << "\n"
         << "/* GOSUB function */\n"
@@ -257,6 +280,13 @@ void C_CodeGenerator::OutputBlocks()
         << "  struct BlockQueue * block = (struct BlockQueue *)malloc(sizeof(struct BlockQueue));\n"
         << "  block->m_next = g_blockQueue;\n"
         << "  block->m_return = ret;\n"
+        ;
+    if (m_funcsUsed.count("for")) {
+      *m_outputStream 
+          << "  block->m_forQueue = NULL;\n"
+          ;
+    }
+    *m_outputStream 
         << "  g_blockQueue = block;\n"
         << "}\n"
         << "\n"
@@ -306,6 +336,7 @@ void C_CodeGenerator::OutputBlocks()
         << "\n"
         ;
 }
+
 *m_outputStream
     << "int main(int argc, char * argv[])\n"
     << "{\n"
@@ -319,7 +350,6 @@ void C_CodeGenerator::OutputBlocks()
     << "}\n"
     ;
 }
-
 
 void C_CodeGenerator::StartBlock(const std::string & ref, bool autoEnd)
 {
@@ -488,7 +518,6 @@ int C_CodeGenerator::Generate(const AST::GosubStatement & expr)
   returnRef = m_nextBlockRef;
 
   // create a new entry for the block queue
-  m_blockQueueUsed = true;
   TopOutput() << "struct BlockFunction target;\n";
   TopOutput() << "target.m_func = &" BLOCKFN_PREFIX << returnRef << ";\n";
   TopOutput() << "Gosub(target);\n";
@@ -1042,14 +1071,16 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   // get index variable
   CVarDef cvar;
   if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
-      return -1;
+    return -1;
+
+  VarType forType = cvar.m_type;
 
   // create FOR queue entry
   ForBlock forBlock;
-  forBlock.m_ref   = forRef;
-  forBlock.m_type  = expr.m_var->GetType();
-  forBlock.m_index = cvar.m_cname;
   forBlock.m_isConst = false;
+  forBlock.m_ctype   = g_varTypeInfo[(int)forType].m_ctype;
+  forBlock.m_ref     = forRef;
+  forBlock.m_index   = cvar.m_cname;
 
   // get initial value
   std::string fromValue;
@@ -1069,9 +1100,22 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   bool toIsConst   = expr.m_toVal->IsConstant();
   bool stepIsConst = stepValue.empty() || expr.m_stepVal->IsConstant();
 
+  std::string forName;
+
+  if (AtTop()) {
+    forName = "g_forQueue";
+    TopOutput() << "g_forQueue = &g_forQueueEntry;\n";
+  }
+  else {
+    forName = GetGlobalTempName();
+    TopOutput() << "struct ForInfo * " << forName << " = malloc(sizeof(struct ForInfo));\n";
+    TopOutput() << forName << "->next = g_forQueue;\n";
+  }
+
   if (fromIsConst && toIsConst && stepIsConst) {
+    forBlock.m_isConst = true;
     int dir;
-    switch (forBlock.m_type) {
+    switch (forType) {
       case VarType::eInt16:
       case VarType::eInt32:
         {
@@ -1098,32 +1142,28 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
     if (stepValue.empty()) {
       stepValue = (dir < 0) ? "-1" : "1";
     }
-    forBlock.m_step    = stepValue;
-    forBlock.m_to      = toValue;
-    forBlock.m_isConst = true;
   }
   else {
-    TopOutput() << "if (" << toValue << " <= " << fromValue << ")";
-    Push();
+    forBlock.m_isConst = false;
+    std::string stepVar  = GetGlobalTempName();
+    TopOutput() << forBlock.m_ctype << " " << stepVar << " = ";
     if (stepValue.empty()) {
-      stepValue = "1";
+      TopOutput() << "(" << fromValue << " < " << toValue << ") ? 1 : -1";
     }
     else {
+      TopOutput() << Trim(stepValue);
     }
-    Pop();
-    TopOutput() << "else";
-    Push();
-    if (stepValue.empty()) {
-      stepValue = "-1";
-    }
-    else {
-    }
-    Pop();
+    TopOutput() << ";\n";
+    stepValue = stepVar;
   }
 
-  // assign initial value of index variable
-  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
+  TopOutput() << cvar.m_cname << " = " << fromValue.c_str() << ";\n";
 
+  STRM_STR_DECL(forBase, forName << "->m_val.m_" << forBlock.m_ctype);
+
+  TopOutput() << forBase << "[0] = " << toValue.c_str() << ";\n";
+  TopOutput() << forBase << "[1] = " << stepValue.c_str() << ";\n";
+  
   // jump to start of FOR block
   TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forRef << ";\n";
 
@@ -1150,22 +1190,16 @@ int C_CodeGenerator::Generate(const AST::NextStatement & expr)
   ForBlock forBlock = m_forQueue.back();
   m_forQueue.pop_back();
 
+  std::string forName = "g_forQueue";
+  STRM_STR_DECL(forBase, forName << "->m_val.m_" << forBlock.m_ctype);
+
+  TopOutput() << forBlock.m_index << " += " << forBase << "[1];\n";
+
   // output simple code when using constants
-  if (forBlock.m_isConst) {
-    TopOutput() << forBlock.m_index << " += " << forBlock.m_step << ";\n";
-    TopOutput() << "if (" << forBlock.m_index << " <= " << forBlock.m_to << ")\n";
-    Push();
-    TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forBlock.m_ref << ";\n";
-    TopOutput() << "return nextBlock;\n";
-    Pop();
-  }
-  else {
-    TopOutput() << forBlock.m_index << " += " << forBlock.m_step << ";\n";
-    TopOutput() << "if (" << forBlock.m_index << " <= " << forBlock.m_to << ")\n";
-    Push();
-    TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forBlock.m_ref << ";\n";
-    TopOutput() << "return nextBlock;\n";
-    Pop();
-  }
+  TopOutput() << "if (" << forBlock.m_index << " <= " << forBase << "[0])\n";
+  Push();
+  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forBlock.m_ref << ";\n";
+  TopOutput() << "return nextBlock;\n";
+  Pop();
   return 0;
 }

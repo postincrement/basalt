@@ -59,17 +59,18 @@ class C_CodeGenerator : public CodeGenerator
     int m_currentBlock = -1;
 
     struct ForBlock {
-      std::string m_ref;
-      VarType m_type;
-      bool m_isConst;
       std::string m_index;  // name of index variable
-      std::string m_to;
-      std::string m_step;
-      bool m_inc;
+      std::string m_ctype;
+      bool m_isConst;
+      std::string m_ref;
+
+      //bool m_inc;
+      //std::string m_to;
+      //std::string m_step;
+      //VarType m_type;
     };
 
     std::deque<ForBlock> m_forQueue;
-    bool m_blockQueueUsed = false;
     bool m_isLastStatementOnLine = false;
     bool m_isLastStatement = false;
     std::string m_nextBlockRef;

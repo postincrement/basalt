@@ -1,4 +1,4 @@
-%name-prefix "MBASIC_" 
+%define api.prefix {MBASIC_}
 %define parse.error verbose
 
 %{

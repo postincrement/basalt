@@ -128,12 +128,6 @@ class Expr : public Node
     virtual bool IsPrintSemiColon() const
     { return false; }
 
-    virtual bool IsFor() const
-    { return false; }
-
-    virtual bool IsNext() const
-    { return false; }
-
   protected:
     VarType m_type;
 };
@@ -876,9 +870,6 @@ class ForStatement : public Statement
 
     virtual int Generate(CodeGenerator & gen) const;
 
-    virtual bool IsFor() const
-    { return true; }
-
     VarType m_type;
     const NumericVarRef * m_var;
     const NumericExpr * m_fromVal;
@@ -892,9 +883,6 @@ class NextStatement : public Statement
     NextStatement(unsigned lineNumber, const NumericVarRef * var);
 
     virtual int Generate(CodeGenerator & gen) const;
-
-    virtual bool IsNext() const
-    { return true; }
 
     const NumericVarRef * m_var;
 };
