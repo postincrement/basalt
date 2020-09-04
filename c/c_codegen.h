@@ -30,6 +30,9 @@ class C_CodeGenerator : public CodeGenerator
       bool m_ended = false;
     };
 
+    void OutputRuntimeDecls(std::ostream & strm);
+    void OutputRuntime(std::ostream & strm);
+
   protected:
     void StartBlock(const std::string & ref, bool autoEnd = true);
     void EndBlock();
@@ -68,6 +71,8 @@ class C_CodeGenerator : public CodeGenerator
     bool m_isLastStatementOnLine = false;
     bool m_isLastStatement = false;
     std::string m_nextBlockRef;
+
+    std::set<std::string> m_funcsUsed;
 
   public:   
     virtual bool Body() override;
