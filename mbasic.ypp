@@ -299,7 +299,8 @@ opt_statement_list : /* empty */
 statement_list : statement2
                   {
                     $$ = new AST::StatementList();
-                    $1->m_text = g_application.GetStatement();
+                    if (($1 != nullptr) && $1->m_text.empty())
+                      $1->m_text = g_application.GetStatement();
                     $$->Append($1);
                   }   
                | statement_list ':'
@@ -549,9 +550,16 @@ GOTO_statement: GOTO_TOKEN line_number
 
  *********************************************************/ 
 
-IF_statement: IF_TOKEN if_expression THEN_TOKEN conditional_clause opt_ELSE_statement
+IF_statement: IF_TOKEN if_expression THEN_TOKEN
                 {
-                  $$ = new AST::IfStatement(g_lexLineNumber, $2, $4, $5);
+                  $<sval>$ = new std::string(g_application.GetStatement());
+                  g_application.SetStatementStart();
+                }
+              conditional_clause opt_ELSE_statement
+                {
+                  $$ = new AST::IfStatement(g_lexLineNumber, $2, $5, $6);
+                  $$->m_text = *$<sval>4;
+                  delete $<sval>4;
                 }
               ;
 
@@ -575,10 +583,14 @@ opt_ELSE_statement:   /* empty */
                         }
                       ;              
 
-ELSE_statement: ELSE_TOKEN conditional_clause
+ELSE_statement: ELSE_TOKEN
                   {
-                    $$ = $2->m_statements;
-                    delete $2;
+                    g_application.SetStatementStart();
+                  }
+                conditional_clause
+                  {
+                    $$ = $3->m_statements;
+                    delete $3;
                   }
                 ;
 

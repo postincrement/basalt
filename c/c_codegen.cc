@@ -377,26 +377,26 @@ int C_CodeGenerator::Generate(const AST::Rem & expr)
 
 int C_CodeGenerator::Generate(const AST::Print & expr)
 {
-    for (auto & r : expr.m_list) {
-        r->Print(*this);
-    }
+  for (auto & r : expr.m_list) {
+    r->Print(*this);
+  }
 
-    if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon())
-        TopOutput() << "basalt_print_newline();\n";
+  if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon())
+    TopOutput() << "basalt_print_newline();\n";
 
-    return 0;
+  return 0;
 }
 
 int C_CodeGenerator::Print(const AST::NumericVarRef & expr)
 {
-    if (m_globalVars.count(expr.GetName()) == 0) {
-        CompilerError(Error_UndeclaredVariable, 0, "unknown variable \"" << expr.GetName() << "\"");
-        return -1;
-    }
-    CVarDef & cvar = m_globalVars[expr.GetName()];
-    std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
-    TopOutput(true) << funcName << "(" << cvar.m_cname << ");\n";
-    return 0;
+  if (m_globalVars.count(expr.GetName()) == 0) {
+    CompilerError(Error_UndeclaredVariable, 0, "unknown variable \"" << expr.GetName() << "\"");
+    return -1;
+  }
+  CVarDef & cvar = m_globalVars[expr.GetName()];
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
+  TopOutput(true) << funcName << "(" << cvar.m_cname << ");\n";
+  return 0;
 }
 
 
@@ -487,7 +487,7 @@ int C_CodeGenerator::Generate(const AST::GosubStatement & expr)
 
 int C_CodeGenerator::Generate(const AST::ReturnStatement & expr)
 {
-  TopOutput() << "nextBlock = Return();\n";
+  TopOutput() << "return Return();\n";
 
   return 0;
 }
@@ -500,158 +500,159 @@ void C_CodeGenerator::CatStrings(const std::string & tempName,
     const std::string & pre,
     bool indent)
 {
-    TopOutput(indent) << pre << tempName << " = (char *)malloc(strlen(" << lhs << ") + strlen(" << rhs << ") + 1);\n";
-    TopOutput(indent) << "strcpy(" << tempName << ", " << lhs << ");\n";
-    TopOutput(indent) << "strcat(" << tempName << ", " << rhs << ");\n";
+  TopOutput(indent) << pre << tempName << " = (char *)malloc(strlen(" << lhs << ") + strlen(" << rhs << ") + 1);\n";
+  TopOutput(indent) << "strcpy(" << tempName << ", " << lhs << ");\n";
+  TopOutput(indent) << "strcat(" << tempName << ", " << rhs << ");\n";
 }
 
 int C_CodeGenerator::Generate(const AST::StringAssign & expr)
 {
-    CVarDef cvar;
-    if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
-        return -1;
+  CVarDef cvar;
+  if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
+    return -1;
 
-    if (expr.m_rhs == nullptr) {
-        InternalError("expression missing rhs");
-        return -1;
-    }
+  if (expr.m_rhs == nullptr) {
+    InternalError("expression missing rhs");
+    return -1;
+  }
 
-    std::string rhs;
+  std::string rhs;
 
-    expr.m_rhs->Evaluate(*this, rhs);
+  expr.m_rhs->Evaluate(*this, rhs);
 
-    if (expr.m_lhs->IsVarRef() &&
-        expr.m_rhs->IsVarRef() &&
-        (cvar.m_cname == rhs)) {
-        TopOutput() << "/* optimised out */\n";
+  if (expr.m_lhs->IsVarRef() &&
+      expr.m_rhs->IsVarRef() &&
+      (cvar.m_cname == rhs)) {
+    TopOutput() << "/* optimised out */\n";
+  }
+  else {
+    Push();
+
+    TopOutput() << "if (" << cvar.m_cname << ")\n";
+    TopOutput() << "  free(" << cvar.m_cname << ");\n";
+
+    if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
+      TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\");\n";
     }
     else {
-        Push();
-
-        TopOutput() << "if (" << cvar.m_cname << ")\n";
-        TopOutput() << "  free(" << cvar.m_cname << ");\n";
-
-        if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
-            TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\");\n";
-        }
-        else {
-            TopOutput() << "if (!" << rhs << ")\n";
-            TopOutput() << "  " << cvar.m_cname << " = 0;\n";
-            TopOutput() << "else\n";
-            TopOutput() << "  " << cvar.m_cname << " = " << rhs << ";\n";
-        }
-
-        Pop();
+      TopOutput() << "if (!" << rhs << ")\n";
+      TopOutput() << "  " << cvar.m_cname << " = 0;\n";
+      TopOutput() << "else\n";
+      TopOutput() << "  " << cvar.m_cname << " = " << rhs << ";\n";
     }
 
-    return 0;
+    Pop();
+  }
+
+  return 0;
 }
 
 int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & result)
 {
-    std::string lhs, rhs;
-    expr.m_lhs->Evaluate(*this, lhs);
-    expr.m_rhs->Evaluate(*this, rhs);
+  std::string lhs, rhs;
+  expr.m_lhs->Evaluate(*this, lhs);
+  expr.m_rhs->Evaluate(*this, rhs);
 
-    // if either operand is a variable, deal with possibility
-    // that one (or both) may be null
-    int code = 0;
-    if (expr.m_lhs->IsConstant()) {
-        code += 0x10;
-        lhs = QuoteLiteral(lhs);
-    }
-    else if (expr.m_lhs->IsVarRef()) {
-        code += 0x20;
-    }
-    else {
-        code += 0x30;
-    }
-    if (expr.m_rhs->IsConstant()) {
-        code += 0x01;
-        rhs = QuoteLiteral(rhs);
-    }
-    else if (expr.m_rhs->IsVarRef()) {
-        code += 0x02;
-    }
-    else {
-        code += 0x03;
-    }
+  // if either operand is a variable, deal with possibility
+  // that one (or both) may be null
+  int code = 0;
+  if (expr.m_lhs->IsConstant()) {
+    code += 0x10;
+    lhs = QuoteLiteral(lhs);
+  }
+  else if (expr.m_lhs->IsVarRef()) {
+    code += 0x20;
+  }
+  else {
+    code += 0x30;
+  }
+  if (expr.m_rhs->IsConstant()) {
+    code += 0x01;
+    rhs = QuoteLiteral(rhs);
+  }
+  else if (expr.m_rhs->IsVarRef()) {
+    code += 0x02;
+  }
+  else {
+    code += 0x03;
+  }
 
-    stringstream strm;
-    std::string temp1 = Top().GetTempName();
-    result = temp1;
+  stringstream strm;
+  std::string temp1 = Top().GetTempName();
+  result = temp1;
 
-    switch (code) {
-    case 0x11:  // both constants
-        CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-        break;
-    case 0x12:  // left constant, right var
-        TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-        TopOutput() << "if (!" << rhs << ")\n";
-        TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
-        TopOutput() << "else\n";
-        Push();
-        CatStrings(temp1, lhs, rhs, "");
-        Pop();
-        break;
-    case 0x13:  // left constant, right expr
-        CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-        TopOutput() << "free(" << rhs << ");\n";
-        break;
+  switch (code) {
+  case 0x11:  // both constants
+    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
+    break;
+  case 0x12:  // left constant, right var
+    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
+    TopOutput() << "if (!" << rhs << ")\n";
+    TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
+    TopOutput() << "else\n";
+    Push();
+    CatStrings(temp1, lhs, rhs, "");
+    Pop();
+    break;
+  case 0x13:  // left constant, right expr
+    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
+    TopOutput() << "free(" << rhs << ");\n";
+    break;
 
-    case 0x21:  // left var, right constant
-        TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-        TopOutput() << "if (!" << lhs << ")\n";
-        TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
-        TopOutput() << "else\n";
-        Push();
-        CatStrings(temp1, lhs, rhs, "");
-        Pop();
-        break;
-    case 0x22:  // left var, right var
-        TopOutput() << STRING_CTYPE " " << temp1 << " = 0;\n";
-        TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0)\n";
-        Push();
-        TopOutput() << "if (!" << lhs << ")\n";
-        TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
-        TopOutput() << "else if (!" << rhs << ")";
-        TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
-        TopOutput() << "else {\n";
-        Push();
-        CatStrings(temp1, lhs, rhs, "");
-        Pop();
-        Pop();
-    case 0x23:  // left var, right expr
-        TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-        TopOutput() << "if (!" << lhs << ")\n";
-        TopOutput() << "  " << temp1 << " = " << rhs << ";\n";
-        Push();
-        CatStrings(temp1, lhs, rhs, "");
-        TopOutput() << "free(" << rhs << ");\n";
-        Pop();
-        break;
+  case 0x21:  // left var, right constant
+    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
+    TopOutput() << "if (!" << lhs << ")\n";
+    TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
+    TopOutput() << "else\n";
+    Push();
+    CatStrings(temp1, lhs, rhs, "");
+    Pop();
+    break;
+  case 0x22:  // left var, right var
+    TopOutput() << STRING_CTYPE " " << temp1 << " = 0;\n";
+    TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0)\n";
+    Push();
+    TopOutput() << "if (!" << lhs << ")\n";
+    TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
+    TopOutput() << "else if (!" << rhs << ")";
+    TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
+    TopOutput() << "else {\n";
+    Push();
+    CatStrings(temp1, lhs, rhs, "");
+    Pop();
+    Pop();
+    break;
+  case 0x23:  // left var, right expr
+    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
+    TopOutput() << "if (!" << lhs << ")\n";
+    TopOutput() << "  " << temp1 << " = " << rhs << ";\n";
+    Push();
+    CatStrings(temp1, lhs, rhs, "");
+    TopOutput() << "free(" << rhs << ");\n";
+    Pop();
+    break;
 
-    case 0x31:  // left expression, right constant
-        CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-        TopOutput() << "free(" << lhs << ");\n";
-        break;
-    case 0x32:  // left expression, right var
-        TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-        TopOutput() << "if (!" << rhs << ")\n";
-        TopOutput() << "  " << temp1 << " = " << lhs << ";\n";
-        Push();
-        CatStrings(temp1, lhs, rhs, "");
-        TopOutput() << "free(" << lhs << ");\n";
-        Pop();
-        break;
-    case 0x33:  // left expression, right expr
-        CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-        TopOutput() << "free(" << rhs << ");\n";
-        TopOutput() << "free(" << lhs << ");\n";
-        break;
-    }
+  case 0x31:  // left expression, right constant
+    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
+    TopOutput() << "free(" << lhs << ");\n";
+    break;
+  case 0x32:  // left expression, right var
+    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
+    TopOutput() << "if (!" << rhs << ")\n";
+    TopOutput() << "  " << temp1 << " = " << lhs << ";\n";
+    Push();
+    CatStrings(temp1, lhs, rhs, "");
+    TopOutput() << "free(" << lhs << ");\n";
+    Pop();
+    break;
+  case 0x33:  // left expression, right expr
+    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
+    TopOutput() << "free(" << rhs << ");\n";
+    TopOutput() << "free(" << lhs << ");\n";
+    break;
+  }
 
-    return 0;
+  return 0;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -1005,14 +1006,14 @@ int C_CodeGenerator::Generate(const AST::IfStatement & expr)
         if (expr.m_falseStatements) {
             TopOutput(true) << "else\n";
         }
-        Push();
     }
     if (expr.m_falseStatements) {
+        Push();
         expr.m_falseStatements->Generate(*this);
-    }
-    if (gotoLine.empty()) {
         Pop();
     }
+//    if (gotoLine.empty()) {
+//    }
     return 0;
 }
 
