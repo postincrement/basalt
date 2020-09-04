@@ -30,8 +30,10 @@ class C_CodeGenerator : public CodeGenerator
       bool m_ended = false;
     };
 
+    void Generate();
     void OutputRuntimeDecls(std::ostream & strm);
     void OutputRuntime(std::ostream & strm);
+    void OutputBlocks();
 
   protected:
     void StartBlock(const std::string & ref, bool autoEnd = true);

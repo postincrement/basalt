@@ -4,46 +4,50 @@
 
 void C_CodeGenerator::OutputRuntimeDecls(std::ostream & strm)
 {
+  strm << "\nint basalt_init();\n";
+      
   if (m_funcsUsed.count("print_tab")) 
-    strm << "extern int print_tab();\n";
+    strm << "int print_tab();\n";
 
   if (m_funcsUsed.count("print_newline")) 
-    strm << "extern int print_newline();\n";
+    strm << "int print_newline();\n";
 
   if (m_funcsUsed.count("print_string")) 
-    strm << "extern int print_string(const char *);\n";
+    strm << "int print_string(const char *);\n";
 
   if (m_funcsUsed.count("print_int16")) 
-   strm << "extern int print_int16(int16_t);\n";
-
-  if (m_funcsUsed.count("print_int32")) 
-    strm << "extern int print_int32(int32_t);\n";
+   strm << "int print_int16(int16_t);\n";
 
   if (m_funcsUsed.count("print_single")) 
-   strm << "extern int print_single(float);\n";
+   strm << "int print_single(float);\n";
+
+#if 0
+  if (m_funcsUsed.count("print_int32")) 
+    strm << "int print_int32(int32_t);\n";
 
   if (m_funcsUsed.count("print_double")) 
-   strm << "extern int print_double(double);\n";
+   strm << "int print_double(double);\n";
 
   if (m_funcsUsed.count("strlen")) 
-   strm << "extern int strlen(const char *);\n";
+   strm << "int strlen(const char *);\n";
 
   if (m_funcsUsed.count("strdup")) 
-   strm << "extern char * strdup(const char *);\n";
+   strm << "char * strdup(const char *);\n";
 
   if (m_funcsUsed.count("str_single")) 
-    strm << "extern char * str_single(float);\n";
+    strm << "char * str_single(float);\n";
 
   if (m_funcsUsed.count("str_int16")) 
-    strm << "extern char * str_int16(int16_t);\n";
+    strm << "char * str_int16(int16_t);\n";
 
   if (m_funcsUsed.count("str_int32")) 
-    strm << "extern char * str_int32(int32_t);\n";
+    strm << "char * str_int32(int32_t);\n";
+#endif
 
   strm << "\n";  
 }
 
-static const char * g_printTab = "\n\
+static const char * g_printTab = "\
 int print_tab()\n\
 {\n\
   int spaces = g_tabLen - (g_outputColumn % g_tabLen);\n\
@@ -52,19 +56,19 @@ int print_tab()\n\
     write(STDOUT_FILENO, \" \", 1);\n\
   g_outputColumn += spaces;\n\
   return 0;\n\
-}\n\
+}\n\n\
 ";
 
-static const char * g_printNewLine = "\n\
+static const char * g_printNewLine = "\
 int print_newline()\n\
 {\n\
   write(STDOUT_FILENO, \"\\r\\n\", 2);\n\
   g_outputColumn = 0;\n\
   return 0;\n\
-}\n\
+}\n\n\
 ";
 
-static const char * g_printString = "\n\
+static const char * g_printString = "\
 int print_string(const char * str)\n\
 {\n\
   if (str == NULL)\n\
@@ -73,10 +77,10 @@ int print_string(const char * str)\n\
   write(STDOUT_FILENO, str, len);\n\
   g_outputColumn += len;\n\
   return 0;\n\
-}\n\
+}\n\n\
 ";
 
-static const char * g_printSingle = "\n\
+static const char * g_printSingle = "\
 int print_single(float value)\n\
 {\n\
   char buffer[20];\n\
@@ -84,10 +88,10 @@ int print_single(float value)\n\
   write(STDOUT_FILENO, buffer, len);\n\
   g_outputColumn += len;\n\
   return 0;\n\
-}\n\
+}\n\n\
 ";
 
-static const char * g_printInt16 = "\n\
+static const char * g_printInt16 = "\
 int print_int16(int16_t value)\n\
 {\n\
   char buffer[20];\n\
@@ -95,16 +99,14 @@ int print_int16(int16_t value)\n\
   write(STDOUT_FILENO, buffer, len);\n\
   g_outputColumn += len;\n\
   return 0;\n\
-}\n\
+}\n\n\
 ";
 
 void C_CodeGenerator::OutputRuntime(std::ostream & strm)
 {
-  strm << "\n"
-       << "int basalt_init()\n"
-       << "{}\n"
-       << "\n"
+  strm << "\n/* run time functions */\n\n"
        ;
+
   if (
       m_funcsUsed.count("print_tab") 
       || m_funcsUsed.count("print_newline") 
@@ -116,6 +118,11 @@ void C_CodeGenerator::OutputRuntime(std::ostream & strm)
         << "static int g_outputColumn = 0;\n\n"
         ;
   } 
+
+  strm << "int basalt_init()\n"
+       << "{}\n"
+       << "\n"
+       ;
 
   if (m_funcsUsed.count("print_tab")) 
     strm << g_printTab;

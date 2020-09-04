@@ -17,7 +17,7 @@ SRCS_CC = basalt.cc \
           mbasic.lex.cc mbasic.tab.cc \
 	        ast.cc \
 	        codegen.cc common.cc \
-	        c/c_codegen.cc \
+	        c/c_codegen.cc c/c_runtime.cc \
 	        z80/z80_codegen.cc 
 
 ############################################################
@@ -55,7 +55,7 @@ DEPFILES  := $(addsuffix .d,$(addprefix $(DEPDIR)/,$(FILENAMES)))
 vpath %.c  $(sort $(dir $(SRCS_C)))
 vpath %.cc $(sort $(dir $(SRCS_CC)))
 
-all: $(APP) libbasaltrt.a
+all: $(APP)
 
 $(APP): $(OBJS)
 	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
@@ -70,11 +70,8 @@ $(DEPDIR):
 
 ############################################################
 
-libbasaltrt.a: basaltrt.o
-	ar rcs libbasaltrt.a basaltrt.o
-
 clean:
-	rm -f basalt $(OBJS) libbasaltrt.a mbasic.lex.cpp mbasic.tab.cpp
+	rm -f basalt $(OBJS) mbasic.lex.cpp mbasic.tab.cpp
 
 mbasic.lex.o: mbasic.lex.cpp mbasic.tab.hpp
 	g++ -c $(CXXFLAGS) mbasic.lex.cpp -Wno-unused-function -Wno-sign-compare -o $@

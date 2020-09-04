@@ -97,84 +97,7 @@ bool C_CodeGenerator::Body()
     m_cnames.insert(cvar.m_cname);
   }
 
-  // generate code for the list of source lines
-  bool startBlock = false;
-  std::string startBlockRef;
-  {
-    // loop through the source lines
-    for (size_t i = 0; i < m_program->m_list.size(); ++i) {
-
-      // ignore lines with no data, just in case 
-      if (!m_program->m_list[i]) {
-        continue;
-      }
-
-      // get reference to line
-      const AST::SourceLine & r = *m_program->m_list[i];
-
-      // always start a block on a line number that 
-      // is the destination of a GOTO or GOSUB
-      if (
-          AST::g_jumpDestinationInfo.count(r.GetBasicLineNumber()) ||
-          (m_codeBlocks.size() == 0)
-          ) {
-        StartBlock(r.GetBasicLineNumber());
-        startBlock = false;
-      }
-
-      // insert text of BASIC line into source
-//      TopOutput(false) << "\n  /* " << r.GetLine() << " */\n";
-
-      // if no statements in this line, nothing to do
-      if (!r.m_statements)
-        continue;
-
-      // if no statements, nothing to do
-      const AST::StatementList & s = *r.m_statements;
-      if (s.m_list.size() == 0)
-        continue;
-
-      // set flag for last statement in program
-      const AST::SourceLine * nextLine;
-      if (i >= m_program->m_list.size()-1)
-        nextLine = nullptr;
-      else  
-        nextLine = m_program->m_list[i+1].get();
-
-      // loop through the statements
-      for (int j = 0; j < s.m_list.size(); ++j) {
-        auto const & t = s.m_list[j]; 
-
-        if (startBlock) {
-          StartBlock(startBlockRef);
-          m_nextBlockRef = "";
-          startBlock = false;
-        }
-
-        // set flags needed by code generation
-        m_isLastStatementOnLine = (j == s.m_list.size()-1);
-        if (!m_isLastStatementOnLine)
-          STRM_STR(m_nextBlockRef, r.GetBasicLineNumber() << "_" << j+1);
-        else if (nextLine == nullptr) 
-          m_nextBlockRef = "0";
-        else { 
-          m_nextBlockRef = nextLine->GetBasicLineNumber();
-          STRM_STR(m_nextBlockRef, nextLine->GetBasicLineNumber());
-        }
-
-        // insert the statement text as a comment
-        TopOutput(false) << "\n  /* " << t->m_text << " */\n";
-
-        t->Generate(*this);
-
-        if (t->IsJump() || m_codeBlocks[m_currentBlock].m_ended) {
-          startBlock = true;
-          startBlockRef = m_nextBlockRef;
-        }
-      }
-    }
-    EndBlock();
-  }
+  Generate();
 
   // output code
   *m_outputStream
@@ -185,9 +108,6 @@ bool C_CodeGenerator::Body()
       << "#include <stdint.h>\n"
       << "#include <math.h>\n"
       << "#include <string.h>\n"
-
-      << "\n"
-      << "extern int basalt_init();\n"
       ;
 
   OutputRuntimeDecls(*m_outputStream);
@@ -205,7 +125,10 @@ bool C_CodeGenerator::Body()
   }
   *m_outputStream << "\n";
 
-  if (m_codeBlocks.size() == 1) {
+  if (m_codeBlocks.size() != 1) {
+    OutputBlocks();
+  }
+  else {
     *m_outputStream
         << "#define END()  return 0\n"
         << "\n"
@@ -217,99 +140,186 @@ bool C_CodeGenerator::Body()
         << "}\n"
         ;
   }
-  else {
-    *m_outputStream 
-        << "/* declare structure used to link code blocks */\n"
-        << "struct BlockFunction {\n"
-        << "  struct BlockFunction (* m_func)();\n"
-        << "};\n"
-        << "\n"
-        << "#define END()  nextBlock.m_func = 0\n"
-        ;
-    if (m_blockQueueUsed) {
-        *m_outputStream << "/* declare structure for GOSUB */\n"
-            << "struct BlockQueue {\n"
-            << "  struct BlockQueue * m_next;\n"
-            << "  struct BlockFunction m_return;\n"
-            << "};\n"
-            << "\n"
-            << "/* declare queue for GOSUB */\n"
-            << "struct BlockQueue * g_blockQueue;\n"
-            << "\n"
-            << "/* GOSUB function */\n"
-            << "void Gosub(struct BlockFunction ret)\n"
-            << "{\n"
-            << "  struct BlockQueue * block = (struct BlockQueue *)malloc(sizeof(struct BlockQueue));\n"
-            << "  block->m_next = g_blockQueue;\n"
-            << "  block->m_return = ret;\n"
-            << "  g_blockQueue = block;\n"
-            << "}\n"
-            << "\n"
-            << "/* RETURN function */\n"
-            << "struct BlockFunction Return()\n"
-            << "{\n"
-            << "  if (g_blockQueue == 0) {\n"
-            << "    /* mismatched return */;\n"
-            << "  }"
-            << "  struct BlockFunction ret;\n"
-            << "  ret = g_blockQueue->m_return;\n"
-            << "  struct BlockQueue * next = g_blockQueue->m_next;\n"
-            << "  free(g_blockQueue);\n"
-            << "  g_blockQueue = next;\n"
-            << "  return ret;\n"
-            << "}\n"
-            << "\n"
-            ;
-    }
-
-    *m_outputStream << "/* forward declare each block of code */\n";
-    for (auto & r : m_codeBlocks) {
-        *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r.m_ref << "();\n";
-    }
-    *m_outputStream << "\n";
-
-    for (size_t i = 0; i < m_codeBlocks.size(); ++i) {
-        CodeBlock & block = m_codeBlocks[i];
-
-        *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << block.m_ref << "()\n"
-            << "{\n"
-            << "  struct BlockFunction nextBlock;\n"
-            ;
-
-        if (!block.m_endsWithJump) {
-            *m_outputStream << "  nextBlock.m_func = ";
-            if (i < m_codeBlocks.size()-1)
-                *m_outputStream << "&" << BLOCKFN_PREFIX << m_codeBlocks[i+1].m_ref;
-            else
-                *m_outputStream << "0";
-            *m_outputStream << ";\n";
-        }
-
-        *m_outputStream << block.m_body.str()
-            << "  return nextBlock;\n"
-            << "}\n"
-            << "\n"
-            ;
-    }
-    *m_outputStream
-        << "\n"
-        << "int main(int argc, char * argv[])\n"
-        << "{\n"
-        << "  basalt_init();\n"
-        << "  struct BlockFunction block;\n"
-        << "  block.m_func = &" BLOCKFN_PREFIX << 1 << ";\n"
-        << "  while (block.m_func != 0) {\n"
-        << "    block = (*block.m_func)();\n"
-        << "  }\n"
-        << "  exit(0);\n"
-        << "}\n"
-        ;
-  }
 
   OutputRuntime(*m_outputStream);
 
   return true;
 }
+
+void C_CodeGenerator::Generate()
+{  
+  // generate code for the list of source lines
+  bool startBlock = false;
+  std::string startBlockRef;
+
+  // loop through the source lines
+  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
+
+    // ignore lines with no data, just in case 
+    if (!m_program->m_list[i]) {
+      continue;
+    }
+
+    // get reference to line
+    const AST::SourceLine & r = *m_program->m_list[i];
+
+    // always start a block on a line number that 
+    // is the destination of a GOTO or GOSUB
+    if (
+        AST::g_jumpDestinationInfo.count(r.GetBasicLineNumber()) ||
+        (m_codeBlocks.size() == 0)
+        ) {
+      StartBlock(r.GetBasicLineNumber());
+      startBlock = false;
+    }
+
+    // insert text of BASIC line into source
+//      TopOutput(false) << "\n  /* " << r.GetLine() << " */\n";
+
+    // if no statements in this line, nothing to do
+    if (!r.m_statements)
+      continue;
+
+    // if no statements, nothing to do
+    const AST::StatementList & s = *r.m_statements;
+    if (s.m_list.size() == 0)
+      continue;
+
+    // set flag for last statement in program
+    const AST::SourceLine * nextLine;
+    if (i >= m_program->m_list.size()-1)
+      nextLine = nullptr;
+    else  
+      nextLine = m_program->m_list[i+1].get();
+
+    // loop through the statements
+    for (int j = 0; j < s.m_list.size(); ++j) {
+      auto const & t = s.m_list[j]; 
+
+      if (startBlock) {
+        StartBlock(startBlockRef);
+        m_nextBlockRef = "";
+        startBlock = false;
+      }
+
+      // set flags needed by code generation
+      m_isLastStatementOnLine = (j == s.m_list.size()-1);
+      if (!m_isLastStatementOnLine)
+        STRM_STR(m_nextBlockRef, r.GetBasicLineNumber() << "_" << j+1);
+      else if (nextLine == nullptr) 
+        m_nextBlockRef = "0";
+      else { 
+        m_nextBlockRef = nextLine->GetBasicLineNumber();
+        STRM_STR(m_nextBlockRef, nextLine->GetBasicLineNumber());
+      }
+
+      // insert the statement text as a comment
+      TopOutput(false) << "\n  /* " << t->m_text << " */\n";
+
+      t->Generate(*this);
+
+      if (t->IsJump() || m_codeBlocks[m_currentBlock].m_ended) {
+        startBlock = true;
+        startBlockRef = m_nextBlockRef;
+      }
+    }
+  }
+  EndBlock();
+}
+
+void C_CodeGenerator::OutputBlocks()
+{
+  *m_outputStream 
+      << "/* declare structure used to link code blocks */\n"
+      << "struct BlockFunction {\n"
+      << "  struct BlockFunction (* m_func)();\n"
+      << "};\n"
+      << "\n"
+      << "#define END()  nextBlock.m_func = 0\n\n"
+      ;
+
+  if (m_blockQueueUsed) {
+    *m_outputStream << "/* declare structure for GOSUB */\n"
+        << "struct BlockQueue {\n"
+        << "  struct BlockQueue * m_next;\n"
+        << "  struct BlockFunction m_return;\n"
+        << "};\n"
+        << "\n";
+  }
+
+  if (m_funcsUsed.count("gosub")) {
+    *m_outputStream << "/* declare queue for GOSUB */\n"
+        << "struct BlockQueue * g_blockQueue;\n"
+        << "\n"
+        << "/* GOSUB function */\n"
+        << "void Gosub(struct BlockFunction ret)\n"
+        << "{\n"
+        << "  struct BlockQueue * block = (struct BlockQueue *)malloc(sizeof(struct BlockQueue));\n"
+        << "  block->m_next = g_blockQueue;\n"
+        << "  block->m_return = ret;\n"
+        << "  g_blockQueue = block;\n"
+        << "}\n"
+        << "\n"
+        << "/* RETURN function */\n"
+        << "struct BlockFunction Return()\n"
+        << "{\n"
+        << "  if (g_blockQueue == 0) {\n"
+        << "    /* mismatched return */;\n"
+        << "  }"
+        << "  struct BlockFunction ret;\n"
+        << "  ret = g_blockQueue->m_return;\n"
+        << "  struct BlockQueue * next = g_blockQueue->m_next;\n"
+        << "  free(g_blockQueue);\n"
+        << "  g_blockQueue = next;\n"
+        << "  return ret;\n"
+        << "}\n"
+        << "\n"
+        ;
+  }
+
+  *m_outputStream << "/* forward declare each block of code */\n";
+  for (auto & r : m_codeBlocks) {
+    *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << r.m_ref << "();\n";
+  }
+  *m_outputStream << "\n";
+
+  for (size_t i = 0; i < m_codeBlocks.size(); ++i) {
+    CodeBlock & block = m_codeBlocks[i];
+
+    *m_outputStream << "struct BlockFunction " BLOCKFN_PREFIX << block.m_ref << "()\n"
+        << "{\n"
+        << "  struct BlockFunction nextBlock;\n"
+        ;
+
+    if (!block.m_endsWithJump) {
+        *m_outputStream << "  nextBlock.m_func = ";
+        if (i < m_codeBlocks.size()-1)
+            *m_outputStream << "&" << BLOCKFN_PREFIX << m_codeBlocks[i+1].m_ref;
+        else
+            *m_outputStream << "0";
+        *m_outputStream << ";\n";
+    }
+
+    *m_outputStream << block.m_body.str()
+        << "  return nextBlock;\n"
+        << "}\n"
+        << "\n"
+        ;
+}
+*m_outputStream
+    << "int main(int argc, char * argv[])\n"
+    << "{\n"
+    << "  basalt_init();\n"
+    << "  struct BlockFunction block;\n"
+    << "  block.m_func = &" BLOCKFN_PREFIX << 1 << ";\n"
+    << "  while (block.m_func != 0) {\n"
+    << "    block = (*block.m_func)();\n"
+    << "  }\n"
+    << "  exit(0);\n"
+    << "}\n"
+    ;
+}
+
 
 void C_CodeGenerator::StartBlock(const std::string & ref, bool autoEnd)
 {
@@ -485,6 +495,8 @@ int C_CodeGenerator::Generate(const AST::GosubStatement & expr)
 
   // set "gosub" to routine
   TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";
+
+  m_funcsUsed.insert("gosub");
 
   return 0;
 }
