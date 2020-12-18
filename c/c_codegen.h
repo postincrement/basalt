@@ -12,6 +12,15 @@ class C_CodeGenerator : public CodeGenerator
 
     std::stringstream m_body;
 
+    enum {
+      eOp_NextStatement = 100,
+      eOp_NextLine,
+      eOp_EndProgram,
+      eOp_Goto,
+      eOp_Next,
+      eOp_Return
+    };
+
     struct CVarDef {
       VarType m_type;
       std::string m_cname;
@@ -25,7 +34,6 @@ class C_CodeGenerator : public CodeGenerator
     struct CodeBlock
     {
       std::stringstream m_body;
-      bool m_endsWithJump = false;
       std::string m_ref;
       bool m_ended = false;
     };
@@ -36,6 +44,17 @@ class C_CodeGenerator : public CodeGenerator
     void OutputBlocks();
 
   protected:
+    void GenerateLine(int index, const AST::SourceLine & line);
+    int GenerateStatement(int index, 
+           const std::string & basicLineNumber,
+                          bool isLastStatementOnLine, 
+        const AST::Statement & statement);
+
+    const AST::SourceLine * m_nextLine;
+    bool m_lastBlockHadReturn;
+    bool m_startBlock = false;
+    std::string m_nextBlockRef;
+
     void StartBlock(const std::string & ref, bool autoEnd = true);
     void EndBlock();
 
@@ -68,7 +87,6 @@ class C_CodeGenerator : public CodeGenerator
     std::deque<ForBlock> m_forQueue;
     bool m_isLastStatementOnLine = false;
     bool m_isLastStatement = false;
-    std::string m_nextBlockRef;
 
     std::set<std::string> m_funcsUsed;
 
@@ -85,6 +103,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::End & expr) override;
     virtual int Generate(const AST::System & expr) override;
     virtual int Generate(const AST::Rem & expr) override;
+    virtual int Generate(const AST::AssignStatement & expr) override;
     virtual int Generate(const AST::IfStatement & expr) override;
     virtual int Generate(const AST::ForStatement & expr) override;
     virtual int Generate(const AST::NextStatement & expr) override;

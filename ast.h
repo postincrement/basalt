@@ -136,7 +136,7 @@ using ExprList = NodeList<Expr>;
 
 ////////////////////////////////////////////////////////////////////////////
 
-class Statement : public NodeList<Expr>
+class Statement : public Node
 {
   public:
     Statement(unsigned lineNumber)
@@ -180,6 +180,8 @@ class Print : public Statement
   public:
     Print(unsigned lineNumber, NodeList<Expr> * exprList = nullptr);
     virtual int Generate(CodeGenerator & gen) const override;
+
+    ExprList * m_list = nullptr;
 };
 
 class PrintComma : public Expr
@@ -501,6 +503,21 @@ typedef std::map<std::string, unsigned> StringConstantList;
 extern StringConstantList g_stringConstants;
 
 extern unsigned g_stringConstantIndex;
+
+////////////////////////////////////////////////////////////////////////////
+
+class AssignStatement : public Statement
+{
+  public:
+    AssignStatement(unsigned lineNumber, Expr * expr)
+      : Statement(lineNumber)
+      , m_expr(expr)
+    {}
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    Expr * m_expr;
+};
 
 ////////////////////////////////////////////////////////////////////////////
 

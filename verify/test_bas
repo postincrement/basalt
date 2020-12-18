@@ -1,148 +1,22 @@
 #!/bin/bash
 
+set -x
+
 #RUN_CPM="${HOME}/gratze/emulator/gratze.exe --type cpm80 --turbo "
 RUN_CPM="${HOME}/gratze/emulator/gratze --type cpm80 --turbo "
 MBASIC_CPM="${RUN_CPM} ${HOME}/gratze/emulator/mbasic.com"
 BASALT="${HOME}/basalt/basalt"
 
-function TestCPM()
-{
-  local fn=$1
-  local out=$2
-  $MBASIC_CPM $fn | sed "0,/^--START/d" > $out
-}
-
-function TestANSIC()
-{
-  local fn=$1
-  local out=$2
-
-  $BASALT -a ansi-c -o ${out}.c $fn && \
-  gcc ${out}.c -o ${out}.bin -L.. -lbasaltrt
-  ./${out}.bin | sed "0,/^--START/d" > $out
-}
-
-function TestZ80()
-{
-  local fn=$1
-  local out=$2
-
-  $BASALT -a z80 -o ${out}.asm $fn && \
-  z80asm -o ${out}.com ${out}.asm
-  ${RUN_CPM} ${out}.com | sed "0,/^--START/d" > $out
-}
-
-function run_test()
-{
-  local num=$1
-  local bas=test_${num}.bas
-  local cpm=cpm_${num}_out
-  local ansic=ansic_${num}_out
-  local z80=z80_${num}_out
-
-  echo "Test $num"
-
-  echo '1 print "--START--"' > $bas
-  cat - >> $bas
-  echo '9999 system' >> $bas
-
-  TestCPM $bas $cpm
-  TestANSIC $bas $ansic
-  TestZ80 $bas $z80
-  cmp $cpm $ansic
-  cmp $cpm $z80
-}
-
-##########################
-
-cat <<EOF | run_test 1
-10 print "hello, world"
-20 print "hello" ; "world"
-30 print "hello" , "world"
-40 print "hello" , "world" ;
-50 print "continue"
+cat <<EOF > fn.bas
+10 gosub 100
+20 system
+100 print "start"
+110 goto 210
+120 print "here"
+200 return
+210 goto 120
 EOF
 
-cat <<EOF | run_test 2
-5 print "0" ; 0
-6 print "1" ; 1
-7 print "-1" ; -1
-10 print "-4567" ; -4567
-30 print "4567" ; 4567
-40 print "-32768" ; -32768
-50 print "-32767" ; -32767
-60 print "32767" ; 32767
-70 print "false = 0" ; -1234 = 2000
-80 print "true = -1" ; 456 = 456
-90 print "true = -1" ; 987 <> 1432
-100 print "false = 0" ; -7242 <> -7242
-EOF
+$MBASIC_CPM fn.bas
 
-if false ; then
-cat <<EOF | run_test 3 
-40 c = 32000 + 32000 : print c
-71 print "32768" ; 32768
-80 print "100000" ; 100000
-90 print "-100000" ; -100000
-100 print "2147483647" ; 2147483647
-101 print "2147483648" ; 2147483648
-110 print "-2147483647" ; -2147483647
-111 print "-2147483648" ; -2147483648
-EOF
-fi
-
-cat <<EOF | run_test 4
-10 print "start"
-20 goto 50
-30 print "step 3"
-40 goto 70
-50 print "step 2"
-60 goto 30
-70 print "end"
-EOF
-
-cat <<EOF | run_test 5
-10 a = 1 : print a "= 1"
-20 a = 1234 : print a "= 1234"
-30 b = a + 23 : print b "= 1257"
-40 d = 123 - b : print d "= -1134"
-50 e = a + 8192 - b + d - 123 : print e "= 6912"
-EOF
-
-cat << EOF | run_test 6
-10 if 1 then print "true" else print "false" 
-20 if 1 then 40 else print "false" 
-30 goto 50
-40 print "made it" : goto 60
-50 goto 70
-60 print "second"
-70 rem jump to here
-100 a = 1234
-110 if a = 1234 then 120 else goto 140
-120 print "same" : goto 150
-140 print "different" 
-150 rem
-EOF
-
-cat << EOF | run_test 7
-20 for b = 0 to 5 
-30     print b : rem c
-40 next b 
-50 print b , "finished"
-EOF
-
-cat << EOF | run_test 8
-10 a = 1 : c = 2 : d = .1
-20 for b = a to c step d
-30     print b 
-40 next b 
-50 print b , "finished"
-EOF
-
-cat << EOF | run_test 8
-10 a = 1 : c = 2 : d = .1
-20 for b = a to c step d
-30     print b 
-40 next b 
-50 print b , "finished"
-EOF
+exit

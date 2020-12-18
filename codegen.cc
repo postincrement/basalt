@@ -1,6 +1,4 @@
 #include <iostream>
-#include <typeinfo>
-#include <cxxabi.h>
 
 using namespace std;
 
@@ -140,7 +138,7 @@ int CodeGenerator::ResolveGotoDestination(const std::string & ref)
 
 ///////////////////////////////////////////////////////////////////////////
 
-static std::string DemangleTypeName(const std::type_info &r)
+std::string DemangleTypeName(const std::type_info &r)
 {
   const char *mangledName = r.name();
   int status;
@@ -206,18 +204,16 @@ std::string CodeGenerator::Closure::GetTempName()
 int CodeGenerator::Generate(const AST::SourceLine &line)
 {
   if (line.m_statements)
-    line.m_statements->Generate(*this);
+    return line.m_statements->Generate(*this);
 
+  cerr << "no statements on source line" << endl;
   return 0;
 }
 
 int CodeGenerator::Generate(const AST::Statement &statement)
 {
-  m_currentStatementLine = statement.m_lineNumber;
-  for (auto &r : statement.m_list) {
-    r->Generate(*this);
-    TopOutput() << TopOutput().str();
-  }
+//  m_currentStatementLine = statement.m_lineNumber;
+  cerr << "no generate for statement" << endl;
   return 0;
 }
 

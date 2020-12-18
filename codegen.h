@@ -4,6 +4,8 @@
 #include <fstream>
 #include <set>
 #include <string>
+#include <typeinfo>
+#include <cxxabi.h>
 
 #include "ast.h"
 #include "errorcode.h"
@@ -17,6 +19,8 @@ do { std::stringstream strm; strm << expr; \
 do { std::stringstream strm; strm << expr; \
   g_application.InternalErrorInternal(ErrorCode::eInternalError, strm.str()); \
 } while (0)
+
+std::string DemangleTypeName(const std::type_info &r);
 
 class CodeGenerator
 {
@@ -54,6 +58,7 @@ class CodeGenerator
     virtual int Generate(const AST::End & expr) { return 0; }
     virtual int Generate(const AST::System & expr) { return 0; }
     virtual int Generate(const AST::Rem & expr) { return 0; }
+    virtual int Generate(const AST::AssignStatement & expr) { return 0; }
     virtual int Generate(const AST::IfStatement & expr) { return 0; }
     virtual int Generate(const AST::ForStatement & expr) { return 0; }
     virtual int Generate(const AST::NextStatement & expr) { return 0; }

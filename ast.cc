@@ -81,7 +81,7 @@ VarType Expr::GetType() const
 
 Print::Print(unsigned lineNumber, ExprList * list)
   : Statement(lineNumber)
-{ Append(list); }
+{ m_list = list; }
 
 int Print::Generate(CodeGenerator & gen) const
 { return gen.Generate(*this); }
@@ -163,6 +163,11 @@ int StringConstant::Evaluate(CodeGenerator & gen, std::string & result) const
 
 int StringConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
+
+/////////////////////////////////////////
+
+int AssignStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
 
 /////////////////////////////////////////
 

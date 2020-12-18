@@ -81,6 +81,7 @@ class Z80_CodeGenerator : public CodeGenerator
 //    virtual int Generate(const AST::Statement & statement) override;
     virtual int Generate(const AST::End & expr) override;
     virtual int Generate(const AST::Rem & expr) override;
+    virtual int Generate(const AST::AssignStatement & expr) override;
     
     virtual int Generate(const AST::Print & expr) override;
     virtual int Generate(const AST::NumericAssign & expr) override;

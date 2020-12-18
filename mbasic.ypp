@@ -451,8 +451,8 @@ def_arg_list: IDENTIFIER
 DIM_statement:  DIM_TOKEN dim_var_list
                   {
                     $$ = new AST::Statement(g_lexLineNumber);
-                    if ($2 != nullptr)
-                      $$->Append($2);
+                    //if ($2 != nullptr)
+                    //  $$->Append($2);
                   }
                 ;
 
@@ -635,8 +635,7 @@ conditional_clause:   line_number
 
 LET_statement:  opt_LET_TOKEN assign_expression
                 {
-                  $$ = new AST::Statement(g_lexLineNumber);
-                  $$->Append($2);
+                  $$ = new AST::AssignStatement(g_lexLineNumber, $2);
                 }
                 ;
 

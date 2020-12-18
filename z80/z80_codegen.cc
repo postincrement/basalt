@@ -81,6 +81,7 @@ static bool CreateAVar(const std::string & name,
 
 bool Z80_CodeGenerator::Body()
 {
+  // map names of all variables to assember-friendly ids
   for (auto & r : AST::g_globalVars) {
     AST::VarInfo & info = r.second;
     int tag = 0;
@@ -498,8 +499,9 @@ int Z80_CodeGenerator::Print(const AST::Int16Constant & expr)
 
 ///////////////////////////////////////////////////////////////////
 
-int Z80_CodeGenerator::Generate(const AST::Print & expr)
+int Z80_CodeGenerator::Generate(const AST::Print & printExpr)
 {
+  AST::ExprList & expr = *printExpr.m_list;
   for (auto & r : expr.m_list) {
     r->Print(*this);
   }
@@ -585,6 +587,12 @@ void Z80_CodeGenerator::AssignExprToRegPair(const std::string & regPair, const A
       cerr << "error: numeric type not supported for assign" << endl;
       exit(-1);  
   }
+}
+
+int Z80_CodeGenerator::Generate(const AST::AssignStatement & expr)
+{
+  m_currentStatementLine = expr.m_lineNumber;
+  return expr.m_expr->Generate(*this);
 }
 
 int Z80_CodeGenerator::Generate(const AST::NumericAssign & expr)

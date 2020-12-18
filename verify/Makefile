@@ -19,7 +19,7 @@ test_2: test_2.bas test_2.out test_2.c_out test_2.z_out $(BASALT)
 	diff test_2.out test_2.z_out
 
 # single expressions
-test_3: test_3.bas test_3.out test_3.c_out test_3.z_out $(BASALT) 
+test_3: test_3.bas test_3.out test_3.c_out $(BASALT) # test_3.z_out 
 	diff test_3.out test_3.c_out
 	#diff test_3.out test_3.z_out
 

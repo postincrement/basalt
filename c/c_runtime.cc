@@ -4,7 +4,9 @@
 
 void C_CodeGenerator::OutputRuntimeDecls(std::ostream & strm)
 {
-  strm << "\nint basalt_init();\n";
+  strm << "\n"
+       << "int basalt_init();\n\n"
+       ;
       
   if (m_funcsUsed.count("print_tab")) 
     strm << "int print_tab();\n";
