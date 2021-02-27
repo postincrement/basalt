@@ -36,3 +36,6 @@ verify/*out
 verify/*.com
 verify/*.bin
 
+verifytest_6.c
+verifytest_9.c
+z80/floatlib.zip
