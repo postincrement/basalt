@@ -221,15 +221,12 @@ void C_CodeGenerator::GenerateLine(int index, const AST::SourceLine & sourceLine
     }
 
     if (finishLine) {
-      if (!m_isLastStatementOnLine) {
+      if (j != statements.m_list.size()-1) {
         CompilerError(eWarning_UnreachableCode, statement.m_lineNumber, "unreachable code with code " << ret);
       }
       break;
     }
   }                        
-
-  //EndBlock();
-  //m_startBlock = true;
 }
 
 int C_CodeGenerator::GenerateStatement(int index, 
@@ -1129,11 +1126,13 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   VarType forType = cvar.m_type;
 
   // create FOR queue entry
-  ForBlock forBlock;
-  forBlock.m_isConst = false;
-  forBlock.m_ctype   = g_varTypeInfo[(int)forType].m_ctype;
-  forBlock.m_ref     = forRef;
-  forBlock.m_index   = cvar.m_cname;
+//  ForBlock forBlock;
+//  forBlock.m_isConst = false;
+//  
+//  forBlock.m_ref     = forRef;
+//  forBlock.m_index   = cvar.m_cname;
+
+  std::string forCType   = g_varTypeInfo[(int)forType].m_ctype;
 
   // get initial value
   std::string fromValue;
@@ -1153,23 +1152,9 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
   bool toIsConst   = expr.m_toVal->IsConstant();
   bool stepIsConst = stepValue.empty() || expr.m_stepVal->IsConstant();
 
-  // set initial value of index variable
-  TopOutput() << cvar.m_cname << " = " << fromValue.c_str() << ";\n";
-
-  // set up queue
-  std::string forName;
-  if (AtTop()) {
-    forName = "g_forQueue";
-    TopOutput() << "g_forQueue = &g_forQueueEntry;\n";
-  }
-  else {
-    forName = GetGlobalTempName();
-    TopOutput() << "struct ForInfo * " << forName << " = malloc(sizeof(struct ForInfo));\n";
-    TopOutput() << forName << "->next = g_forQueue;\n";
-  }
-
-  forBlock.m_isConst = fromIsConst && toIsConst && stepIsConst;
-  if (forBlock.m_isConst) {
+  // determine type of loop
+  bool isConst = fromIsConst && toIsConst && stepIsConst;
+  if (isConst) {
     int dir;
     switch (forType) {
       case VarType::eInt16:
@@ -1200,12 +1185,14 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
     }
   }
 
+  // set initial value of index variable
+  TopOutput() << cvar.m_cname << " = " << fromValue.c_str() << ";\n";
+
   // set TO value
-  STRM_STR_DECL(forBase, forName << "->m_val.m_" << forBlock.m_ctype);
-  TopOutput() << forBase << "[0] = " << toValue.c_str() << ";\n";
+  TopOutput() << forCType << " " << forRef << "_to = " << toValue << ";\n";
 
   // set STEP value
-  TopOutput() << forBase << "[1] = ";
+  TopOutput() << forCType << " " << forRef << "_step = ";
   if (stepValue.empty()) {
     TopOutput(false) << "(" << fromValue << " < " << toValue << ") ? 1 : -1";
   }
@@ -1213,43 +1200,27 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
     TopOutput(false) << Trim(stepValue);
   }
   TopOutput(false) << ";\n";
-  
-  // jump to start of FOR block
-  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forRef << ";\n";
 
-  // finish this block
-  m_forQueue.push_back(forBlock);
+  // output start of FOR
+  TopOutput(true) << "do\n";
 
-  // start new block
-  StartBlock(forRef);
+  // body of FOR
+  StartBlock("for", false);
 
-  m_funcsUsed.insert("for");
 
   return eOp_NextStatement;
 }
 
 int C_CodeGenerator::Generate(const AST::NextStatement & expr)
 {
-  // ensure we are in a FOR loop
-  if (m_forQueue.size() == 0) {
-    CompilerError(Error_MismatchedNext, expr.m_lineNumber, "Mismatched next");
-    exit(-1);
-  }
+  TopOutput() << "return " << (int)eOp_Next << ";\n";
 
-  // get information for topmost FOR
-  ForBlock forBlock = m_forQueue.back();
-  m_forQueue.pop_back();
+  EndBlock();
+  
+  // do STEP
+  TopOutput() << cvar.m_cname << " += " << forRef << "_step;\n";
 
-  std::string forName = "g_forQueue";
-  STRM_STR_DECL(forBase, forName << "->m_val.m_" << forBlock.m_ctype);
-
-  TopOutput() << forBlock.m_index << " += " << forBase << "[1];\n";
-
-  // output simple code when using constants
-  TopOutput() << "if (" << forBlock.m_index << " <= " << forBase << "[0])\n";
-  Push();
-  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << forBlock.m_ref << ";\n";
-  TopOutput() << "return nextBlock;\n";
-  Pop();
+  // loop
+  TopOutput(true) << "while (" << cvar.m_cname << " <= " << forRef << "_to);\n";
   return eOp_Next;
 }
