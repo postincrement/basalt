@@ -5,7 +5,7 @@ BISON = bison
 
 LINK.cc=c++
 
-CXXFLAGS        += -std=c++17 -g  
+CXXFLAGS        += -std=c++17 -g -I. 
 BASALT_LDFLAGS  += -g  
 BASALT_LDLIBS   +=  
 
@@ -14,11 +14,11 @@ DEPDIR = ./.deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
 SRCS_CC = basalt.cc \
-          mbasic.lex.cc mbasic.tab.cc \
-	        ast.cc \
-	        codegen.cc common.cc \
-	        c/c_codegen.cc c/c_runtime.cc \
-	        z80/z80_codegen.cc 
+          parser/ast.cc $(OBJDIR)/mbasic.lex.cpp $(OBJDIR)/mbasic.tab.cpp \
+	        common.cc 
+
+#	        codegen.cc c/c_codegen.cc c/c_runtime.cc \
+#	        z80/z80_codegen.cc 
 
 ############################################################
 
@@ -71,15 +71,15 @@ $(DEPDIR):
 ############################################################
 
 clean:
-	rm -f basalt $(OBJS) mbasic.lex.cpp mbasic.tab.cpp
+	rm -f basalt $(OBJDIR)/*
 
-mbasic.lex.o: mbasic.lex.cpp mbasic.tab.hpp
-	g++ -c $(CXXFLAGS) mbasic.lex.cpp -Wno-unused-function -Wno-sign-compare -o $@
+$(OBJDIR)/mbasic.lex.o: $(OBJDIR)/mbasic.lex.cpp $(OBJDIR)/mbasic.tab.hpp
+	g++ -c $(CXXFLAGS) $(OBJDIR)/mbasic.lex.cpp -Wno-unused-function -Wno-sign-compare -o $@
 
-mbasic.lex.cc: mbasic.l
-	$(FLEX) -o mbasic.lex.cc mbasic.l
+$(OBJDIR)/mbasic.lex.cpp: parser/mbasic.l
+	$(FLEX) -o $(OBJDIR)/mbasic.lex.cpp parser/mbasic.l
 
-mbasic.tab.cc mbasic.tab.hpp: mbasic.ypp
-	$(BISON) -o mbasic.tab.cc -v -d mbasic.ypp	
+$(OBJDIR)/mbasic.tab.cpp $(OBJDIR)/mbasic.tab.hpp: parser/mbasic.ypp
+	$(BISON) -o $(OBJDIR)/mbasic.tab.cc -v -d parser/mbasic.ypp	
 
 include $(wildcard $(DEPFILES))

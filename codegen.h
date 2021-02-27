@@ -7,7 +7,7 @@
 #include <typeinfo>
 #include <cxxabi.h>
 
-#include "ast.h"
+#include "parser/ast.h"
 #include "errorcode.h"
 
 #define CompilerError(code, ln, expr) \

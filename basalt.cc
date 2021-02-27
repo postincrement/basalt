@@ -216,10 +216,6 @@ void Basalt::DisplayHelp(const std::vector<ArgDef> & argDefs)
 
 int Basalt::Main(int argc, char const *argv[])
 {
-  // register language profiles
-  g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
-  g_codeGenerators.Register<Z80_CodeGenerator>("z80");
-
   m_arch           = "ansi-c";
   g_disableWarnings = false;
   g_enableLineNumbers = false;
@@ -242,13 +238,6 @@ int Basalt::Main(int argc, char const *argv[])
   if (m_displayHelp) {
     DisplayHelp(argDefs);
     return 0;
-  }
-
-  // create code generator
-  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch);
-  if (codeGen == nullptr) {
-    cerr << "error: unknown arch '" << m_arch << "'" << endl;
-    return -1;
   }
 
   // set language profile 
@@ -302,6 +291,40 @@ int Basalt::Main(int argc, char const *argv[])
     }
   }
 
+  if (m_verbose)
+    cerr << "info: parsing '" << g_printableInputFilename << "'" << endl;
+
+  //////////////////////////////////
+  // 
+  //  first pass = parse source file
+  //
+  m_lineOffs = 2;
+  MBASIC_parse();
+
+  if (m_verbose) {
+    cerr << "info: parsing finished" << endl;
+  }
+
+  if (g_errorCount > 0) {
+    cout << "error: " << g_errorCount << " errors - compile stopped" << endl;
+    return -1;
+  }
+
+  //////////////////////////////////
+  // 
+  //  additional passes
+  //
+
+
+
+  //////////////////////////////////
+  // 
+  //  last pass = generate code
+  //
+#if 0  
+  // register language profiles
+  g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
+  g_codeGenerators.Register<Z80_CodeGenerator>("z80");
 
   std::ostream * outputStream = nullptr;
   std::ofstream outputFile;
@@ -328,25 +351,18 @@ int Basalt::Main(int argc, char const *argv[])
     outputStream = &outputFile;
   }
 
-  if (m_verbose)
-    cerr << "info: parsing '" << g_printableInputFilename << "'" << endl;
-
-  m_lineOffs = 2;
-  MBASIC_parse();
-
-  if (m_verbose) {
-    cerr << "info: parsing finished" << endl;
-  }
-
-  if (g_errorCount > 0) {
-    cout << "error: " << g_errorCount << " errors - compile stopped" << endl;
+  // create code generator
+  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch);
+  if (codeGen == nullptr) {
+    cerr << "error: unknown arch '" << m_arch << "'" << endl;
     return -1;
   }
+
 
   if (!codeGen->Run(g_printableInputFilename, outputStream, AST::g_program)) {
     cerr << "error: code generation failed" << endl;
   }
-
+#endif
   return 0;
 }
 
