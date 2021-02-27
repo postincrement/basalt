@@ -5,7 +5,7 @@ BISON = bison
 
 LINK.cc=c++
 
-CXXFLAGS        += -std=c++17 -g -I. 
+CXXFLAGS        += -std=c++17 -g -I. -I./src
 BASALT_LDFLAGS  += -g  
 BASALT_LDLIBS   +=  
 
@@ -13,9 +13,9 @@ OBJDIR = ./obj
 DEPDIR = ./.deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
-SRCS_CC = basalt.cc \
-          parser/ast.cc $(OBJDIR)/mbasic.lex.cpp $(OBJDIR)/mbasic.tab.cpp \
-	        common.cc 
+SRCS_CC = src/basalt.cc src/pass.cc src/common.cc\
+          parser/ast.cc parser/mbasic.lex.cpp parser/mbasic.tab.cpp \
+	         
 
 #	        codegen.cc c/c_codegen.cc c/c_runtime.cc \
 #	        z80/z80_codegen.cc 
@@ -35,6 +35,10 @@ $(OBJDIR)/%.o : %.c | $(DEPDIR) $(OBJDIR)
 $(OBJDIR)/%.o : %.cc | $(DEPDIR) $(OBJDIR)
 	$(COMPILE.cc) $(OUTPUT_OPTION) $<
 
+%.o : %.cpp
+$(OBJDIR)/%.o : %.cpp | $(DEPDIR) $(OBJDIR)
+	$(COMPILE.cc) $(OUTPUT_OPTION) $<
+
 else
 
 $(OBJDIR)/%.o : %.c | $(DEPDIR) $(OBJDIR)
@@ -46,6 +50,11 @@ $(OBJDIR)/%.o : %.cc | $(DEPDIR) $(OBJDIR)
 	@echo "(CXX) $<"
 	@$(COMPILE.cc) $(OUTPUT_OPTION) $<
 
+%.o : %.cpp
+$(OBJDIR)/%.o : %.cpp | $(DEPDIR) $(OBJDIR)
+	@echo "(CXX) $<"
+	@$(COMPILE.cc) $(OUTPUT_OPTION) $<
+
 endif
 
 FILENAMES := $(notdir $(basename $(SRCS_C) $(SRCS_CC)))
@@ -54,6 +63,7 @@ DEPFILES  := $(addsuffix .d,$(addprefix $(DEPDIR)/,$(FILENAMES)))
 
 vpath %.c  $(sort $(dir $(SRCS_C)))
 vpath %.cc $(sort $(dir $(SRCS_CC)))
+vpath %.cpp $(sort $(dir $(SRCS_CC)))
 
 all: $(APP)
 
@@ -70,16 +80,21 @@ $(DEPDIR):
 
 ############################################################
 
-clean:
-	rm -f basalt $(OBJDIR)/*
+clean: 
+	rm -rf basalt .deps $(OBJDIR)/* \
+	parser/mbasic.tab.cpp \
+	parser/mbasic.tab.hpp \
+	parser/mbasic.lex.cpp
 
-$(OBJDIR)/mbasic.lex.o: $(OBJDIR)/mbasic.lex.cpp $(OBJDIR)/mbasic.tab.hpp
-	g++ -c $(CXXFLAGS) $(OBJDIR)/mbasic.lex.cpp -Wno-unused-function -Wno-sign-compare -o $@
+$(OBJDIR)/mbasic.lex.o: parser/mbasic.lex.cpp parser/mbasic.tab.hpp
+#	$(CXX) -c $(CXXFLAGS) parser/mbasic.lex.cc -Wno-unused-function -Wno-sign-compare -o $@
 
-$(OBJDIR)/mbasic.lex.cpp: parser/mbasic.l
-	$(FLEX) -o $(OBJDIR)/mbasic.lex.cpp parser/mbasic.l
+$(OBJDIR)/mbasic.tab.o: parser/mbasic.tab.cpp parser/mbasic.tab.hpp
 
-$(OBJDIR)/mbasic.tab.cpp $(OBJDIR)/mbasic.tab.hpp: parser/mbasic.ypp
-	$(BISON) -o $(OBJDIR)/mbasic.tab.cc -v -d parser/mbasic.ypp	
+parser/mbasic.lex.cpp: parser/mbasic.l
+	$(FLEX) -o parser/mbasic.lex.cpp parser/mbasic.l
+
+parser/mbasic.tab.cpp parser/mbasic.tab.hpp: parser/mbasic.ypp
+	$(BISON) -o parser/mbasic.tab.cpp -v -d parser/mbasic.ypp 
 
 include $(wildcard $(DEPFILES))

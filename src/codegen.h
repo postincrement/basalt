@@ -1,14 +1,7 @@
 #ifndef CODEGEN_H_
 #define CODEGEN_H_
 
-#include <fstream>
-#include <set>
-#include <string>
-#include <typeinfo>
-#include <cxxabi.h>
-
-#include "parser/ast.h"
-#include "errorcode.h"
+#include "pass.h"
 
 #define CompilerError(code, ln, expr) \
 do { std::stringstream strm; strm << expr; \
