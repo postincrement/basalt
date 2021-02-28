@@ -10,10 +10,14 @@
 #include "parser/ast.h"
 #include "errorcode.h"
 
-class CompilerPass
+class Pass1 
 {
   public:
-    CompilerPass();
+    Pass1(const AST::Program & g_program);
+    bool Run();
+
+  protected:
+    const AST::Program & m_program;
 };
 
 #endif // COMPILER_PASS

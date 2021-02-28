@@ -314,9 +314,10 @@ int Basalt::Main(int argc, char const *argv[])
   // 
   //  additional passes
   //
-  
-
-
+  {
+    Pass1 pass1(AST::g_program);
+    pass1.Run();
+  }
 
   //////////////////////////////////
   // 

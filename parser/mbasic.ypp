@@ -309,8 +309,10 @@ statement_list : statement2
                   } 
                  statement2
                   {
-                    $4->m_text = g_application.GetStatement();
-                    $1->Append($4);
+                    if ($4 != nullptr) {
+                      $4->m_text = g_application.GetStatement();
+                      $1->Append($4);
+                    }
                     $$ = $1;
                   }   
                ;
@@ -913,7 +915,11 @@ MULT_expression:  MULT_expression '*' NEGATE_expression
 NEGATE_expression:  '-' POWER_expression
                       {
                         $$ = new AST::Negation($2);  
-                      }  
+                      }
+                    | '+' POWER_expression
+                      {
+                        $$ = $2;  
+                      }    
                     | POWER_expression
                       {
                         $$ = $1;
