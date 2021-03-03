@@ -15,14 +15,12 @@ bool Pass1::Run()
     if (line == nullptr)
       continue;
     cout //<< "# " << line->GetLine() << endl
-         << line->GetSourceLineNumber() << ": " << line->GetBasicLineNumber() << endl;
-         #if 0
+         << line->GetBasicLineNumber() << endl;
     for (auto & statement : line->m_statements->m_list) {
-      if (statement != nullptr)     
-        cout << "   : " << statement->m_text << endl;
+//      if (statement != nullptr)     
+        cout << "   " << statement->m_text << endl;
     }
     cout << endl;
-    #endif
   }
   return true;
 }

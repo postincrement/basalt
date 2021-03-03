@@ -185,14 +185,18 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <statementList> opt_statement_list statement_list
 %type <statementList> opt_ELSE_statement ELSE_statement
 
-%type <statement>    statement statement2
+%type <statement>    statement //statement2
 %type <statement>    DIM_statement PRINT_statement WIDTH_statement
 %type <statement>    LET_statement FOR_statement GOTO_statement
 %type <statement>    IF_statement REM_statement NEXT_statement
-%type <statement>    GOSUB_statement RETURN_statement
+%type <statement>    GOSUB_statement RETURN_statement 
 %type <exprList>     dim_var_list
 %type <expr>         assign_expression 
 %type <ifcond>       conditional_clause 
+
+// not yet implemented
+%type <statement> ON_statement CLEAR_statement DEF_statement INPUT_statement
+%type <statement> LINE_statement STOP_statement RUN_statement
 
 %type <exprList> print_expression_list 
 %type <expr>     print_expression
@@ -296,7 +300,7 @@ opt_statement_list : /* empty */
                       }
                    ;
 
-statement_list : statement2
+statement_list : statement
                   {
                     $$ = new AST::StatementList();
                     if (($1 != nullptr) && $1->m_text.empty())
@@ -307,7 +311,7 @@ statement_list : statement2
                   {
                     g_application.SetStatementStart();
                   } 
-                 statement2
+                 statement
                   {
                     if ($4 != nullptr) {
                       $4->m_text = g_application.GetStatement();
@@ -317,23 +321,22 @@ statement_list : statement2
                   }   
                ;
 
-statement2:   { 
-              }
-              statement
-              {
-                //cerr << "statement: " << g_application.GetStatement() << endl; 
-                $$ = $2;
-              } 
-              ; 
-
+//statement2:   { 
+//              }
+//              statement
+//              {
+//                //cerr << "statement: " << g_application.GetStatement() << endl; 
+//                $$ = $2;
+//              } 
+//              ; 
 
 statement:     CLEAR_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | DEF_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }   
                | DIM_statement
                   {
@@ -361,7 +364,7 @@ statement:     CLEAR_statement
                   }
                | INPUT_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | LET_statement
                   {
@@ -369,7 +372,7 @@ statement:     CLEAR_statement
                   }
                | LINE_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | NEXT_statement
                   {
@@ -377,7 +380,7 @@ statement:     CLEAR_statement
                   }
                | ON_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }   
                | PRINT_statement 
                   {
@@ -389,7 +392,7 @@ statement:     CLEAR_statement
                   }
                | RUN_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | RETURN_statement
                   {
@@ -397,7 +400,7 @@ statement:     CLEAR_statement
                   }
                | STOP_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | SYSTEM_statement
                   {
@@ -405,7 +408,7 @@ statement:     CLEAR_statement
                   }
                | WIDTH_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | error /* bison error handler */   
                   {
@@ -425,6 +428,9 @@ eol:    EOL_TOKEN
  *********************************************************/ 
 
 CLEAR_statement: CLEAR_TOKEN expression
+                 {
+                   $$ = new AST::Statement(g_lexLineNumber);
+                 }
                  ;
 
 /********************************************************* 
@@ -434,6 +440,9 @@ CLEAR_statement: CLEAR_TOKEN expression
  *********************************************************/ 
 
 DEF_statement:  DEF_TOKEN IDENTIFIER opt_def_args '=' expression 
+                {
+                  $$ = new AST::Statement(g_lexLineNumber);
+                }
                 ;
 
 opt_def_args: /* empty */
@@ -560,7 +569,7 @@ IF_statement: IF_TOKEN if_expression THEN_TOKEN
               conditional_clause opt_ELSE_statement
                 {
                   $$ = new AST::IfStatement(g_lexLineNumber, $2, $5, $6);
-                  $$->m_text = *$<sval>4;
+                  $$->m_text = *$<sval>4 + g_application.GetStatement();
                   delete $<sval>4;
                 }
               ;
@@ -614,11 +623,20 @@ conditional_clause:   line_number
 
  *********************************************************/ 
 
- LINE_statement:  LINE_TOKEN INPUT_statement;
+ LINE_statement:  LINE_TOKEN INPUT_statement
+                  {
+                    $$ = new AST::Statement(g_lexLineNumber);
+                  }
                   ;
 
  INPUT_statement: INPUT_TOKEN QUOTED_STRING ';' input_var_list
+                  {
+                    $$ = new AST::Statement(g_lexLineNumber);
+                  }
                   | INPUT_TOKEN input_var_list
+                  {
+                    $$ = new AST::Statement(g_lexLineNumber);
+                  }
                   ;
 
  input_var_list:  input_var
@@ -669,6 +687,9 @@ assign_expression:  numeric_var_ref '=' expression
  *********************************************************/ 
 
 ON_statement:    ON_TOKEN expression GOTO_TOKEN line_number opt_on_list
+                  {
+                    $$ = new AST::Statement(g_lexLineNumber);
+                  }
                   ;
 
 opt_on_list:     /* empty */
@@ -774,6 +795,9 @@ rem_keyword: REM_TOKEN
  *********************************************************/ 
 
 RUN_statement: RUN_TOKEN QUOTED_STRING
+                  {
+                    $$ = new AST::Statement(g_lexLineNumber);
+                  }
               ;
 
 /********************************************************* 
@@ -783,6 +807,9 @@ RUN_statement: RUN_TOKEN QUOTED_STRING
  *********************************************************/ 
 
 STOP_statement: STOP_TOKEN
+                {
+                  $$ = new AST::Statement(g_lexLineNumber);
+                }
                 ;
 
 /********************************************************* 
@@ -802,7 +829,7 @@ SYSTEM_statement: SYSTEM_TOKEN
 
 WIDTH_statement: WIDTH_TOKEN integer
                   {
-                    $$ = nullptr;
+                    $$ = new AST::Statement(g_lexLineNumber);
                   }
                   ;
 

@@ -376,7 +376,7 @@ void Basalt::SetStatementStart()
 
 std::string Basalt::GetStatement()
 {
-  std::string str = Trim(m_line.substr(m_statementStart, m_lineOffs - m_statementStart));
+  std::string str = m_line.substr(m_statementStart, m_lineOffs - m_statementStart);
   return str;
 }
 
