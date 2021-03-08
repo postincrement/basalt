@@ -626,7 +626,13 @@ conditional_clause:   line_number
                   ;
 
  input_var:       numeric_var_ref
+                  {
+                    UseNumericGlobalVar(*$1, true, false);
+                  }
                   | string_var_ref
+                  {
+                    UseStringGlobalVar(*$1, true, false);
+                  }
                   ;       
 
 /********************************************************* 
@@ -1041,6 +1047,7 @@ string_subexpression: '(' string_expression ')'
 string_value:   string_var_ref
                   {
                     $$ = $1;
+                    UseStringGlobalVar(*$1, false, true);
                   }
                 | CHR_TOKEN '(' expression ')'  
                   {

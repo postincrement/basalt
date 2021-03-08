@@ -10,6 +10,9 @@ using namespace std;
 
 //#include "c/c_codegen.h"
 //#include "z80/z80_codegen.h"
+#include "pretty/pretty_codegen.h"
+
+#define DEFAULT_LANG "pretty"
 
 // declared as extern in basalt.h
 Basalt g_application;
@@ -22,7 +25,7 @@ std::string g_printableInputFilename;
 
 static int  g_warningCount      = 0;
 static Factory<LanguageProfile> g_languageProfileFactory;
-static Factory<CodeGenerator>   g_codeGenerators;
+static Factory<CodeGenerator, const AST::Parser &> g_codeGenerators;
 
 static LanguageProfileDef g_basicVariants[] = { 
 // name      varlen tab defnum              defint
@@ -213,7 +216,7 @@ void Basalt::DisplayHelp(const std::vector<ArgDef> & argDefs)
 
 int Basalt::Main(int argc, char const *argv[])
 {
-  m_arch           = "ansi-c";
+  m_arch           = DEFAULT_LANG;
   g_disableWarnings = false;
   g_enableLineNumbers = false;
   
@@ -312,7 +315,7 @@ int Basalt::Main(int argc, char const *argv[])
   // 
   //  additional passes
   //
-  {
+  if (m_verbose) {
     Pass1 pass1(parser);
     pass1.Run();
   }
@@ -321,10 +324,19 @@ int Basalt::Main(int argc, char const *argv[])
   // 
   //  last pass = generate code
   //
+  g_codeGenerators.Register<Pretty_CodeGenerator>("pretty");
 #if 0  
   // register language profiles
   g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
   g_codeGenerators.Register<Z80_CodeGenerator>("z80");
+#endif
+
+  // create code generator
+  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch, parser);
+  if (codeGen == nullptr) {
+    cerr << "error: unknown arch '" << m_arch << "'" << endl;
+    return -1;
+  }
 
   std::ostream * outputStream = nullptr;
   std::ofstream outputFile;
@@ -351,18 +363,9 @@ int Basalt::Main(int argc, char const *argv[])
     outputStream = &outputFile;
   }
 
-  // create code generator
-  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch);
-  if (codeGen == nullptr) {
-    cerr << "error: unknown arch '" << m_arch << "'" << endl;
-    return -1;
-  }
-
-
-  if (!codeGen->Run(g_printableInputFilename, outputStream, AST::g_program)) {
+  if (!codeGen->Run(g_printableInputFilename, outputStream)) {
     cerr << "error: code generation failed" << endl;
   }
-#endif
 
   return 0;
 }
@@ -375,6 +378,11 @@ void Basalt::SetStatementStart()
 std::string Basalt::GetStatement()
 {
   std::string str = m_line.substr(m_statementStart, m_lineOffs - m_statementStart);
+  if (!str.empty()) {
+    size_t len = str.length();
+    if (str[len-1] == ':')
+      str.resize(len-1);
+  }
   return str;
 }
 

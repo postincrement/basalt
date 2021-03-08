@@ -195,13 +195,6 @@ struct Parser
   StringConstantList  m_stringConstants;
   unsigned            m_stringConstantIndex = 1;
   LineNumberInfo      m_lineNumberInfo;
-//  GlobalVarMap        m_globalVars;  
-
-  //Program AST::g_program;
-  //VarList AST::g_globalVars;
-  //LineNumberInfo AST::g_lineNumberInfo;
-  //JumpDestinationList AST::g_jumpDestinationInfo;
-  //StringConstantList AST::g_stringConstants;
 
   unsigned m_lexLineNumber     = 1;  // corrected source line number
   std::string m_basicLineNumber;     // BASIC line number

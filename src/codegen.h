@@ -27,14 +27,14 @@ class CodeGenerator
       int m_indentInc = 2;
     };
 
-    CodeGenerator(const Config & config);
+    CodeGenerator(const Config & config, const AST::Parser & parser);
 
     const Config & GetConfig() const;
 
     struct Closure;
     virtual Closure * CreateClosure(int indent) const;
 
-    bool Run(const std::string & inputFilename, std::ostream * outputStream, const AST::Program & program);
+    bool Run(const std::string & inputFilename, std::ostream * outputStream);
     virtual bool Body() = 0;
 
     virtual int Generate(const AST::Node & node);
@@ -42,9 +42,9 @@ class CodeGenerator
     virtual int Print(const AST::Node & node);
 
     virtual int Generate(const AST::SourceLine & expr);     // iterate through statements
-    virtual int Generate(const AST::Statement & statement); // iterate through expressions 
+    virtual int Generate(const AST::Statement & statement); // default for unimplemented statements
+    virtual int Generate(const AST::Print & expr);          // iterate through expressions
 
-    virtual int Generate(const AST::Print & expr) { return 0; }
     virtual int Generate(const AST::NumericAssign & expr) { return 0; }
     virtual int Generate(const AST::StringAssign & expr) { return 0; }
     virtual int Generate(const AST::GotoStatement & expr) { return 0; }
@@ -84,12 +84,12 @@ class CodeGenerator
     virtual int Evaluate(const AST::LenFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::TabFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::LeftFunction & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::MidFunction & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::MidFunction & explepr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::RightFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::StringAddition & expr, std::string & result) { return 0; }
 
-    virtual int Print(const AST::NumericExpr & expr) = 0;
+    virtual int Print(const AST::NumericExpr & expr) { return 0; }
     virtual int Print(const AST::StringConstant & expr) { return 0; }
     virtual int Print(const AST::Int16Constant & expr) { return 0; }
     virtual int Print(const AST::Int32Constant & expr) { return 0; }
@@ -144,7 +144,8 @@ class CodeGenerator
 
     unsigned m_globalTempIndex = 1;
 
-    const AST::Program * m_program;
+    const AST::Parser  & m_parser;
+    const AST::Program & m_program;
 
     std::ostream * m_outputStream;
     std::deque<Closure *> m_stack;

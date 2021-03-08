@@ -7,8 +7,10 @@ using namespace std;
 
 #define DEFAULT_TEMP_PREFIX "temp_"
 
-CodeGenerator::CodeGenerator(const Config &config)
-    : m_config(config)
+CodeGenerator::CodeGenerator(const Config & config, const AST::Parser & parser)
+  : m_config(config)
+  , m_parser(parser)
+  , m_program(parser.m_program)
 {
 }
 
@@ -22,11 +24,10 @@ void CodeGenerator::CompilerErrorInternal(ErrorCode code, unsigned ln, const std
   g_application.CompilerErrorInternal(code, ln, msg);
 }
 
-bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputStream, const AST::Program &program)
+bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputStream)
 {
   m_inputFilename = inputFilename;
   m_outputStream = outputStream;
-  m_program = &program;
 
   CheckVars();
   CheckJumps();
@@ -97,9 +98,8 @@ std::string CodeGenerator::GetGlobalTempName()
 bool CodeGenerator::CheckVars()
 {
   // check global vars
-  for (auto &r : AST::g_globalVars)
-  {
-    AST::VarInfo &info = r.second;
+  for (auto &r : m_parser.m_globalVars) {
+    const AST::VarInfo &info = r.second;
     if ((info.m_lhsLine != 0) && (info.m_rhsLine == 0)) {
       CompilerError(eWarning_VarDefinedButNotUsed, info.m_lhsLine, "variable '" << r.first << "' defined but not used");
     }
@@ -113,13 +113,13 @@ bool CodeGenerator::CheckVars()
 bool CodeGenerator::CheckJumps()
 {
   // goto list is indexed by goto destination
-  for (auto & r : AST::g_jumpDestinationInfo) {
+  for (auto & r : m_parser.m_jumpDestinationInfo) {
 
     // get the destination of the goto
     const std::string & lineNumber = r.first;
 
     // print error if destination not found 
-    if (AST::g_lineNumberInfo.count(lineNumber) == 0) {
+    if (m_parser.m_lineNumberInfo.count(lineNumber) == 0) {
       unsigned line = *r.second.m_usedLine.begin();
       CompilerError(eError_GotoDestinationNotFound, line, lineNumber);
     }
@@ -130,8 +130,8 @@ bool CodeGenerator::CheckJumps()
 
 int CodeGenerator::ResolveGotoDestination(const std::string & ref)
 {
-  auto r = AST::g_lineNumberInfo.find(ref);
-  if (r == AST::g_lineNumberInfo.end())
+  auto r = m_parser.m_lineNumberInfo.find(ref);
+  if (r == m_parser.m_lineNumberInfo.end())
     return -1;
   return r->second;  
 }
@@ -150,7 +150,7 @@ std::string DemangleTypeName(const std::type_info &r)
 
 int CodeGenerator::Generate(const AST::Node &expr)
 {
-  InternalError("unimplemented Generate for " << DemangleTypeName(typeid(expr)));
+  //InternalError("unimplemented Generate for " << DemangleTypeName(typeid(expr)));
   return 1;
 }
 
@@ -213,7 +213,19 @@ int CodeGenerator::Generate(const AST::SourceLine &line)
 int CodeGenerator::Generate(const AST::Statement &statement)
 {
 //  m_currentStatementLine = statement.m_lineNumber;
-  cerr << "no generate for statement" << endl;
+  CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::Print & printExpr)
+{
+  if (printExpr.m_list != nullptr) {
+    AST::ExprList & expr = *printExpr.m_list;
+    for (auto & r : expr.m_list) {
+      if (r != nullptr)
+        r->Print(*this);
+    }
+  }
   return 0;
 }
 
@@ -221,8 +233,8 @@ int CodeGenerator::Generate(const AST::Statement &statement)
 
 int CodeGenerator::Print(const AST::Node &expr)
 {
-  InternalError("unimplemented Print for " << DemangleTypeName(typeid(expr)));
-  return 1;
+  CompilerError(eWarning_NotImplemented, 0, "unimplemented Print for " << DemangleTypeName(typeid(expr)));
+  return 0;
 }
 
 int CodeGenerator::Print(const AST::PrintSemiColon & expr)

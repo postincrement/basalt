@@ -15,6 +15,7 @@ enum ErrorCode
   eWarning_VarDefinedButNotUsed,
   eWarning_VarIsSynonym,
   eWarning_UnreachableCode,
+  eWarning_NotImplemented,
   eWarning_Last                   = 0x7fff,
 
   //
