@@ -4,23 +4,35 @@
 
 using namespace std;
 
-Pass1::Pass1(const AST::Program & g_program)
-  : m_program(g_program)
+Pass1::Pass1(const AST::Parser & parser)
+  : m_parser(parser)
 {
 }
 
 bool Pass1::Run()
 {
-  for (auto & line : m_program.m_list) {
+  cout << "Vars\n"
+       << "----\n";
+  for (auto & var : m_parser.m_globalVars) {
+    cout << "  " << var.first << endl;
+  }
+  cout << endl;
+
+  cout << "Goto targets\n"
+       << "------------\n";
+  for (auto & target : m_parser.m_jumpDestinationInfo) {
+    cout << "  " << target.first << endl;
+  }
+  cout << endl;
+
+  for (auto & line : m_parser.m_program.m_list) {
     if (line == nullptr)
       continue;
-    cout //<< "# " << line->GetLine() << endl
-         << line->GetBasicLineNumber() << endl;
+    if (m_parser.m_jumpDestinationInfo.count(line->GetBasicLineNumber()) > 0)  
+      cout << line->GetBasicLineNumber() << endl;
     for (auto & statement : line->m_statements->m_list) {
-//      if (statement != nullptr)     
-        cout << "   " << statement->m_text << endl;
+      cout << "   " << statement->m_text << endl;
     }
-    cout << endl;
   }
   return true;
 }

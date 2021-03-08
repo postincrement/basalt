@@ -64,7 +64,6 @@ class Basalt
     unsigned m_warningCount = 0;
 };
 
-
 extern int MBASIC_lex();
 extern int MBASIC_parse();
 extern int MBASIC_debug;
@@ -72,12 +71,7 @@ extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 // declared in basalt.cc
 extern Basalt g_application;
-
-// declared in mbasic.ypp
-extern unsigned g_lexLineNumber;
-extern std::string g_basicLineNumber;
 
 #endif // BASALT_H_

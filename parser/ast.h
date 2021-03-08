@@ -48,15 +48,37 @@ struct LanguageProfile
   const LanguageProfileDef * m_def;
 };
 
-extern LanguageProfile * g_languageProfile;
-
 //////////////////////////////////////////////////////////////////
 
 class CodeGenerator;
 
 namespace AST {
 
-////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+
+struct JumpDestinationInfo {
+  unsigned m_count = 0;
+  std::set<unsigned> m_usedLine;
+};
+
+typedef std::map<std::string, JumpDestinationInfo> JumpDestinationList;
+
+//////////////////////////////////////////////////////////////////
+
+struct VarInfo {
+  VarType     m_type;
+  std::string m_originalName;
+  bool        m_lhs = false;
+  unsigned    m_lhsLine = 0;
+  bool        m_rhs = false;
+  unsigned    m_rhsLine = 0;
+};
+
+typedef std::map<std::string, VarInfo>  VarList;
+typedef std::map<std::string, unsigned> StringConstantList;
+typedef std::map<std::string, unsigned> LineNumberInfo; 
+
+//////////////////////////////////////////////////////////////////
 
 class Node
 {
@@ -110,6 +132,81 @@ class NodeList : public Node
 
     std::vector<std::unique_ptr<N>> m_list;
 };
+////////////////////////////////////////////////////////////////////////////
+
+class Statement;
+
+using StatementList = NodeList<Statement>;
+
+class SourceLine : public Node
+{
+  public:
+    SourceLine(unsigned sourceLineNumber, 
+              const std::string & m_basicLineNumber,
+              const std::string & line);
+
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    unsigned GetSourceLineNumber() const
+    { return m_sourceLineNumber; }
+
+    std::string GetBasicLineNumber() const
+    { return m_basicLineNumber; }
+
+    std::string GetLine() const
+    { return m_line; }
+
+    std::unique_ptr<StatementList> m_statements;
+
+  protected:
+    unsigned m_sourceLineNumber = 0;
+    std::string m_basicLineNumber;
+    std::string m_line;  
+};
+
+using Program = NodeList<SourceLine>;
+
+////////////////////////////////////////////////////////////////////////////
+
+struct Parser
+{
+  Parser();
+
+  int AddStringConstant(const std::string & str);
+
+  void AddJumpTo(int sourceLineNumber, const std::string & basicLineRef);
+
+  std::string DefineVar(
+                 const std::string & name,
+                 const std::string & originalName,
+                 VarType varType,
+                 int leftRef,
+                 int rightRef);
+
+  VarInfo * GetVar(const std::string & name);
+
+  bool StartLine(const std::string * lineRef);
+
+  Program             m_program;
+  JumpDestinationList m_jumpDestinationInfo;
+  LanguageProfile     * m_languageProfile;
+  VarList             m_globalVars;
+  StringConstantList  m_stringConstants;
+  unsigned            m_stringConstantIndex = 1;
+  LineNumberInfo      m_lineNumberInfo;
+//  GlobalVarMap        m_globalVars;  
+
+  //Program AST::g_program;
+  //VarList AST::g_globalVars;
+  //LineNumberInfo AST::g_lineNumberInfo;
+  //JumpDestinationList AST::g_jumpDestinationInfo;
+  //StringConstantList AST::g_stringConstants;
+
+  unsigned m_lexLineNumber     = 1;  // corrected source line number
+  std::string m_basicLineNumber;     // BASIC line number
+};
+
+extern Parser * g_parser;
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -152,6 +249,7 @@ class Statement : public Node
 
 
 using StatementList = NodeList<Statement>;
+
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -487,23 +585,6 @@ using Int32Constant  = ConstantType<VarType::eInt32,  int32_t>;
 using SingleConstant = ConstantType<VarType::eSingle, float>;
 using DoubleConstant = ConstantType<VarType::eDouble, double>;
 
-struct VarInfo {
-  VarType m_type;
-  std::string m_originalName;
-  bool     m_lhs = false;
-  unsigned m_lhsLine = 0;
-  bool     m_rhs = false;
-  unsigned m_rhsLine = 0;
-};
-
-typedef std::map<std::string, VarInfo> VarList;
-extern VarList g_globalVars;
-
-typedef std::map<std::string, unsigned> StringConstantList;
-extern StringConstantList g_stringConstants;
-
-extern unsigned g_stringConstantIndex;
-
 ////////////////////////////////////////////////////////////////////////////
 
 class AssignStatement : public Statement
@@ -540,39 +621,6 @@ class StringConstant : public StringExpr
     std::string m_value;  
     unsigned m_index;
 };
-
-////////////////////////////////////////////////////////////////////////////
-
-class SourceLine : public Node
-{
-  public:
-    SourceLine(unsigned sourceLineNumber, 
-              const std::string & m_basicLineNumber,
-              const std::string & line);
-
-    virtual int Generate(CodeGenerator & gen) const override;
-
-    unsigned GetSourceLineNumber() const
-    { return m_sourceLineNumber; }
-
-    std::string GetBasicLineNumber() const
-    { return m_basicLineNumber; }
-
-    std::string GetLine() const
-    { return m_line; }
-
-    std::unique_ptr<StatementList> m_statements;
-
-  protected:
-    unsigned m_sourceLineNumber = 0;
-    std::string m_basicLineNumber;
-    std::string m_line;  
-};
-
-using Program = NodeList<SourceLine>;
-
-typedef std::map<std::string, unsigned> LineNumberInfo; 
-extern LineNumberInfo g_lineNumberInfo;
 
 ////////////////////////////////////////////////////////////////////////////
 
@@ -616,14 +664,6 @@ class Rem : public Statement
 };
 
 ////////////////////////////////////////////////////////////////////////////
-
-struct JumpDestinationInfo {
-  unsigned m_count = 0;
-  std::set<unsigned> m_usedLine;
-};
-
-typedef std::map<std::string, JumpDestinationInfo> JumpDestinationList;
-extern JumpDestinationList g_jumpDestinationInfo;
 
 class JumpStatement : public Statement
 {
@@ -682,7 +722,7 @@ class IntFunction : public NumericExpr
 {
   public:
     IntFunction(const NumericExpr * arg1)
-      : NumericExpr(g_languageProfile->GetIntegerType())
+      : NumericExpr(g_parser->m_languageProfile->GetIntegerType())
       , m_arg1(arg1)
     {}
 
@@ -713,11 +753,47 @@ class SqrFunction : public NumericExpr
     const NumericExpr * m_arg1;
 };
 
+class RndFunction : public NumericExpr
+{
+  public:
+    RndFunction(const NumericExpr * arg1)
+      : NumericExpr(arg1->GetType())
+      , m_arg1(arg1)
+    {
+    }
+
+    const NumericExpr * GetArg1() const
+    { return m_arg1; }
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+
+  protected:
+    const NumericExpr * m_arg1;
+};
+
+class AbsFunction : public NumericExpr
+{
+  public:
+    AbsFunction(const NumericExpr * arg1)
+      : NumericExpr(arg1->GetType())
+      , m_arg1(arg1)
+    {
+    }
+
+    const NumericExpr * GetArg1() const
+    { return m_arg1; }
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+
+  protected:
+    const NumericExpr * m_arg1;
+};
+
 class LenFunction : public NumericExpr
 {
   public:
     LenFunction(const StringExpr * arg1)
-      : NumericExpr(g_languageProfile->GetIntegerType())
+      : NumericExpr(g_parser->m_languageProfile->GetIntegerType())
       , m_arg1(arg1)
     {}
 
@@ -906,10 +982,6 @@ class NextStatement : public Statement
 
 ////////////////////////////////////////////////////////////////////////////
 
-extern Program g_program;
-
-////////////////////////////////////////////////////////////////////////////
-
 } // namespace AST
 
 ////////////////////////////////////////////////////////////////////////////
@@ -936,4 +1008,4 @@ struct DoubleFloat
   double m_value;
 };
 
-#endif // CODEGEN_H
+#endif // AST_H_
