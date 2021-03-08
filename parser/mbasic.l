@@ -24,7 +24,7 @@
 
 <REM_MODE>\n {
   BEGIN(INITIAL);
-  g_lexLineNumber++;
+  AST::g_parser->m_lexLineNumber++;
   return EOL_TOKEN;
 }
 
@@ -134,6 +134,14 @@
 
 [Rr][Ee][Mm]  {
           return REM_TOKEN;
+        }
+
+[Rr][Nn][Dd]  {
+          return RND_TOKEN;
+        }
+
+[Aa][Bb][Ss]  {
+          return ABS_TOKEN;
         }
 
 [Rr][Uu][Nn]  {
@@ -250,7 +258,7 @@
 [ \t]*  	{}
 
 [\n]	{
-			  g_lexLineNumber++;
+			  AST::g_parser->m_lexLineNumber++;
 			  return EOL_TOKEN;
 			}
 

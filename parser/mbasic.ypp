@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include <deque>
 using namespace std;
 
 #include "common.h"
@@ -14,12 +15,11 @@ using namespace std;
 
 #define YYDEBUG 1
 
-unsigned g_lexLineNumber     = 1;  // corrected source line number
-std::string g_basicLineNumber;     // BASIC line number
-
 static unsigned g_lineNumber = 1;     // parsed source line number
 
 extern void MBASIC_SetRemMode();
+
+typedef std::deque<std::string> OnRefList;
 
 #define ParserError(code, expr) \
 do { std::stringstream strm; strm << expr; \
@@ -51,52 +51,33 @@ static AST::NumericExpr * CreateConstant(VarType type, const std::string & val)
 
 static void UseNumericGlobalVar(AST::NumericVarRef & var, bool left, bool right)
 {
-  if (AST::g_globalVars.count(var.GetName()) == 0) {
-    AST::VarInfo info;
-    info.m_type         = var.GetType();
-    info.m_originalName = var.GetOriginalName(); 
-    if (left)
-      info.m_lhsLine = g_lineNumber;
-    if (right)   
-      info.m_rhsLine  = g_lineNumber;
-    AST::g_globalVars[var.GetName()] = info;
-  }
-  else {
-    AST::VarInfo & info = AST::g_globalVars[var.GetName()];
-    if (var.GetOriginalName() != info.m_originalName) {
-      ParserError(eWarning_VarIsSynonym,
-                  "'" << var.GetOriginalName() << "' & '" << info.m_originalName << "'");
-    }
-    if (left && (info.m_lhsLine == 0))
-      info.m_lhsLine = g_lineNumber;
-    if (right && (info.m_rhsLine == 0))
-      info.m_rhsLine = g_lineNumber;
-  }
+  std::string synonym = 
+          AST::g_parser->DefineVar(
+                        var.GetName(),
+                        var.GetOriginalName(), 
+                        var.GetType(),
+                        left  ? g_lineNumber : -1,
+                        right ? g_lineNumber : -1
+                        );
+
+  if (!synonym.empty())                      
+    ParserError(eWarning_VarIsSynonym,
+                "'" << var.GetOriginalName() << "' & '" << synonym << "'");
 }
 
 static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 {
-  if (AST::g_globalVars.count(var.GetName()) == 0) {
-    AST::VarInfo info;
-    info.m_type         = var.GetType();
-    info.m_originalName = var.GetOriginalName(); 
-    if (left)
-      info.m_lhsLine = g_lineNumber;
-    if (right)   
-      info.m_rhsLine  = g_lineNumber;
-    AST::g_globalVars[var.GetName()] = info;
-  }
-  else {
-    AST::VarInfo & info = AST::g_globalVars[var.GetName()];
-    if (var.GetOriginalName() != info.m_originalName) {
-      ParserError(eWarning_VarIsSynonym, 
-                  "'" << var.GetOriginalName() << "' & '" << info.m_originalName << "'");
-    }
-    if (left && (info.m_lhsLine == 0))
-      info.m_lhsLine = g_lineNumber;
-    if (right && (info.m_rhsLine == 0))
-      info.m_rhsLine = g_lineNumber;
-  }
+  std::string synonym = 
+          AST::g_parser->DefineVar(
+                        var.GetName(),
+                        var.GetOriginalName(), 
+                        var.GetType(),
+                        left  ? g_lineNumber : -1,
+                        right ? g_lineNumber : -1
+                        );
+  if (!synonym.empty())                      
+    ParserError(eWarning_VarIsSynonym,
+                "'" << var.GetOriginalName() << "' & '" << synonym << "'");
 }
 
 %}
@@ -121,6 +102,8 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
   AST::StringExpr      * strexpr;
   AST::StringVarRef    * strvarref;
 
+  AST::OnRefList       * onreflist;
+
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
 }
@@ -135,12 +118,14 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %token AND_TOKEN
 
 // functions
+%token ABS_TOKEN
 %token CHR_TOKEN
 %token INT_TOKEN
 %token LEFT_TOKEN
 %token LEN_TOKEN 
 %token MID_TOKEN
 %token RIGHT_TOKEN
+%token RND_TOKEN
 %token SQR_TOKEN
 %token STR_TOKEN
 %token TAB_TOKEN
@@ -183,7 +168,6 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 // rules
 //%type <sourceLine>    line 
 %type <statementList> opt_statement_list statement_list
-%type <statementList> opt_ELSE_statement ELSE_statement
 
 %type <statement>    statement //statement2
 %type <statement>    DIM_statement PRINT_statement WIDTH_statement
@@ -193,6 +177,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <exprList>     dim_var_list
 %type <expr>         assign_expression 
 %type <ifcond>       conditional_clause 
+%type <ifcond>       opt_ELSE_statement ELSE_statement
 
 // not yet implemented
 %type <statement> ON_statement CLEAR_statement DEF_statement INPUT_statement
@@ -203,6 +188,8 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 
 %type <sval>        opt_line_number line_number  opt_COMMENT
 %type <ival>        integer
+
+%type <onreflist>   opt_on_list
 
 %type <numvarref>  numeric_var_ref numeric_var_name opt_varname 
 %type <numexpr>    expression subexpression numeric_const_expr 
@@ -229,21 +216,16 @@ file:     /* empty */
 
 line:     opt_line_number 
               {
-                g_basicLineNumber = "";
-                if ($1 != nullptr) {
-                  g_basicLineNumber = *$1;
-                  if (AST::g_lineNumberInfo.count(g_basicLineNumber) != 0) {
-                    ParserError(Error_DuplicateLineNumber,
-                                "duplicate BASIC line number '" << g_basicLineNumber << "' on lines " << g_lexLineNumber << " & " << AST::g_lineNumberInfo[g_basicLineNumber]);
-                  }
-                  AST::g_lineNumberInfo[g_basicLineNumber] = g_lexLineNumber;
+                if (!AST::g_parser->StartLine($1)) {
+                  ParserError(Error_DuplicateLineNumber,
+                              "duplicate BASIC line number '" << AST::g_parser->m_basicLineNumber << "' on lines " << AST::g_parser->m_lexLineNumber << " & " << AST::g_parser->m_lineNumberInfo[AST::g_parser->m_basicLineNumber]);
                 }
                 $<sourceLine>$ = new AST::SourceLine(
-                      g_lexLineNumber,
-                      g_basicLineNumber, 
+                      AST::g_parser->m_lexLineNumber,
+                      AST::g_parser->m_basicLineNumber, 
                       g_application.GetCurrentLine()
                       );
-                g_lineNumber = g_lexLineNumber;
+                g_lineNumber = AST::g_parser->m_lexLineNumber;
                 g_application.SetStatementStart();
               }
           opt_statement_list 
@@ -256,7 +238,7 @@ line:     opt_line_number
                 AST::SourceLine * line = $<sourceLine>2;
                 if ($3 != nullptr)
                   line->m_statements.reset($3);
-                AST::g_program.Append(line);
+                AST::g_parser->m_program.Append(line);
               }
             }
           eol
@@ -314,7 +296,8 @@ statement_list : statement
                  statement
                   {
                     if ($4 != nullptr) {
-                      $4->m_text = g_application.GetStatement();
+                      if ($4->m_text.empty())
+                        $4->m_text = g_application.GetStatement();
                       $1->Append($4);
                     }
                     $$ = $1;
@@ -344,7 +327,7 @@ statement:     CLEAR_statement
                   }   
                | END_statement
                   {
-                    $$ = new AST::End(g_lexLineNumber);
+                    $$ = new AST::End(AST::g_parser->m_lexLineNumber);
                   }   
                | FOR_statement
                   {
@@ -404,7 +387,7 @@ statement:     CLEAR_statement
                   }
                | SYSTEM_statement
                   {
-                    $$ = new AST::System(g_lexLineNumber);
+                    $$ = new AST::System(AST::g_parser->m_lexLineNumber);
                   }
                | WIDTH_statement
                   {
@@ -429,7 +412,7 @@ eol:    EOL_TOKEN
 
 CLEAR_statement: CLEAR_TOKEN expression
                  {
-                   $$ = new AST::Statement(g_lexLineNumber);
+                   $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                  }
                  ;
 
@@ -441,7 +424,7 @@ CLEAR_statement: CLEAR_TOKEN expression
 
 DEF_statement:  DEF_TOKEN IDENTIFIER opt_def_args '=' expression 
                 {
-                  $$ = new AST::Statement(g_lexLineNumber);
+                  $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                 }
                 ;
 
@@ -461,7 +444,7 @@ def_arg_list: IDENTIFIER
 
 DIM_statement:  DIM_TOKEN dim_var_list
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
+                    $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                     //if ($2 != nullptr)
                     //  $$->Append($2);
                   }
@@ -494,13 +477,13 @@ END_statement:  END_TOKEN
 
 FOR_statement: FOR_TOKEN numeric_var_ref '=' expression TO_TOKEN expression opt_STEP_statement
                 {
-                  $$ = new AST::ForStatement(g_lexLineNumber, $2, $4, $6, $7);
+                  $$ = new AST::ForStatement(AST::g_parser->m_lexLineNumber, $2, $4, $6, $7);
                 }
                 ;
 
 NEXT_statement: NEXT_TOKEN opt_varname
                 {   
-                  $$ = new AST::NextStatement(g_lexLineNumber, $2);
+                  $$ = new AST::NextStatement(AST::g_parser->m_lexLineNumber, $2);
                 }
                 ;
 
@@ -532,13 +515,13 @@ opt_STEP_statement: /* empty */
               
 GOSUB_statement:  GOSUB_TOKEN line_number
                     {
-                      $$ = new AST::GosubStatement(g_lexLineNumber, *$2);
+                      $$ = new AST::GosubStatement(AST::g_parser->m_lexLineNumber, *$2);
                     }
                 ;
 
 RETURN_statement:  RETURN_TOKEN
                     {
-                      $$ = new AST::ReturnStatement(g_lexLineNumber);
+                      $$ = new AST::ReturnStatement(AST::g_parser->m_lexLineNumber);
                     }
                 ;
 
@@ -550,7 +533,7 @@ RETURN_statement:  RETURN_TOKEN
               
 GOTO_statement: GOTO_TOKEN line_number
                   {
-                    $$ = new AST::GotoStatement(g_lexLineNumber, *$2);
+                    $$ = new AST::GotoStatement(AST::g_parser->m_lexLineNumber, *$2);
                     delete $2;
                   }
                 ;
@@ -568,7 +551,7 @@ IF_statement: IF_TOKEN if_expression THEN_TOKEN
                 }
               conditional_clause opt_ELSE_statement
                 {
-                  $$ = new AST::IfStatement(g_lexLineNumber, $2, $5, $6);
+                  $$ = new AST::IfStatement(AST::g_parser->m_lexLineNumber, $2, $5, $6);
                   $$->m_text = *$<sval>4 + g_application.GetStatement();
                   delete $<sval>4;
                 }
@@ -600,8 +583,7 @@ ELSE_statement: ELSE_TOKEN
                   }
                 conditional_clause
                   {
-                    $$ = $3->m_statements;
-                    delete $3;
+                    $$ = $3;
                   }
                 ;
 
@@ -625,17 +607,17 @@ conditional_clause:   line_number
 
  LINE_statement:  LINE_TOKEN INPUT_statement
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
+                    $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                   }
                   ;
 
  INPUT_statement: INPUT_TOKEN QUOTED_STRING ';' input_var_list
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
+                    $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                   }
                   | INPUT_TOKEN input_var_list
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
+                    $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                   }
                   ;
 
@@ -655,7 +637,7 @@ conditional_clause:   line_number
 
 LET_statement:  opt_LET_TOKEN assign_expression
                 {
-                  $$ = new AST::AssignStatement(g_lexLineNumber, $2);
+                  $$ = new AST::AssignStatement(AST::g_parser->m_lexLineNumber, $2);
                 }
                 ;
 
@@ -688,12 +670,27 @@ assign_expression:  numeric_var_ref '=' expression
 
 ON_statement:    ON_TOKEN expression GOTO_TOKEN line_number opt_on_list
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
+                    OnRefList * refs = $5;
+                    if (refs == nullptr)
+                      refs = new OnRefList();
+                    refs->push_front(*$4);
+                    $$ = new AST::OnGotoStatement(AST::g_parser->m_lexLineNumber, *refs);
+                    delete refs;
                   }
                   ;
 
 opt_on_list:     /* empty */
+                  {
+                    $$ = nullptr;
+                  }
                   | ',' line_number opt_on_list
+                  {
+                    OnRefList * refs = $3;
+                    if (refs == nullptr)
+                      refs = new OnRefList();
+                    refs->push_front(*$2);
+                    $$ = refs;
+                  }
                   ;                 
 
 /********************************************************* 
@@ -710,7 +707,7 @@ PRINT_statement:  print_keyword
                     }  
                   print_expression_list
                     {
-                      $$ = new AST::Print(g_lexLineNumber, $5);
+                      $$ = new AST::Print(AST::g_parser->m_lexLineNumber, $5);
                     }
                   ;
 
@@ -770,7 +767,7 @@ REM_statement: rem_keyword
                     if ($3 == nullptr)
                       $$ = nullptr;
                     else   
-                      $$ = new AST::Rem(g_lexLineNumber, *$3);
+                      $$ = new AST::Rem(AST::g_parser->m_lexLineNumber, *$3);
                   }  
                ;
 
@@ -796,7 +793,7 @@ rem_keyword: REM_TOKEN
 
 RUN_statement: RUN_TOKEN QUOTED_STRING
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
+                    $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                   }
               ;
 
@@ -808,7 +805,7 @@ RUN_statement: RUN_TOKEN QUOTED_STRING
 
 STOP_statement: STOP_TOKEN
                 {
-                  $$ = new AST::Statement(g_lexLineNumber);
+                  $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                 }
                 ;
 
@@ -829,7 +826,7 @@ SYSTEM_statement: SYSTEM_TOKEN
 
 WIDTH_statement: WIDTH_TOKEN integer
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
+                    $$ = new AST::Statement(AST::g_parser->m_lexLineNumber);
                   }
                   ;
 
@@ -990,6 +987,15 @@ numeric_value:  numeric_var_ref
                   {
                     $$ = new AST::LenFunction($3);
                   }
+                | ABS_TOKEN '(' expression ')'  
+                  {
+                    $$ = new AST::AbsFunction($3);
+                  }
+                | RND_TOKEN '(' expression ')'  
+                  {
+                    $$ = new AST::RndFunction($3);
+                  }
+
                 | numeric_const_expr
                   {
                     $$ = $1;
@@ -1083,12 +1089,12 @@ numeric_var_ref : numeric_var_name
 
 numeric_var_name: IDENTIFIER
             {
-              $$ = new AST::NumericVarRef(g_languageProfile->GetDefaultNumericType(), *$1);
+              $$ = new AST::NumericVarRef(AST::g_parser->m_languageProfile->GetDefaultNumericType(), *$1);
               delete $1;
             }
           | INTEGER_VARNAME
             {
-              $$ = new AST::NumericVarRef(g_languageProfile->GetIntegerType(), *$1);
+              $$ = new AST::NumericVarRef(AST::g_parser->m_languageProfile->GetIntegerType(), *$1);
               delete $1;
             }
           | SINGLE_VARNAME
@@ -1151,7 +1157,7 @@ numeric_const_expr: INTEGER
               {
                 stringstream strm;
                 strm << $1;
-                $$ = CreateConstant(g_languageProfile->GetIntegerType(), strm.str());
+                $$ = CreateConstant(AST::g_parser->m_languageProfile->GetIntegerType(), strm.str());
               }
             | DEF_INTEGER  
               {
@@ -1162,14 +1168,14 @@ numeric_const_expr: INTEGER
                     s++;
                 int32_t v = strtoul($1->c_str(), nullptr, 10);
                 if (
-                    (g_languageProfile->GetDefaultNumericType() == VarType::eInt16) && 
+                    (AST::g_parser->m_languageProfile->GetDefaultNumericType() == VarType::eInt16) && 
                     (v <= 32767) && 
                     (v >= -32768)
                    ) {
                   $$ = CreateConstant(VarType::eInt16, *$1);
                 }
                 else if (
-                    (g_languageProfile->GetDefaultNumericType() == VarType::eInt32) && 
+                    (AST::g_parser->m_languageProfile->GetDefaultNumericType() == VarType::eInt32) && 
                     (v <= 2147483647) && 
                     (v >= -214748368)
                   ) {

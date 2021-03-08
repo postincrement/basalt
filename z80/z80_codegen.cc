@@ -369,7 +369,7 @@ bool Z80_CodeGenerator::Body()
                   ;
   if (USED(PrintCh)) {
     *m_outputStream << "conout: jp    0  ; replaced with address of BIOS conout\n"
-                    << "tabwid: db    " << g_languageProfile->GetTabWidth() << " ; tab width\n"
+                    << "tabwid: db    " << g_parser->m_languageProfile->GetTabWidth() << " ; tab width\n"
                     << "column: db    0  ; current tab column\n"
                     << "\n"
                     ;    

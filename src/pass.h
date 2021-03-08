@@ -13,11 +13,11 @@
 class Pass1 
 {
   public:
-    Pass1(const AST::Program & g_program);
+    Pass1(const AST::Parser & g_parser);
     bool Run();
 
   protected:
-    const AST::Program & m_program;
+    const AST::Parser & m_parser;
 };
 
 #endif // COMPILER_PASS

@@ -18,9 +18,6 @@ bool g_disableWarnings   = false;
 bool g_enableLineNumbers = false;
 std::string g_printableInputFilename;
 
-// declared as extern in ast.h
-LanguageProfile * g_languageProfile = nullptr;
-
 //////////////////////////////////////////////////////////
 
 static int  g_warningCount      = 0;
@@ -240,28 +237,29 @@ int Basalt::Main(int argc, char const *argv[])
     return 0;
   }
 
+  AST::Parser parser;
+
   // set language profile 
   LanguageProfileDef * profiles = (m_arch == "z80") ? g_basicZ80Variants : g_basicVariants;
   int languageProfileIndex = 0;
   m_languageProfileName = profiles[languageProfileIndex].m_name;
-  g_languageProfile = nullptr;
+  parser.m_languageProfile = nullptr;
   int i = 0;
   while (profiles[i].m_name != 0) {
     if (m_languageProfileName == profiles[i].m_name) {
-      g_languageProfile = new LanguageProfile(&profiles[i]);
+      parser.m_languageProfile = new LanguageProfile(&profiles[i]);
       languageProfileIndex = i;
       break;
     }
     ++i;
   }
 
-  if (!g_languageProfile) {
+  if (!parser.m_languageProfile) {
     cerr << "error: language profile '" << m_languageProfileName << "' not known.\n";
     Usage(true);
     exit(1);
   }
   
-
   // see if using stdin or file as input  
   if (index == argc) {
     if (m_verbose)
@@ -315,7 +313,7 @@ int Basalt::Main(int argc, char const *argv[])
   //  additional passes
   //
   {
-    Pass1 pass1(AST::g_program);
+    Pass1 pass1(parser);
     pass1.Run();
   }
 
@@ -446,7 +444,7 @@ void Basalt::InternalErrorInternal(ErrorCode code, const std::string & msg)
 void Basalt::ParserErrorInternal(ErrorCode code, const std::string & msg)
 {
   size_t p = std::min(m_lineOffs, m_line.length());
-  cerr << FormatError(code, g_lexLineNumber, p) << msg << "\n";
+  cerr << FormatError(code, AST::g_parser->m_lexLineNumber, p) << msg << "\n";
   cerr << m_line << endl;
   size_t i;
   for (i = 0; i < p; i++)

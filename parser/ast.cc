@@ -7,13 +7,6 @@ using namespace std;
 
 using namespace AST;
 
-Program AST::g_program;
-VarList AST::g_globalVars;
-LineNumberInfo AST::g_lineNumberInfo;
-JumpDestinationList AST::g_jumpDestinationInfo;
-StringConstantList AST::g_stringConstants;
-unsigned AST::g_stringConstantIndex = 0;
-
 #define BASIC_STRING_SUFFIX  "$"
 #define BASIC_INT_SUFFIX     "%"
 #define BASIC_SINGLE_SUFFIX  "!"
@@ -25,6 +18,8 @@ const char * g_basicVarSuffixes[] = {
   BASIC_SINGLE_SUFFIX, BASIC_DOUBLE_SUFFIX, 
   BASIC_STRING_SUFFIX
 };
+
+AST::Parser * AST::g_parser = nullptr;
 
 /////////////////////////////////////////
 
@@ -134,7 +129,7 @@ StringVarRef::StringVarRef(const std::string & varName)
     name = name.substr(0, len-1);
   }
 
-  int varNameLen = g_languageProfile->GetVarNameLen();
+  int varNameLen = g_parser->m_languageProfile->GetVarNameLen();
   m_name = name.substr(0, varNameLen) + BASIC_STRING_SUFFIX;
 }
 
@@ -149,13 +144,7 @@ int StringVarRef::Print(CodeGenerator & gen) const
 StringConstant::StringConstant(const std::string & str)
   : m_value(str)
 {
-  if (g_stringConstants.count(str) != 0) {
-    m_index = g_stringConstants[str];
-  }
-  else {
-    m_index = g_stringConstantIndex++;
-    g_stringConstants[str] = m_index;
-  }
+  m_index = g_parser->AddStringConstant(str);
 }
 
 int StringConstant::Evaluate(CodeGenerator & gen, std::string & result) const
@@ -257,7 +246,7 @@ bool NumericBinaryOperation::Validate()
     return false;
   }
 
-  VarType etype = g_languageProfile->GetIntegerType();
+  VarType etype = g_parser->m_languageProfile->GetIntegerType();
 
   if ((ltype == VarType::eDouble) || (rtype == VarType::eDouble)) {
     etype = VarType::eDouble;
@@ -319,6 +308,16 @@ int IntFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 }
 
 int SqrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int AbsFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+{
+  return gen.Evaluate(*this, result);
+}
+
+int RndFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
@@ -405,7 +404,7 @@ NumericVarRef::NumericVarRef(VarType type, const std::string & varName)
       strType = VarType::eString;
     }
     else if (last == BASIC_INT_SUFFIX[0]) {
-      strType = g_languageProfile->GetIntegerType();
+      strType = g_parser->m_languageProfile->GetIntegerType();
     }   
     else if (last == BASIC_SINGLE_SUFFIX[0]) {
       strType = VarType::eSingle;
@@ -440,7 +439,7 @@ NumericVarRef::NumericVarRef(VarType type, const std::string & varName)
 
   m_originalName = name + suffix;
 
-  int varNameLen = g_languageProfile->GetVarNameLen();
+  int varNameLen = g_parser->m_languageProfile->GetVarNameLen();
   m_name = name.substr(0, varNameLen) + suffix;
   m_type = type;
 
@@ -521,9 +520,7 @@ JumpStatement::JumpStatement(unsigned lineNumber, const std::string & ref)
   : Statement(lineNumber)
   , m_ref(ref)
 {
-  auto & info = g_jumpDestinationInfo[ref];
-  info.m_count++;
-  info.m_usedLine.insert(lineNumber);
+  g_parser->AddJumpTo(lineNumber, ref);
 }
 
 int GotoStatement::Generate(CodeGenerator & gen) const
@@ -537,19 +534,33 @@ int ReturnStatement::Generate(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
+OnGotoStatement::OnGotoStatement(unsigned lineNumber, const OnRefList & onRefs)
+  : Statement(lineNumber)
+  , m_onRefs(onRefs)
+{
+  for (auto & r : m_onRefs)
+    g_parser->AddJumpTo(lineNumber, r);
+}
+
+int OnGotoStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+/////////////////////////////////////////
+
 IfStatement::IfStatement(unsigned lineNumber,
                          const NumericExpr * cond, 
                          const IfConditional * trueStatements,
-                         const StatementList * falseStatements)
+                         const IfConditional * falseStatements)
   : Statement(lineNumber)
   , m_cond(cond)
   , m_trueStatements(trueStatements)
   , m_falseStatements(falseStatements)
 {
   if (!m_trueStatements->m_lineNumber.empty()) {
-    auto & info = g_jumpDestinationInfo[m_trueStatements->m_lineNumber];
-    info.m_count++;
-    info.m_usedLine.insert(lineNumber);
+    g_parser->AddJumpTo(lineNumber, m_trueStatements->m_lineNumber);
+  }
+  if (m_falseStatements && !m_falseStatements->m_lineNumber.empty()) {
+    g_parser->AddJumpTo(lineNumber, m_falseStatements->m_lineNumber);
   }
 }
 
@@ -598,3 +609,84 @@ int NextStatement::Generate(CodeGenerator & gen) const
   return gen.Generate(*this);
 }
 
+////////////////////////////////////////////////////////////////
+
+Parser::Parser()
+{
+  g_parser = this;
+}
+
+int Parser::AddStringConstant(const std::string & str)
+{
+  int index;
+  if (m_stringConstants.count(str) != 0) {
+    index = m_stringConstants[str];
+  }
+  else {
+    index = m_stringConstantIndex++;
+    m_stringConstants[str] = index;
+  }
+
+  return index;
+}
+
+void Parser::AddJumpTo(int sourceLineNumber, const std::string & basicLineRef)
+{
+  auto & info = m_jumpDestinationInfo[basicLineRef];
+  info.m_count++;
+  info.m_usedLine.insert(sourceLineNumber);
+}
+
+AST::VarInfo * Parser::GetVar(const std::string & name)
+{
+  auto r = m_globalVars.find(name);
+  if (r == m_globalVars.end())
+    return nullptr;
+  return &r->second;
+}
+
+std::string Parser::DefineVar(const std::string & name,
+                       const std::string & originalName,
+                       VarType varType,
+                       int leftRef,
+                       int rightRef)
+{
+  std::string synonym;
+
+  AST::VarInfo * var = GetVar(name);
+  if (var == nullptr) {
+    AST::VarInfo info;
+    info.m_type         = varType;
+    info.m_originalName = originalName; 
+    if (leftRef >= 0)
+      info.m_lhsLine = leftRef;
+    if (rightRef >= 0)   
+      info.m_rhsLine  = rightRef;
+    m_globalVars[name] = info;
+  }
+  else {
+    if (var->m_originalName != originalName) {
+      synonym = var->m_originalName;
+    }
+    if ((leftRef >= 0) && (var->m_lhsLine == 0))
+      var->m_lhsLine = leftRef;
+    if ((rightRef >= 0) && (var->m_rhsLine == 0))
+      var->m_rhsLine = rightRef;
+  }
+
+  return synonym;
+}
+
+bool Parser::StartLine(const std::string * lineRef)
+{
+  m_basicLineNumber = "";
+  if (lineRef != nullptr) {
+    m_basicLineNumber = *lineRef;
+    if (m_lineNumberInfo.count(m_basicLineNumber) != 0) {
+      return false;
+    }
+    m_lineNumberInfo[m_basicLineNumber] = m_lexLineNumber;
+  }
+
+  return true;
+}
