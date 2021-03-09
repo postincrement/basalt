@@ -12,8 +12,7 @@
 #include <stdint.h>
 #include <queue>
 
-// if changed, change g_varTypeInfo in c_codegen.cc
-// and g_basicVarSuffixes below
+// if changed, change varTypeInfo in ast.cc
 // must be in order of precision
 enum class VarType {
   eNone,
@@ -54,6 +53,15 @@ struct LanguageProfile
 class CodeGenerator;
 
 namespace AST {
+
+//////////////////////////////////////////////////////////////////
+
+struct VarTypeInfoRec {
+  const char * m_name;
+  const char * m_suffix;
+};
+
+extern VarTypeInfoRec & GetVarTypeInfo(VarType type);
 
 //////////////////////////////////////////////////////////////////
 

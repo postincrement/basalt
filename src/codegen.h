@@ -31,9 +31,6 @@ class CodeGenerator
 
     const Config & GetConfig() const;
 
-    struct Closure;
-    virtual Closure * CreateClosure(int indent) const;
-
     bool Run(const std::string & inputFilename, std::ostream * outputStream);
     virtual bool Body() = 0;
 
@@ -99,6 +96,32 @@ class CodeGenerator
     virtual int Print(const AST::PrintSemiColon & expr);
     virtual int Print(const AST::NumericVarRef & expr) { return 0; }
     virtual int Print(const AST::StringVarRef & expr) { return 0; }
+    virtual int PrintNewLine() { return 0; }
+
+  protected:
+    void CompilerErrorInternal(ErrorCode code, unsigned len, const std::string & msg);
+
+    bool CheckVars();
+    bool CheckJumps();
+
+    Config m_config;
+
+    std::string m_inputFilename;
+    unsigned m_currentStatementLine;
+
+    unsigned m_globalTempIndex = 1;
+
+    const AST::Parser  & m_parser;
+    const AST::Program & m_program;
+
+    std::ostream * m_outputStream;
+
+#if 0
+    struct Closure;
+    virtual Closure * CreateClosure(int indent) const;
+
+    std::deque<Closure *> m_stack;
+//    bool CreateBlocks();
 
     class Closure {
       public:
@@ -129,26 +152,7 @@ class CodeGenerator
 
     bool AtTop() const
     { std::cerr << "AtTop() " << m_stack.size() << std::endl; return m_stack.size() == 1; }
-
-  protected:
-    void CompilerErrorInternal(ErrorCode code, unsigned len, const std::string & msg);
-
-    bool CheckVars();
-    bool CheckJumps();
-    bool CreateBlocks();
-
-    Config m_config;
-
-    std::string m_inputFilename;
-    unsigned m_currentStatementLine;
-
-    unsigned m_globalTempIndex = 1;
-
-    const AST::Parser  & m_parser;
-    const AST::Program & m_program;
-
-    std::ostream * m_outputStream;
-    std::deque<Closure *> m_stack;
+#endif
 };
 
 #endif // CODEGEN_H_

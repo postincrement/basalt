@@ -12,14 +12,25 @@ using namespace AST;
 #define BASIC_SINGLE_SUFFIX  "!"
 #define BASIC_DOUBLE_SUFFIX  "#"
 
-const char * g_basicVarSuffixes[] = {
-  "", 
-  BASIC_INT_SUFFIX, BASIC_INT_SUFFIX, 
-  BASIC_SINGLE_SUFFIX, BASIC_DOUBLE_SUFFIX, 
-  BASIC_STRING_SUFFIX
+
+// must be indexed by VarType
+static VarTypeInfoRec g_varTypeInfo[] ={
+    { 0                                },   // none
+    { "int16_t",  BASIC_INT_SUFFIX     },   // eInt16
+    { "int32_t",  BASIC_INT_SUFFIX     },   // eInt32
+    { "float",    BASIC_SINGLE_SUFFIX  },   // eSingle
+    { "double",   BASIC_DOUBLE_SUFFIX  },   // eDouble
+    { "string",   BASIC_STRING_SUFFIX  },   // eString
 };
 
 AST::Parser * AST::g_parser = nullptr;
+
+/////////////////////////////////////////
+
+VarTypeInfoRec & AST::GetVarTypeInfo(VarType type)
+{
+  return g_varTypeInfo[(int)type];
+}
 
 /////////////////////////////////////////
 
@@ -434,7 +445,7 @@ NumericVarRef::NumericVarRef(VarType type, const std::string & varName)
       type = strType;
     }
 
-    suffix = g_basicVarSuffixes[(int)type];
+    suffix = GetVarTypeInfo(type).m_suffix;
   }
 
   m_originalName = name + suffix;
