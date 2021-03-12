@@ -89,6 +89,15 @@ std::string DemangleTypeName(const std::type_info &r)
   return ret;
 }
 
+bool CodeGenerator::LookupGlobalVar(const std::string & varName, AST::VarInfo & var)
+{
+  if (m_parser.m_globalVars.count(varName) == 0)
+    return false;
+
+  var = m_parser.m_globalVars[varName];
+  return true;
+}
+
 ///////////////////////////////////////////////////////
 
 int CodeGenerator::Generate(const AST::Node &expr)
@@ -105,7 +114,7 @@ int CodeGenerator::Evaluate(const AST::Node &expr, std::string &result)
 
 int CodeGenerator::Print(const AST::Node &expr)
 {
-  CompilerError(eWarning_NotImplemented, 0, "unimplemented Print for " << DemangleTypeName(typeid(expr)));
+  CompilerError(eWarning_NotImplemented, m_lineNumber, "unimplemented Print for " << DemangleTypeName(typeid(expr)));
   return 0;
 }
 
@@ -121,9 +130,11 @@ int CodeGenerator::Generate(const AST::SourceLine &line)
 int CodeGenerator::Generate(const AST::Statement &statement)
 {
 //  m_currentStatementLine = statement.m_lineNumber;
-//  CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
+  CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
   return 0;
 }
+
+//////////////////////////////////////////////////////////////////////////
 
 int CodeGenerator::Generate(const AST::Print & printExpr)
 {
@@ -139,22 +150,24 @@ int CodeGenerator::Generate(const AST::Print & printExpr)
         trailingNewLine = false;
     }
   }
-  if (trailingNewLine)
+  if (trailingNewLine) {
+    m_funcsUsed.insert("print_newline");
     PrintNewLine();
+  }
   return 0;
 }
 
-int CodeGenerator::Evaluate(const AST::StringConstant & expr, std::string & result)
+int CodeGenerator::Print(const AST::StringConstant & expr)
 {
-  result = expr.GetValue();
+  m_funcsUsed.insert("print_string");
+  PrintStringConst(expr.GetValue());
   return 0;
 }
 
-int CodeGenerator::Evaluate(const AST::Int16Constant & expr, std::string & result)
+int CodeGenerator::Print(const AST::PrintComma & expr)
 {
-  stringstream strm;
-  strm << expr.GetValue();
-  result = strm.str();
+  m_funcsUsed.insert("print_tab");
+  PrintTab();
   return 0;
 }
 
@@ -163,7 +176,178 @@ int CodeGenerator::Print(const AST::PrintSemiColon & expr)
   return 0;
 }
 
+int CodeGenerator::Print(const AST::NumericExpr & expr)
+{
+  VarType type = expr.GetType();
+  std::string typeStr = std::string(AST::GetVarTypeInfo(type).m_name);
+  std::string str;    
+  expr.Evaluate(*this, str);
+  if (expr.IsVarRef()) {
+    m_funcsUsed.insert("print_var_" + typeStr);
+    PrintNumericVar(str, type);
+  }
+  else if (expr.IsConstant()) {
+    m_funcsUsed.insert("print_" + typeStr);
+    PrintNumericConst(str, type);
+  }
+  else {
+    std::string tempName = CreateTempVar(type);
+    NumericAssign(tempName, str, type);
+    m_funcsUsed.insert("print_var_" + typeStr);
+    PrintNumericVar(tempName, type);
+    DestroyTempVar(tempName);
+  }
 
+  return 0;
+}
+
+int CodeGenerator::Print(const AST::StringExpr & expr)
+{
+  VarType type = expr.GetType();
+  std::string str;    
+  expr.Evaluate(*this, str);
+  if (expr.IsVarRef()) {
+    m_funcsUsed.insert("print_var_string");
+    PrintStringVar(str);
+  }
+  else if (expr.IsConstant()) {
+    m_funcsUsed.insert("print_string");
+    PrintStringConst(str);
+  }
+  else {
+    std::string tempName = CreateTempVar(type);
+    StringAssign(tempName, str);
+    m_funcsUsed.insert("print_var_string");
+    PrintStringVar(tempName);
+    DestroyTempVar(tempName);
+  }
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////
+//
+//  String functions
+//
+
+int CodeGenerator::Evaluate(const AST::StringConstant & expr, std::string & result)
+{
+  result = expr.GetValue();
+  return 0;
+}
+
+int CodeGenerator::Evaluate(const AST::StringVarRef & expr, std::string & result) 
+{ 
+  result = expr.GetName();
+  return 0; 
+}
+
+int CodeGenerator::Generate(const AST::StringAssign & expr)
+{
+  AST::VarInfo var;
+  if (!LookupGlobalVar(expr.m_lhs->GetName(), var))
+    return -1;
+
+  if (expr.m_rhs == nullptr) {
+    InternalError("expression missing rhs");
+    return -1;
+  }
+
+  std::string rhs;
+
+  expr.m_rhs->Evaluate(*this, rhs);
+
+  if (expr.m_lhs->IsVarRef() &&
+      expr.m_rhs->IsVarRef() &&
+      (var.m_originalName == rhs)) {
+    CompilerError(eWarning_RemovedUnecessaryAssignment, m_lineNumber, ""); // TopOutput() << "/* optimised out */\n";
+  }
+  else {
+    if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
+      TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\");\n";
+    }
+    else {
+      TopOutput() << "if (!" << rhs << ")\n";
+      TopOutput() << "  " << cvar.m_cname << " = 0;\n";
+      TopOutput() << "else\n";
+      TopOutput() << "  " << cvar.m_cname << " = " << rhs << ";\n";
+    }
+
+    Pop();
+  }
+
+  return eOp_NextStatement;
+
+}
+
+
+///////////////////////////////////////////////////////////////////////
+//
+//  Integer expressions  
+//
+
+int CodeGenerator::Evaluate(const AST::NumericConstant & expr, std::string & result)
+{
+  result = expr.AsString();
+  return 0;
+}
+
+int CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & result) 
+{ 
+  result = expr.GetName();
+  return 0; 
+}
+
+///////////////////////////////////////////////////////////////////////
+//
+//  Functions  
+//
+
+int CodeGenerator::EvaluateNumericFunction(const std::string & op, const AST::NumericExpr * arg, std::string & result)
+{
+  if (arg == nullptr)
+    return -1;
+
+  std::string argStr;
+  arg->Evaluate(*this, argStr);
+
+  result = NumericFunction(op, argStr, arg->GetType());
+
+  return 0;
+}
+
+int CodeGenerator::EvaluateStringFunction(const std::string & op, const AST::NumericExpr * arg, std::string & result)
+{
+  if (arg == nullptr)
+    return -1;
+
+  std::string argStr;
+  arg->Evaluate(*this, argStr);
+
+  result = StringFunction(op, argStr);
+
+  return 0;
+}
+
+int CodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
+{
+  return EvaluateNumericFunction("(int)", expr.GetArg1(), result);
+}
+
+int CodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
+{
+  return EvaluateNumericFunction("sqrt", expr.GetArg1(), result);
+}
+
+int CodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)
+{
+  return EvaluateStringFunction("tab", expr.GetArg1(), result);
+}
+
+int CodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
+{
+  return EvaluateStringFunction("chr", expr.GetArg1(), result);
+}
 
 #if 0
 

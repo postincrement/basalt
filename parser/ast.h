@@ -271,6 +271,8 @@ class StringExpr : public Expr
     StringExpr()
       : Expr(VarType::eString)
     {}
+
+    virtual int Print(CodeGenerator & gen) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -547,10 +549,13 @@ class NumericConstant : public Constant
       : Constant(t)
     { }  
 
+    virtual std::string AsString() const = 0;
     virtual double AsDouble() const = 0;
     virtual float AsSingle() const = 0;
     virtual int32_t AsInt32() const = 0;
     virtual int16_t AsInt16() const = 0;
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
 template<VarType t, typename N>
@@ -564,7 +569,6 @@ class ConstantType : public NumericConstant
 
     static AST::NumericExpr * Create(const std::string & str);
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
     virtual bool IsConstant() const
@@ -577,6 +581,13 @@ class ConstantType : public NumericConstant
     virtual float AsSingle() const override  { return m_value; }
     virtual int32_t AsInt32() const override { return m_value; }
     virtual int16_t AsInt16() const override { return m_value; }
+    virtual std::string AsString() const
+    {
+      std::stringstream strm;
+      strm << GetValue();
+      return strm.str();
+    }
+
 
   protected:
     N m_value;

@@ -101,6 +101,9 @@ int PrintSemiColon::Print(CodeGenerator & gen) const
 int NumericExpr::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
+int StringExpr::Print(CodeGenerator & gen) const
+{ return gen.Print(*this); }
+
 /////////////////////////////////////////
 
 StringAssign::StringAssign(const StringVarRef * lhs, const StringExpr * rhs)
@@ -471,13 +474,14 @@ int NumericVarRef::Print(CodeGenerator & gen) const
 
 /////////////////////////////////////////
 
+int NumericConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
+
+/////////////////////////////////////////
+
 template<>
 NumericExpr * Int16Constant::Create(const std::string & str)
 { return new Int16Constant(atoi(str.c_str())); }
-
-template<>
-int Int16Constant::Evaluate(CodeGenerator & gen, std::string & result) const
-{ return gen.Evaluate(*this, result); }
 
 template<>
 int Int16Constant::Print(CodeGenerator & gen) const
@@ -490,10 +494,6 @@ NumericExpr * Int32Constant::Create(const std::string & str)
 { return new Int32Constant(atoi(str.c_str())); }
 
 template<>
-int Int32Constant::Evaluate(CodeGenerator & gen, std::string & result) const
-{ return gen.Evaluate(*this, result); }
-
-template<>
 int Int32Constant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
@@ -504,10 +504,6 @@ NumericExpr * SingleConstant::Create(const std::string & str)
 { return new SingleConstant(atof(str.c_str())); }
 
 template<>
-int SingleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
-{ return gen.Evaluate(*this, result); }
-
-template<>
 int SingleConstant::Print(CodeGenerator & gen) const
 { return gen.Print(*this); }
 
@@ -516,10 +512,6 @@ int SingleConstant::Print(CodeGenerator & gen) const
 template<>
 NumericExpr * DoubleConstant::Create(const std::string & str)
 { return new DoubleConstant(atof(str.c_str())); }
-
-template<>
-int DoubleConstant::Evaluate(CodeGenerator & gen, std::string & result) const
-{ return gen.Evaluate(*this, result); }
 
 template<>
 int DoubleConstant::Print(CodeGenerator & gen) const

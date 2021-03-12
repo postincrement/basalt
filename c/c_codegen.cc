@@ -987,26 +987,6 @@ int C_CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::strin
 
 ////////////////////////////////////////////////////////////////
 
-int C_CodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
-{
-  return NumericExpr("(int)", expr.GetArg1(), result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
-{
-  return NumericExpr("sqrt", expr.GetArg1(), result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)
-{
-  return NumericExpr("basalt_tab", expr.GetArg1(), result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
-{
-  return NumericExpr("basalt_chr", expr.GetArg1(), result);
-}
-
 int C_CodeGenerator::Evaluate(const AST::StrFunction & expr, std::string & result)
 {
   const char * funcName = g_varTypeInfo[(int)expr.GetArg1()->GetType()].m_strFn;
