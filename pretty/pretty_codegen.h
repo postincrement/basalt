@@ -6,7 +6,7 @@
 class Pretty_CodeGenerator : public CodeGenerator
 {
   public:
-    Pretty_CodeGenerator(const AST::Parser & parser);
+    Pretty_CodeGenerator(AST::Parser & parser);
 
     virtual bool Body() override;
 

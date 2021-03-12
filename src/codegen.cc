@@ -7,7 +7,7 @@ using namespace std;
 
 #define DEFAULT_TEMP_PREFIX "temp_"
 
-CodeGenerator::CodeGenerator(const Config & config, const AST::Parser & parser)
+CodeGenerator::CodeGenerator(const Config & config, AST::Parser & parser)
   : m_config(config)
   , m_parser(parser)
   , m_program(parser.m_program)
@@ -257,6 +257,7 @@ int CodeGenerator::Generate(const AST::StringAssign & expr)
 
   expr.m_rhs->Evaluate(*this, rhs);
 
+#if 0
   if (expr.m_lhs->IsVarRef() &&
       expr.m_rhs->IsVarRef() &&
       (var.m_originalName == rhs)) {
@@ -275,8 +276,10 @@ int CodeGenerator::Generate(const AST::StringAssign & expr)
 
     Pop();
   }
-
   return eOp_NextStatement;
+#endif
+
+return 0;
 
 }
 

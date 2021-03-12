@@ -27,7 +27,7 @@ class CodeGenerator
       int m_indentInc = 2;
     };
 
-    CodeGenerator(const Config & config, const AST::Parser & parser);
+    CodeGenerator(const Config & config, AST::Parser & parser);
 
     const Config & GetConfig() const;
 
@@ -138,7 +138,7 @@ class CodeGenerator
 
     unsigned m_globalTempIndex = 1;
 
-    const AST::Parser  & m_parser;
+    AST::Parser  & m_parser;
     const AST::Program & m_program;
 
     std::ostream * m_outputStream;

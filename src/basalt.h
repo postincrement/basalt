@@ -64,10 +64,10 @@ class Basalt
     unsigned m_warningCount = 0;
 };
 
-extern int MBASIC_lex();
-extern int MBASIC_parse();
-extern int MBASIC_debug;
-extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
+extern int mbasic_lex();
+extern int mbasic_parse();
+extern int mbasic_debug;
+extern void mbasic_yyinput(char * buf, int * result, int maxSize);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

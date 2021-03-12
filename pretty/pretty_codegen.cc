@@ -10,7 +10,7 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////
 
-Pretty_CodeGenerator::Pretty_CodeGenerator (const AST::Parser & parser)
+Pretty_CodeGenerator::Pretty_CodeGenerator(AST::Parser & parser)
   : CodeGenerator(
     {
       ".txt", "temp", "", "", 4, 0
@@ -26,7 +26,7 @@ bool Pretty_CodeGenerator::Body()
     if (m_parser.m_jumpDestinationInfo.count(line->GetBasicLineNumber()) > 0)  
       m_output << line->GetBasicLineNumber() << endl;
     for (auto & statement : line->m_statements->m_list) {
-      SetCurrentLine(statement->m_lineNumber);
+      SetLineNumber(statement->m_lineNumber);
       m_output << "#  " << statement->m_text << endl;
       statement->Generate(*this);
     }

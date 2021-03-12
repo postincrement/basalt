@@ -1,4 +1,4 @@
-%define api.prefix {MBASIC_}
+%define api.prefix {mbasic_}
 %define parse.error verbose
 
 %{
@@ -27,10 +27,12 @@ do { std::stringstream strm; strm << expr; \
 } while (0)
 
 // used by parser to display error
-void MBASIC_error(const char * msg)
+
+void mbasic_error(const char * msg)
 {
   ParserError(eError_Parser, msg);
 }
+
 
 static AST::NumericExpr * CreateConstant(VarType type, const std::string & val)
 {
@@ -44,6 +46,7 @@ static AST::NumericExpr * CreateConstant(VarType type, const std::string & val)
     case VarType::eDouble:
       return AST::DoubleConstant::Create(val);
     case VarType::eString:
+    case VarType::eNone:
       break;
   }
   return nullptr;

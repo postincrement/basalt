@@ -25,7 +25,7 @@ std::string g_printableInputFilename;
 
 static int  g_warningCount      = 0;
 static Factory<LanguageProfile> g_languageProfileFactory;
-static Factory<CodeGenerator, const AST::Parser &> g_codeGenerators;
+static Factory<CodeGenerator, AST::Parser &> g_codeGenerators;
 
 static LanguageProfileDef g_basicVariants[] = { 
 // name      varlen tab defnum              defint
@@ -225,7 +225,7 @@ int Basalt::Main(int argc, char const *argv[])
     { 't',   "target",    "s",  &m_codeGeneratorName,   "set code generator" },
     { 'o',   "output",    "s",  &m_outputFilename,      "set output filename" },
     { 'p',   "profile",   "s",  &m_languageProfileName, "set language profile" },
-    { ' ',   "yydebug",   "",   &MBASIC_debug,          "enable bison debugging"},
+    { ' ',   "yydebug",   "",   &mbasic_debug,          "enable bison debugging"},
     { 'h',   "help",      "",   &m_displayHelp,         "display help message"},
     { 'W',   "warnings",  "b",  &g_disableWarnings,     "disable warnings"},
     { 'L',   "linenum",   "b",  &g_enableLineNumbers,   "enable line numbers"},
@@ -300,7 +300,7 @@ int Basalt::Main(int argc, char const *argv[])
   //  first pass = parse source file
   //
   m_lineOffs = 2;
-  MBASIC_parse();
+  mbasic_parse();
 
   if (m_verbose) {
     cerr << "info: parsing finished" << endl;
@@ -460,7 +460,7 @@ void Basalt::ParserErrorInternal(ErrorCode code, const std::string & msg)
   cout << "^" << endl;
 }
 
-void MBASIC_yyinput(char * buf, int * result, int maxSize)
+void mbasic_yyinput(char * buf, int * result, int maxSize)
 {
   char ch = g_application.ReadNextChar();
 

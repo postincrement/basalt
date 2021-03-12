@@ -16,7 +16,7 @@ enum ErrorCode
   eWarning_VarIsSynonym,
   eWarning_UnreachableCode,
   eWarning_NotImplemented,
-  eWarning_RemovedUnecessaryAssignment
+  eWarning_RemovedUnecessaryAssignment,
   eWarning_Last                   = 0x7fff,
 
   //

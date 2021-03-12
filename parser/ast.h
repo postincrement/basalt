@@ -327,7 +327,7 @@ class NumericVarRef : public NumericExpr
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
-    virtual bool IsVarRef() const
+    virtual bool IsVarRef() const override
     { return true; } 
 
     std::string GetName() const
@@ -352,7 +352,7 @@ class StringVarRef : public StringExpr
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
     virtual int Print(CodeGenerator & gen) const override;
 
-    virtual bool IsVarRef() const
+    virtual bool IsVarRef() const override
     { return true; } 
 
     std::string GetName() const
@@ -538,7 +538,7 @@ class Constant: public NumericExpr
       : NumericExpr(t)
     { }  
 
-    virtual bool IsConstant() const
+    virtual bool IsConstant() const override
     { return true; }
 };
 
@@ -571,7 +571,7 @@ class ConstantType : public NumericConstant
 
     virtual int Print(CodeGenerator & gen) const override;
 
-    virtual bool IsConstant() const
+    virtual bool IsConstant() const override
     { return true; }
 
     N GetValue() const
@@ -581,7 +581,7 @@ class ConstantType : public NumericConstant
     virtual float AsSingle() const override  { return m_value; }
     virtual int32_t AsInt32() const override { return m_value; }
     virtual int16_t AsInt16() const override { return m_value; }
-    virtual std::string AsString() const
+    virtual std::string AsString() const override
     {
       std::stringstream strm;
       strm << GetValue();
@@ -620,7 +620,7 @@ class StringConstant : public StringExpr
   public:
     StringConstant(const std::string & str);
 
-    virtual bool IsConstant() const
+    virtual bool IsConstant() const override
     { return true; }
 
     std::string GetValue() const
