@@ -141,7 +141,7 @@ int PseudoCodeGenerator::Generate(const AST::SourceLine &line)
 int PseudoCodeGenerator::Generate(const AST::Statement & statement)
 {
 //  m_currentStatementLine = statement.m_lineNumber;
-  CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
+  //CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
   return 0;
 }
 
@@ -317,7 +317,25 @@ int PseudoCodeGenerator::Generate(const AST::NumericAssign & expr)
   return 0;
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string & result)
+int PseudoCodeGenerator::EvaluateUnaryNumericOperator(const std::string & op, const AST::UnaryOperation & expr, std::string & result)
+{
+  if (expr.m_expr == nullptr)
+    return -1;
+
+  std::string val;
+  expr.m_expr->Evaluate(*this, val);
+
+  result = GetTempName();
+  Add<CreateTempVar, VarType, std::string>(expr.m_expr->GetType(), result);
+  Add<UnaryOperator>(op, expr.m_expr->GetType(), result, val);
+
+  return 0;
+}
+
+int PseudoCodeGenerator::EvaluateBinaryNumericOperator(
+   const std::string & op,
+   const AST::NumericBinaryOperation & expr, 
+   std::string & result)
 {
   if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
     return -1;
@@ -330,9 +348,29 @@ int PseudoCodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string
 
   result = GetTempName();
   Add<CreateTempVar, VarType, std::string>(expr.m_lhs->GetType(), result);
-  Add<BinaryOperator>("+", expr.m_lhs->GetType(), result, lhs, rhs);
+  Add<BinaryOperator>(op, expr.m_lhs->GetType(), result, lhs, rhs);
 
   return 0;
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string & result)
+{
+  return EvaluateBinaryNumericOperator("+", expr, result);
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & result)
+{
+  return EvaluateBinaryNumericOperator("-", expr, result);
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::Multiplication & expr, std::string & result)
+{
+  return EvaluateBinaryNumericOperator("*", expr, result);
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::Division & expr, std::string & result)
+{
+  return EvaluateBinaryNumericOperator("-", expr, result);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -340,32 +378,30 @@ int PseudoCodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string
 //  Functions  
 //
 
-int PseudoCodeGenerator::EvaluateUnaryStringOperator(const std::string & func, const AST::NumericExpr * arg, std::string & result)
+int PseudoCodeGenerator::EvaluateUnaryStringOperator(const std::string & func, const AST::NumericExpr & arg, std::string & result)
 {
-  if (arg == nullptr)
-    return -1;
-
   result = GetTempName();
   Add<CreateTempVar, VarType, std::string>(VarType::eString, result);
 
-  if (arg->IsVarRef()) {
+  if (arg.IsVarRef()) {
     std::string argStr;
-    arg->Evaluate(*this, argStr);
+    arg.Evaluate(*this, argStr);
     Add<UnaryOperator>(func, VarType::eString, result, argStr);
   }
-  else if (arg->IsConstant()) {
+  else if (arg.IsConstant()) {
     std::string argStr;
-    arg->Evaluate(*this, argStr);
+    arg.Evaluate(*this, argStr);
     Add<UnaryOperator>(func, VarType::eString, result, argStr);
   }
   else {
     std::string argStr;
-    arg->Evaluate(*this, argStr);
+    arg.Evaluate(*this, argStr);
     Add<UnaryOperator>(func, VarType::eString, result, argStr);
   }
 
   return 0;
 }
+
 
 int PseudoCodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
 {
@@ -374,17 +410,27 @@ int PseudoCodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & r
 
 int PseudoCodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
 {
-  return 0; //EvaluateNumericFunction("sqrt", expr.GetArg1(), result);
+  return EvaluateUnaryNumericOperator("SQRT", expr, result);
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::RndFunction & expr, std::string & result)
+{
+  return EvaluateUnaryNumericOperator("RND", expr, result);
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::AbsFunction & expr, std::string & result)
+{
+  return EvaluateUnaryNumericOperator("ABS", expr, result);
 }
 
 int PseudoCodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)
 {
-  return EvaluateUnaryStringOperator("TAB", expr.GetArg1(), result);
+  return EvaluateUnaryStringOperator("TAB", *expr.GetArg1(), result);
 }
 
 int PseudoCodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
 {
-  return EvaluateUnaryStringOperator("CHR", expr.GetArg1(), result);
+  return EvaluateUnaryStringOperator("CHR", *expr.GetArg1(), result);
 }
 
 ///////////////////////////////////////////////////////

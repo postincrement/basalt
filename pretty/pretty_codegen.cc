@@ -92,7 +92,10 @@ int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::CreateTempVar & node)
 
 int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::UnaryOperator & node)
 {
-  *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << endl;
+  if (node.m_func != "=")
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ")" << endl;
+  else  
+    *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << endl;
   return 0;
 }
 

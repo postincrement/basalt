@@ -765,58 +765,37 @@ class IntFunction : public NumericExpr
     const NumericExpr * m_arg1;
 };
 
-class SqrFunction : public NumericExpr
+class SqrFunction : public UnaryOperation
 {
   public:
     SqrFunction(const NumericExpr * arg1)
-      : NumericExpr(arg1->GetType())
-      , m_arg1(arg1)
+      : UnaryOperation(arg1)
     {
     }
 
-    const NumericExpr * GetArg1() const
-    { return m_arg1; }
-
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
-
-  protected:
-    const NumericExpr * m_arg1;
 };
 
-class RndFunction : public NumericExpr
+class RndFunction : public UnaryOperation
 {
   public:
     RndFunction(const NumericExpr * arg1)
-      : NumericExpr(arg1->GetType())
-      , m_arg1(arg1)
+      : UnaryOperation(arg1)
     {
     }
 
-    const NumericExpr * GetArg1() const
-    { return m_arg1; }
-
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
-
-  protected:
-    const NumericExpr * m_arg1;
 };
 
-class AbsFunction : public NumericExpr
+class AbsFunction : public UnaryOperation
 {
   public:
     AbsFunction(const NumericExpr * arg1)
-      : NumericExpr(arg1->GetType())
-      , m_arg1(arg1)
+      : UnaryOperation(arg1)
     {
     }
 
-    const NumericExpr * GetArg1() const
-    { return m_arg1; }
-
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
-
-  protected:
-    const NumericExpr * m_arg1;
 };
 
 class LenFunction : public NumericExpr

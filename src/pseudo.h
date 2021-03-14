@@ -192,11 +192,11 @@ class PseudoCodeGenerator
     virtual int Evaluate(const AST::NumericVarRef & expr, std::string & result);
     virtual int Evaluate(const AST::NumericConstant & expr, std::string & result);
     virtual int Evaluate(const AST::NumericAddition & expr, std::string & result);
+    virtual int Evaluate(const AST::Subtraction & expr, std::string & result);
+    virtual int Evaluate(const AST::Multiplication & expr, std::string & result);
+    virtual int Evaluate(const AST::Division & expr, std::string & result);
 
     virtual int Evaluate(const AST::StrFunction & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::Subtraction & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::Multiplication & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::Division & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result) { return 0; }
@@ -211,6 +211,8 @@ class PseudoCodeGenerator
     virtual int Evaluate(const AST::SqrFunction & expr, std::string & result);
     virtual int Evaluate(const AST::ChrFunction & expr, std::string & result);
     virtual int Evaluate(const AST::TabFunction & expr, std::string & result);
+    virtual int Evaluate(const AST::RndFunction & expr, std::string & result);
+    virtual int Evaluate(const AST::AbsFunction & expr, std::string & result);
 
     virtual int Evaluate(const AST::LenFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::LeftFunction & expr, std::string & result) { return 0; }
@@ -239,7 +241,20 @@ class PseudoCodeGenerator
 
     std::string GetTempName();
 
-    int EvaluateUnaryStringOperator(const std::string & fn, const AST::NumericExpr * arg, std::string & result);
+    int EvaluateUnaryStringOperator(
+            const std::string & op, 
+            const AST::NumericExpr & arg, 
+            std::string & result);
+
+    int EvaluateBinaryNumericOperator(
+            const std::string & op,
+            const AST::NumericBinaryOperation & expr, 
+            std::string & result);
+
+    int EvaluateUnaryNumericOperator(
+            const std::string & op, 
+            const AST::UnaryOperation & expr, 
+            std::string & result);
 
     template <class NodeType>
     int EvaluateNumericFunction(const AST::NumericExpr * arg, std::string & result)
