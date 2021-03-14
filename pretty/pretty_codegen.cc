@@ -26,15 +26,31 @@ int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::Node & node)
   return 0;
 }
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::Block & node)
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::LineNumber & node)
 {
-  *m_outputStream << INDENT() << "{" << endl;
+  *m_outputStream << INDENT() << node.m_value << ":" << endl;
+  return 0;
+}
+
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BlockStart & node)
+{
+  m_blockStack.push(m_outputStream);
+  m_outputStream = new std::stringstream;
   m_indent+=2;
-  for (auto & code : node.m_code) {
-    code->Generate(*this);
-  }
+  return 0;
+}
+
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BlockEnd & node)
+{
   m_indent-=2;
-  *m_outputStream << INDENT() << "}" << endl;
+  std::stringstream * lastBlock = m_outputStream;
+  m_outputStream = m_blockStack.back();
+  if (lastBlock->str().length() > 0) {
+    *m_outputStream << INDENT() << "{" << endl 
+                    << lastBlock->str()
+                    << INDENT() << "}" << endl;
+  }
+  m_blockStack.pop();
   return 0;
 }
 
@@ -60,7 +76,6 @@ int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::type & node) \
 } \
 
 PRINT_TYPED_STRING_NODE(CreateTempVar);
-PRINT_TYPED_STRING_NODE(DestroyTempVar);
 
 PRINT_SIMPLE_NODE(PrintNewLine);
 PRINT_SIMPLE_NODE(PrintTab);
@@ -73,25 +88,25 @@ PRINT_TYPED_STRING_NODE(PrintNumericConst);
 
 int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::StringAssign & node)
 {
-  *m_outputStream << "string_assign " << node.m_lhs << " " << node.m_rhs << endl;
+  *m_outputStream << INDENT() << "string_assign " << node.m_lhs << " " << node.m_rhs << endl;
   return 0;
 }
 
 int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::NumericAssign & node)
 {
-  *m_outputStream << "numeric_assign " << node.m_lhs << " " << node.m_rhs << endl;
+  *m_outputStream << INDENT() << "numeric_assign " << node.m_lhs << " " << node.m_rhs << endl;
   return 0;
 }
 
 int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::FunctionCHR & node)
 {
-  *m_outputStream << node.m_ret << " = chr(" << node.m_arg << ")" << endl;
+  *m_outputStream << INDENT() << node.m_ret << " = chr(" << node.m_arg << ")" << endl;
   return 0;
 }
 
 int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::FunctionTAB & node)
 {
-  *m_outputStream << node.m_ret << " = tab(" << node.m_arg << ")" << endl;
+  *m_outputStream << INDENT() << node.m_ret << " = tab(" << node.m_arg << ")" << endl;
   return 0;
 }
 

@@ -9,10 +9,12 @@ class Pretty_CodeGenerator : public CodeGenerator
     Pretty_CodeGenerator(PseudoCodeGenerator & pseudo);
 
     virtual int Generate(PseudoCodeGenerator::Node & node) override;
-    virtual int Generate(PseudoCodeGenerator::Block & node) override;
+
+    virtual int Generate(PseudoCodeGenerator::LineNumber & node) override;
+    virtual int Generate(PseudoCodeGenerator::BlockStart & node) override;
+    virtual int Generate(PseudoCodeGenerator::BlockEnd & node) override;
 
     virtual int Generate(PseudoCodeGenerator::CreateTempVar & node) override;
-    virtual int Generate(PseudoCodeGenerator::DestroyTempVar & node) override;
 
     virtual int Generate(PseudoCodeGenerator::PrintNewLine & node) override;
     virtual int Generate(PseudoCodeGenerator::PrintTab & node) override;
@@ -29,7 +31,8 @@ class Pretty_CodeGenerator : public CodeGenerator
     virtual int Generate(PseudoCodeGenerator::NumericAssign & node) override;
 
   protected:
-    int m_indent = 0;    
+    int m_indent = 0;   
+    std::queue<std::stringstream *> m_blockStack; 
 };
 
 #endif // PRETYY_CODEGEN_H_

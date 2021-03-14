@@ -32,12 +32,14 @@ bool PseudoCodeGenerator::Run(const std::string &inputFilename)
   for (auto & line : m_parser.m_program.m_list) {
     if (line == nullptr)
       continue;
-    //if (m_parser.m_jumpDestinationInfo.count(line->GetBasicLineNumber()) > 0)  
-    //  m_output << line->GetBasicLineNumber() << endl;
+    if (m_parser.m_jumpDestinationInfo.count(line->GetBasicLineNumber()) > 0)
+      Add<LineNumber>(line->GetBasicLineNumber());
     for (auto & statement : line->m_statements->m_list) {
+      Add<BlockStart>();
       SetLineNumber(statement->m_lineNumber);
-      //m_output << "#  " << statement->m_text << endl;
       statement->Generate(*this);
+      Add<BlockEnd>();
+      //m_output << "#  " << statement->m_text << endl;
     }
   }
 
@@ -136,7 +138,7 @@ int PseudoCodeGenerator::Generate(const AST::SourceLine &line)
   return 0;
 }
 
-int PseudoCodeGenerator::Generate(const AST::Statement &statement)
+int PseudoCodeGenerator::Generate(const AST::Statement & statement)
 {
 //  m_currentStatementLine = statement.m_lineNumber;
   CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
@@ -194,12 +196,10 @@ int PseudoCodeGenerator::Print(const AST::NumericExpr & expr)
     Add<PrintNumericConst, VarType, std::string>(type, str);
   }
   else {
-    Block & block = Add<Block>();
     std::string tempName = GetTempName();
-    Add<CreateTempVar, VarType, std::string>(block, type, str);
+    Add<CreateTempVar, VarType, std::string>(type, str);
     Add<NumericAssign>(tempName, str, type);
-    Add<PrintNumericVar, VarType, std::string>(block, type, tempName);
-    Add<DestroyTempVar,  VarType, std::string>(block, type, tempName);
+    Add<PrintNumericVar, VarType, std::string>(type, tempName);
   }
 
   return 0;
@@ -219,7 +219,6 @@ int PseudoCodeGenerator::Print(const AST::StringExpr & expr)
 
   return 0;
 }
-
 
 ///////////////////////////////////////////////////////////////////////
 //
@@ -273,7 +272,6 @@ int PseudoCodeGenerator::Generate(const AST::StringAssign & expr)
   }
   return 0;
 }
-
 
 ///////////////////////////////////////////////////////////////////////
 //
@@ -330,17 +328,22 @@ int PseudoCodeGenerator::Node::Generate(CodeGenerator & gen)
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::Block::Generate(CodeGenerator & gen)
+int PseudoCodeGenerator::LineNumber::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::BlockStart::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::BlockEnd::Generate(CodeGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
 int PseudoCodeGenerator::CreateTempVar::Generate(CodeGenerator & gen)
-{
-  return gen.Generate(*this);
-}
-
-int PseudoCodeGenerator::DestroyTempVar::Generate(CodeGenerator & gen)
 {
   return gen.Generate(*this);
 }
@@ -397,9 +400,9 @@ int PseudoCodeGenerator::NumericAssign::Generate(CodeGenerator & gen)
 
 ///////////////////////////////////////////////////////
 
-CodeGenerator::CodeGenerator(const Config & config, PseudoCodeGenerator & pseudo)
+CodeGenerator::CodeGenerator(const Config & config, PseudoCodeGenerator & pseudoGenerator)
   : m_config(config)
-  , m_pseudo(pseudo)
+  , m_pseudoGenerator(pseudoGenerator)
 {
 }
 
@@ -411,18 +414,19 @@ const CodeGenerator::Config & CodeGenerator::GetConfig() const
 bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputStream)
 {
   m_inputFilename = inputFilename;
-  m_outputStream = outputStream;
+  m_outputStream  = new std::stringstream();
 
-  cerr << m_pseudo.m_pseudoCode.m_code.size() << " nodes found" << endl;
+  cerr << m_pseudoGenerator.m_pseudoCode.size() << " blocks found" << endl;
 
   // traverse here
-  for (auto & code : m_pseudo.m_pseudoCode.m_code) {
+  for (auto & code : m_pseudoGenerator.m_pseudoCode) {
     code->Generate(*this);
   }
 
+  *outputStream << m_outputStream->str();
+
   return true;
 }
-
 
 #if 0
 
@@ -529,14 +533,6 @@ std::stringstream &PseudoCodeGenerator::Closure::Output()
 {
   return m_output;
 }
-
-///////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////
-
-///////////////////////////////////////////////////////
 
 #endif
 

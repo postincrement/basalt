@@ -47,11 +47,7 @@ class PseudoCodeGenerator
       std::string m_func;
     };
 
-    struct Block : public Node
-    {
-      virtual int Generate(CodeGenerator & gen) override;
-      std::deque<std::unique_ptr<Node>> m_code;
-    };
+    typedef std::deque<std::unique_ptr<Node>> Block;
 
     template <class Value>
     struct ValueNode : public Node
@@ -74,16 +70,18 @@ class PseudoCodeGenerator
       virtual int Generate(CodeGenerator & gen) override; \
     }; \
 
-#define STRING_NODE(name, func) \
+#define VALUE_NODE(name, func, type) \
     struct name : public Node \
     { \
-      name(const std::string & value) \
+      name(const type & value) \
         : Node(func) \
         , m_value(value) \
         { }  \
       virtual int Generate(CodeGenerator & gen) override; \
-      std::string m_value; \
+      type m_value; \
     }; \
+
+#define STRING_NODE(name, func) VALUE_NODE(name, func, std::string)
 
 #define TYPED_VALUE_NODE(name, type, func) \
     struct name : public ValueNode<type> \
@@ -109,6 +107,9 @@ class PseudoCodeGenerator
       std::string m_arg; \
     }; \
 
+    SIMPLE_NODE(BlockStart,            "block_start");
+    SIMPLE_NODE(BlockEnd,              "block_end");
+    STRING_NODE(LineNumber,            "line_number");
 
     TYPED_STRING_NODE(CreateTempVar,  "create_temp_var");
     TYPED_STRING_NODE(DestroyTempVar, "destroy_temp_var");
@@ -161,25 +162,15 @@ class PseudoCodeGenerator
     bool LookupGlobalVar(const std::string & varName, AST::VarInfo & var);
 
     template <class Type, class ... Args>
-    Type & Add(Block & block, Args... args)
+    Type & Add(Args... args)
     {
-      block.m_code.push_back(std::make_unique<Type>(args...));
-      Type & added = static_cast<Type &>(*block.m_code[block.m_code.size()-1]);
+      m_pseudoCode.push_back(std::make_unique<Type>(args...));
+      Type & added = static_cast<Type &>(*m_pseudoCode[m_pseudoCode.size()-1]);
       std::string func = added.GetFunc();
       if (!func.empty())
         m_funcsUsed.insert(func);
       return added;  
     }
-
-    template <class Type, class ... Args>
-    Type & Add(Args... args)
-    {
-      return Add<Type, Args...>(m_pseudoCode, args...);
-    }
-
-    // mandatory overrides
-    //virtual int NumericAssign(const std::string & lhs, const std::string & rhs, VarType type) = 0;
-    //virtual std::string NumericFunction(const std::string & op, const std::string & arg, VarType type) = 0;
 
     // visitor interface for AST
     virtual int Generate(const AST::Node & node);
@@ -307,44 +298,6 @@ class PseudoCodeGenerator
 
     std::set<std::string> m_funcsUsed;
     Block m_pseudoCode;
-
-#if 0
-    struct Closure;
-    virtual Closure * CreateClosure(int indent) const;
-
-    std::deque<Closure *> m_stack;
-//    bool CreateBlocks();
-
-    class Closure {
-      public:
-        Closure(const std::string & tempPrefix, int indent);
-        ~Closure();
-
-        std::string Indent(int n = 0) const;
-        int GetIndent() const;
-
-        std::stringstream & Output();
-        std::string GetTempName();
-
-      protected:
-        std::string m_tempPrefix;
-        int m_indent;
-        std::stringstream m_output;
-        int m_tempIndex = 1;
-    };
-
-    Closure & Top();
-    std::stringstream & TopOutput(bool indent = true);
-    void Push();
-    std::string Pop();
-
-    std::string GetGlobalTempName();
-
-    int ResolveGotoDestination(const std::string & ref);
-
-    bool AtTop() const
-    { std::cerr << "AtTop() " << m_stack.size() << std::endl; return m_stack.size() == 1; }
-#endif
 };
 
 

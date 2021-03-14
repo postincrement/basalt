@@ -17,18 +17,19 @@ class CodeGenerator
       int m_indentInc = 2;
     };
 
-    CodeGenerator(const Config & config, PseudoCodeGenerator & pseudo);
+    CodeGenerator(const Config & config, PseudoCodeGenerator & pseudoGenerator);
 
     const Config & GetConfig() const;
 
     bool Run(const std::string & inputFilename, std::ostream * outputStream);
-    //virtual bool Body() = 0;
 
-    virtual int Generate(PseudoCodeGenerator::Node             & node) = 0;
-    virtual int Generate(PseudoCodeGenerator::Block            & node) = 0;
+    virtual int Generate(PseudoCodeGenerator::Node & node) = 0;
+
+    virtual int Generate(PseudoCodeGenerator::LineNumber & node) = 0;
+    virtual int Generate(PseudoCodeGenerator::BlockStart & node) = 0;
+    virtual int Generate(PseudoCodeGenerator::BlockEnd & node) = 0;
 
     virtual int Generate(PseudoCodeGenerator::CreateTempVar & node) = 0;
-    virtual int Generate(PseudoCodeGenerator::DestroyTempVar & node) = 0;
 
     virtual int Generate(PseudoCodeGenerator::PrintNewLine & node) = 0;
     virtual int Generate(PseudoCodeGenerator::PrintTab & node) = 0;
@@ -47,9 +48,9 @@ class CodeGenerator
 
   protected:
     Config m_config;
-    PseudoCodeGenerator & m_pseudo;
+    PseudoCodeGenerator & m_pseudoGenerator;
     std::string m_inputFilename;
-    std::ostream * m_outputStream = nullptr;    
+    std::stringstream * m_outputStream = nullptr;    
 };
 
 
