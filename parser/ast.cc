@@ -34,13 +34,13 @@ VarTypeInfoRec & AST::GetVarTypeInfo(VarType type)
 
 /////////////////////////////////////////
 
-int Node::Generate(CodeGenerator & gen) const
+int Node::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
-int Node::Print(CodeGenerator & gen) const
+int Node::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
-int Node::Evaluate(CodeGenerator & gen, std::string & result) const
+int Node::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 /////////////////////////////////////////
@@ -60,18 +60,18 @@ SourceLine::SourceLine(
   m_line = m_line.substr(0, len);
 }
 
-int SourceLine::Generate(CodeGenerator & gen) const
+int SourceLine::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 ////////////////////////////////////////////////////////////////////////////
 
-int End::Generate(CodeGenerator & gen) const
+int End::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
-int System::Generate(CodeGenerator & gen) const
+int System::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
-int Rem::Generate(CodeGenerator & gen) const
+int Rem::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -89,19 +89,19 @@ Print::Print(unsigned lineNumber, ExprList * list)
   : Statement(lineNumber)
 { m_list = list; }
 
-int Print::Generate(CodeGenerator & gen) const
+int Print::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
-int PrintComma::Print(CodeGenerator & gen) const
+int PrintComma::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
-int PrintSemiColon::Print(CodeGenerator & gen) const
+int PrintSemiColon::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
-int NumericExpr::Print(CodeGenerator & gen) const
+int NumericExpr::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
-int StringExpr::Print(CodeGenerator & gen) const
+int StringExpr::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -111,7 +111,7 @@ StringAssign::StringAssign(const StringVarRef * lhs, const StringExpr * rhs)
   , m_rhs(rhs)
 { }
 
-int StringAssign::Generate(CodeGenerator & gen) const
+int StringAssign::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 bool StringAssign::Validate()
@@ -119,7 +119,7 @@ bool StringAssign::Validate()
 
 /////////////////////////////////////////
 
-int StringAddition::Evaluate(CodeGenerator & gen, std::string & result) const
+int StringAddition::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 /////////////////////////////////////////
@@ -147,10 +147,10 @@ StringVarRef::StringVarRef(const std::string & varName)
   m_name = name.substr(0, varNameLen) + BASIC_STRING_SUFFIX;
 }
 
-int StringVarRef::Evaluate(CodeGenerator & gen, std::string & result) const
+int StringVarRef::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
-int StringVarRef::Print(CodeGenerator & gen) const
+int StringVarRef::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -161,15 +161,15 @@ StringConstant::StringConstant(const std::string & str)
   m_index = g_parser->AddStringConstant(str);
 }
 
-int StringConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+int StringConstant::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
-int StringConstant::Print(CodeGenerator & gen) const
+int StringConstant::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
 
-int AssignStatement::Generate(CodeGenerator & gen) const
+int AssignStatement::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 /////////////////////////////////////////
@@ -179,7 +179,7 @@ NumericAssign::NumericAssign(const NumericVarRef * lhs, const NumericExpr * rhs)
   , m_rhs(rhs)
 { }
 
-int NumericAssign::Generate(CodeGenerator & gen) const
+int NumericAssign::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 bool NumericAssign::Validate()
@@ -281,122 +281,122 @@ bool NumericBinaryOperation::Validate()
   return true;
 }
 
-int NumericAddition::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericAddition::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int Subtraction::Evaluate(CodeGenerator & gen, std::string & result) const
+int Subtraction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int Multiplication::Evaluate(CodeGenerator & gen, std::string & result) const
+int Multiplication::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int Division::Evaluate(CodeGenerator & gen, std::string & result) const
+int Division::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int Negation::Evaluate(CodeGenerator & gen, std::string & result) const
+int Negation::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int Power::Evaluate(CodeGenerator & gen, std::string & result) const
+int Power::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericCast::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericCast::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int IntFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int IntFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int SqrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int SqrFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int AbsFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int AbsFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int RndFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int RndFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int LenFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int LenFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int TabFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int TabFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int LeftFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int LeftFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int MidFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int MidFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int RightFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int RightFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int ChrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int ChrFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int StrFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+int StrFunction::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericEquality::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericEquality::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericNotEquality::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericNotEquality::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericGreaterThan::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericGreaterThan::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericGreaterThanEqual::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericGreaterThanEqual::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericLessThan::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericLessThan::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericLessThanEqual::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericLessThanEqual::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
@@ -462,19 +462,19 @@ NumericVarRef::NumericVarRef(VarType type, const std::string & varName)
   }
 }
 
-int NumericVarRef::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericVarRef::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 {
   return gen.Evaluate(*this, result);
 }
 
-int NumericVarRef::Print(CodeGenerator & gen) const
+int NumericVarRef::Print(PseudoCodeGenerator & gen) const
 {
   return gen.Print(*this);
 }
 
 /////////////////////////////////////////
 
-int NumericConstant::Evaluate(CodeGenerator & gen, std::string & result) const
+int NumericConstant::Evaluate(PseudoCodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
 /////////////////////////////////////////
@@ -484,7 +484,7 @@ NumericExpr * Int16Constant::Create(const std::string & str)
 { return new Int16Constant(atoi(str.c_str())); }
 
 template<>
-int Int16Constant::Print(CodeGenerator & gen) const
+int Int16Constant::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -494,7 +494,7 @@ NumericExpr * Int32Constant::Create(const std::string & str)
 { return new Int32Constant(atoi(str.c_str())); }
 
 template<>
-int Int32Constant::Print(CodeGenerator & gen) const
+int Int32Constant::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -504,7 +504,7 @@ NumericExpr * SingleConstant::Create(const std::string & str)
 { return new SingleConstant(atof(str.c_str())); }
 
 template<>
-int SingleConstant::Print(CodeGenerator & gen) const
+int SingleConstant::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -514,7 +514,7 @@ NumericExpr * DoubleConstant::Create(const std::string & str)
 { return new DoubleConstant(atof(str.c_str())); }
 
 template<>
-int DoubleConstant::Print(CodeGenerator & gen) const
+int DoubleConstant::Print(PseudoCodeGenerator & gen) const
 { return gen.Print(*this); }
 
 /////////////////////////////////////////
@@ -526,13 +526,13 @@ JumpStatement::JumpStatement(unsigned lineNumber, const std::string & ref)
   g_parser->AddJumpTo(lineNumber, ref);
 }
 
-int GotoStatement::Generate(CodeGenerator & gen) const
+int GotoStatement::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
-int GosubStatement::Generate(CodeGenerator & gen) const
+int GosubStatement::Generate(PseudoCodeGenerator & gen) const
 {  return gen.Generate(*this); }
 
-int ReturnStatement::Generate(CodeGenerator & gen) const
+int ReturnStatement::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 /////////////////////////////////////////
@@ -545,7 +545,7 @@ OnGotoStatement::OnGotoStatement(unsigned lineNumber, const OnRefList & onRefs)
     g_parser->AddJumpTo(lineNumber, r);
 }
 
-int OnGotoStatement::Generate(CodeGenerator & gen) const
+int OnGotoStatement::Generate(PseudoCodeGenerator & gen) const
 { return gen.Generate(*this); }
 
 /////////////////////////////////////////
@@ -567,7 +567,7 @@ IfStatement::IfStatement(unsigned lineNumber,
   }
 }
 
-int IfStatement::Generate(CodeGenerator & gen) const
+int IfStatement::Generate(PseudoCodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
@@ -597,7 +597,7 @@ ForStatement::ForStatement(unsigned lineNumber,
   );
 }             
 
-int ForStatement::Generate(CodeGenerator & gen) const
+int ForStatement::Generate(PseudoCodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
@@ -607,7 +607,7 @@ NextStatement::NextStatement(unsigned lineNumber, const NumericVarRef * var)
   , m_var(var)
 { }
 
-int NextStatement::Generate(CodeGenerator & gen) const
+int NextStatement::Generate(PseudoCodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }

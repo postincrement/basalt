@@ -15,46 +15,146 @@ do { std::stringstream strm; strm << expr; \
 
 std::string DemangleTypeName(const std::type_info &r);
 
-class CodeGenerator
+//////////////////////////////////////////////////////////////////////////////////////
+
+class CodeGenerator;
+
+class PseudoCodeGenerator
 {
   public:
-    struct Config {
-      const char * m_extension = "";
-      const char * m_tempPrefix = "";
-      const char * m_open = "";
-      const char * m_close = "";
-      int m_indent = 2;
-      int m_indentInc = 2;
+    struct Node
+    {
+      Node()
+      {}
+
+      Node(const std::string & func)
+        : m_func(func)
+      {}
+
+      std::string GetFunc() const
+      { return m_func; }
+
+      virtual int Generate(CodeGenerator & gen);
+
+      std::string m_func;
     };
 
-    CodeGenerator(const Config & config, AST::Parser & parser);
+    struct Block : public Node
+    {
+      virtual int Generate(CodeGenerator & gen);
+      std::deque<std::unique_ptr<Node>> m_code;
+    };
 
-    const Config & GetConfig() const;
+    template <class Value>
+    struct ValueNode : public Node
+    {
+      ValueNode(const std::string & func, VarType type, const Value & value)
+        : Node(func)
+        , m_type(type)
+        , m_value(value)
+      { }  
+      VarType m_type;
+      Value m_value;
+    };
 
-    bool Run(const std::string & inputFilename, std::ostream * outputStream);
-    virtual bool Body() = 0;
+    struct PrintNewLine : public Node
+    {
+      PrintNewLine() 
+        : Node("print_newline")
+      { }   
+    };
+
+    struct PrintTab : public Node
+    {
+      PrintTab() 
+        : Node("print_tab")
+      { }   
+    };
+
+    struct PrintNumericVar : public ValueNode<const std::string>
+    {
+      PrintNumericVar(VarType type, const std::string & val) 
+        : ValueNode("print_numeric_var", type, val)
+      { }   
+    };
+
+    struct PrintNumericConst : public ValueNode<const std::string>
+    {
+      PrintNumericConst(VarType type, const std::string & val) 
+        : ValueNode("print_numeric_const", type, val)
+      { }   
+    };
+
+    struct PrintStringVar : public Node
+    {
+      PrintStringVar(const std::string & var) 
+        : Node("print_string_var")
+        , m_var(var)
+      { }   
+
+      std::string m_var;
+    };
+
+    struct PrintStringConst : public Node
+    {
+      PrintStringConst(const std::string & str) 
+        : Node("print_string_const")
+        , m_str(str)
+      { }
+
+      virtual int Generate(CodeGenerator & gen);
+
+      std::string m_str;
+    };
+
+    struct CreateTempVar : public ValueNode<const std::string>
+    {
+      CreateTempVar(VarType type, const std::string & val) 
+        : ValueNode("create_temp_var", type, val)
+      { }   
+    };
+
+    struct DestroyTempVar : public ValueNode<const std::string>
+    {
+      DestroyTempVar(VarType type, const std::string & val) 
+        : ValueNode("destroy_temp_var", type, val)
+      { }   
+    };
+
+    PseudoCodeGenerator(AST::Parser & parser);
+
+    bool Run(const std::string & inputFilename);
 
     void SetLineNumber(int lineNumber)
     { m_lineNumber = lineNumber; }
 
     bool LookupGlobalVar(const std::string & varName, AST::VarInfo & var);
 
+    template <class Type, class ... Args>
+    Type & Add(Block & block, Args... args)
+    {
+      block.m_code.push_back(std::make_unique<Type>(args...));
+      Type & added = static_cast<Type &>(*block.m_code[block.m_code.size()-1]);
+      std::string func = added.GetFunc();
+      if (!func.empty())
+        m_funcsUsed.insert(func);
+      return added;  
+    }
+
+    template <class Type, class ... Args>
+    Type & Add(Args... args)
+    {
+      return Add<Type, Args...>(m_pseudoCode, args...);
+    }
+
+
     // mandatory overrides
-    virtual std::string CreateTempVar(VarType type) = 0;
-    virtual void DestroyTempVar(const std::string & name) { };
+    //virtual int NumericAssign(const std::string & lhs, const std::string & rhs, VarType type) = 0;
+    //virtual std::string NumericFunction(const std::string & op, const std::string & arg, VarType type) = 0;
+    //virtual std::string StringFunction(const std::string & op, const std::string & arg) = 0;
 
-    virtual int NumericAssign(const std::string & lhs, const std::string & rhs, VarType type) = 0;
-    virtual std::string NumericFunction(const std::string & op, const std::string & arg, VarType type) = 0;
-    virtual std::string StringFunction(const std::string & op, const std::string & arg) = 0;
+    //virtual int StringAssign(const std::string & lhs, const std::string & rhs) = 0;
 
-    virtual int StringAssign(const std::string & lhs, const std::string & rhs) = 0;
-
-    virtual int PrintNewLine() = 0;
-    virtual int PrintTab() = 0;
-    virtual int PrintNumericVar(const std::string & name, VarType type) = 0;
-    virtual int PrintNumericConst(const std::string & name, VarType type) = 0;
-    virtual int PrintStringVar(const std::string & name) = 0;
-    virtual int PrintStringConst(const std::string & str) = 0;
 
     // optional overrides
     virtual int Generate(const AST::Node & node);
@@ -123,29 +223,30 @@ class CodeGenerator
     virtual int Print(const AST::PrintSemiColon & expr);
 
   protected:
+    friend class CodeGenerator;
+
     void CompilerErrorInternal(ErrorCode code, unsigned len, const std::string & msg);
 
     bool CheckVars();
     bool CheckJumps();
 
+    std::string GetTempName();
+
     virtual int EvaluateNumericFunction(const std::string & op, const AST::NumericExpr * expr, std::string & result);
     virtual int EvaluateStringFunction(const std::string & op, const AST::NumericExpr * expr, std::string & result);
-
-    Config m_config;
 
     std::string m_inputFilename;
     unsigned m_currentStatementLine;
 
-    unsigned m_globalTempIndex = 1;
+    unsigned m_tempIndex = 1;
 
-    AST::Parser  & m_parser;
+    AST::Parser & m_parser;
     const AST::Program & m_program;
 
-    std::ostream * m_outputStream;
+    int m_lineNumber;
 
     std::set<std::string> m_funcsUsed;
-
-    int m_lineNumber;
+    Block m_pseudoCode;
 
 #if 0
     struct Closure;
@@ -185,6 +286,39 @@ class CodeGenerator
     { std::cerr << "AtTop() " << m_stack.size() << std::endl; return m_stack.size() == 1; }
 #endif
 };
+
+//////////////////////////////////////////////////////////////////////////////////////
+
+class CodeGenerator
+{
+  public:
+    struct Config {
+      const char * m_extension = "";
+      const char * m_tempPrefix = "";
+      const char * m_open = "";
+      const char * m_close = "";
+      int m_indent = 2;
+      int m_indentInc = 2;
+    };
+
+    CodeGenerator(const Config & config, PseudoCodeGenerator & pseudo);
+
+    const Config & GetConfig() const;
+
+    bool Run(const std::string & inputFilename, std::ostream * outputStream);
+    //virtual bool Body() = 0;
+
+    virtual int Generate(PseudoCodeGenerator::Node             & node) = 0;
+    virtual int Generate(PseudoCodeGenerator::Block            & node) = 0;
+    virtual int Generate(PseudoCodeGenerator::PrintStringConst & node) = 0;
+
+  protected:
+    Config m_config;
+    PseudoCodeGenerator & m_pseudo;
+    std::string m_inputFilename;
+    std::ostream * m_outputStream = nullptr;    
+};
+
 
 #endif // CODEGEN_H_
 

@@ -25,7 +25,7 @@ std::string g_printableInputFilename;
 
 static int  g_warningCount      = 0;
 static Factory<LanguageProfile> g_languageProfileFactory;
-static Factory<CodeGenerator, AST::Parser &> g_codeGenerators;
+static Factory<CodeGenerator, PseudoCodeGenerator &> g_codeGenerators;
 
 static LanguageProfileDef g_basicVariants[] = { 
 // name      varlen tab defnum              defint
@@ -322,9 +322,23 @@ int Basalt::Main(int argc, char const *argv[])
 
   //////////////////////////////////
   // 
-  //  last pass = generate code
+  //  generate pseudo code from AST
   //
+
+  PseudoCodeGenerator pseudoCodeGen(parser);
+  if (!pseudoCodeGen.Run(g_printableInputFilename)) {
+    cerr << "error: pseudo code generation failed" << endl;
+    return 0;
+  }
+
+
+  //////////////////////////////////
+  //
+  //  compile pseudo code into real code
+  //
+
   g_codeGenerators.Register<Pretty_CodeGenerator>("pretty");
+
 #if 0  
   // register language profiles
   g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
@@ -332,11 +346,12 @@ int Basalt::Main(int argc, char const *argv[])
 #endif
 
   // create code generator
-  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch, parser);
+  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch, pseudoCodeGen);
   if (codeGen == nullptr) {
     cerr << "error: unknown arch '" << m_arch << "'" << endl;
     return -1;
   }
+
 
   std::ostream * outputStream = nullptr;
   std::ofstream outputFile;
@@ -366,6 +381,12 @@ int Basalt::Main(int argc, char const *argv[])
   if (!codeGen->Run(g_printableInputFilename, outputStream)) {
     cerr << "error: code generation failed" << endl;
   }
+
+
+    if (!codeGen->Run(g_printableInputFilename, outputStream)) {
+    cerr << "error: code generation failed" << endl;
+  }
+
 
   return 0;
 }

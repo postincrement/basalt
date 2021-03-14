@@ -10,17 +10,41 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////
 
-Pretty_CodeGenerator::Pretty_CodeGenerator(AST::Parser & parser)
+Pretty_CodeGenerator::Pretty_CodeGenerator(PseudoCodeGenerator & pseudo)
   : CodeGenerator(
     {
       ".txt", "temp", "", "", 4, 0
-    }, parser)
+    }, pseudo)
 {
 }
 
-bool Pretty_CodeGenerator::Body()
+#define INDENT() std::string(m_indent, ' ')
+
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::Node & node)
 {
-  for (auto & line : m_parser.m_program.m_list) {
+  *m_outputStream << INDENT() << "A node!" << endl;
+  return 0;
+}
+
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::Block & node)
+{
+  *m_outputStream << INDENT() << "{" << endl;
+  m_indent+=2;
+  for (auto & code : node.m_code) {
+    code->Generate(*this);
+  }
+  m_indent-=2;
+  *m_outputStream << INDENT() << "}" << endl;
+  return 0;
+}
+
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::PrintStringConst & node)
+{
+  *m_outputStream << INDENT() << "print_string_const \"" << node.m_str << "\"" << endl;
+  return 0;
+}
+
+#if 0
     if (line == nullptr)
       continue;
     if (m_parser.m_jumpDestinationInfo.count(line->GetBasicLineNumber()) > 0)  
@@ -37,40 +61,12 @@ bool Pretty_CodeGenerator::Body()
   return true;           
 }
 
+#endif
+
+
+#if 0
 ///////////////////////////////////////////////////////////////////
 
-std::string Pretty_CodeGenerator::CreateTempVar(VarType type)
-{
-  return "temp";
-}
-
-///////////////////////////////////////////////////////////////////
-
-int Pretty_CodeGenerator::PrintTab()
-{
-  m_output << "print_tab" << endl;
-  return 0;
-}
-
-int Pretty_CodeGenerator::PrintNewLine()
-{
-  m_output << "print_newline" << endl;
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////
-
-int Pretty_CodeGenerator::PrintNumericConst(const std::string & value, VarType type)
-{
-  m_output << "print \"" << value << "\"" << endl;
-  return 0;
-}
-
-int Pretty_CodeGenerator::PrintNumericVar(const std::string & name, VarType type)
-{
-  m_output << "print_var " <<  AST::GetVarTypeInfo(type).m_name << " " << name << endl;
-  return 0;
-}
 
 std::string Pretty_CodeGenerator::NumericFunction(
     const std::string & op, 
@@ -122,6 +118,7 @@ std::string Pretty_CodeGenerator::StringFunction(
   return strm.str(); 
 }
 
+#endif
 
 #if 0
 int Z80_CodeGenerator::Generate(const AST::SourceLine & line)

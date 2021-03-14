@@ -50,7 +50,7 @@ struct LanguageProfile
 
 //////////////////////////////////////////////////////////////////
 
-class CodeGenerator;
+class PseudoCodeGenerator;
 
 namespace AST {
 
@@ -98,9 +98,9 @@ class Node
     virtual ~Node()
     {}
 
-    virtual int Generate(CodeGenerator & gen) const;
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const;
-    virtual int Print(CodeGenerator & gen) const;
+    virtual int Generate(PseudoCodeGenerator & gen) const;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const;
+    virtual int Print(PseudoCodeGenerator & gen) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -125,14 +125,14 @@ class NodeList : public Node
       }
     }
 
-    virtual int Generate(CodeGenerator & gen) const
+    virtual int Generate(PseudoCodeGenerator & gen) const
     {
       for (auto & r : m_list)
         r->Generate(gen);
       return 0;  
     }
 
-    virtual int Print(CodeGenerator & gen) const
+    virtual int Print(PseudoCodeGenerator & gen) const
     {
       for (auto & r : m_list)
         r->Print(gen);
@@ -154,7 +154,7 @@ class SourceLine : public Node
               const std::string & m_basicLineNumber,
               const std::string & line);
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 
     unsigned GetSourceLineNumber() const
     { return m_sourceLineNumber; }
@@ -262,7 +262,7 @@ class NumericExpr : public Expr
       : Expr(type)
     {}
 
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
 };
 
 class StringExpr : public Expr
@@ -272,7 +272,7 @@ class StringExpr : public Expr
       : Expr(VarType::eString)
     {}
 
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -281,7 +281,7 @@ class Print : public Statement
 {
   public:
     Print(unsigned lineNumber, NodeList<Expr> * exprList = nullptr);
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 
     ExprList * m_list = nullptr;
 };
@@ -290,14 +290,14 @@ class PrintComma : public Expr
 {
   public:
     PrintComma() = default;
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
 };
 
 class PrintSemiColon : public Expr
 {
   public:
     PrintSemiColon() = default;
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
     virtual bool IsPrintSemiColon() const override
     { return true; }
 };
@@ -324,8 +324,8 @@ class NumericVarRef : public NumericExpr
 {
   public:
     NumericVarRef(VarType type, const std::string & m_id);
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
 
     virtual bool IsVarRef() const override
     { return true; } 
@@ -349,8 +349,8 @@ class StringVarRef : public StringExpr
 {
   public:
     StringVarRef(const std::string & m_id);
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
 
     virtual bool IsVarRef() const override
     { return true; } 
@@ -376,7 +376,7 @@ class StringAssign : public StringExpr
 {
   public:
     StringAssign(const StringVarRef * lhs, const StringExpr * rhs);
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 
     virtual bool Validate();
 
@@ -394,7 +394,7 @@ class StringAddition : public StringExpr
       , m_rhs(rhs)
     { }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
     const StringExpr * m_lhs;
     const StringExpr * m_rhs;
@@ -406,7 +406,7 @@ class NumericAssign : public Expr
 {
   public:
     NumericAssign(const NumericVarRef * lhs, const NumericExpr * rhs);
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 
     virtual bool Validate();
 
@@ -424,7 +424,7 @@ class NumericCast : public NumericExpr
       , m_from(expr)
     { }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
     const AST::NumericExpr * m_from;
 };
@@ -456,7 +456,7 @@ class NumericBinaryOperation : public NumericOperator
 
     virtual bool Validate();
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const = 0;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const = 0;
 
     const NumericExpr * m_lhs;
     const NumericExpr * m_rhs;
@@ -469,7 +469,7 @@ class name : public NumericBinaryOperation \
     name(const NumericExpr * lhs, const NumericExpr * rhs) \
       : NumericBinaryOperation(lhs, rhs) \
     { }  \
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override; \
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override; \
 };
 
 DEFINE_NUMERICBINARYOP(NumericAddition)
@@ -484,7 +484,7 @@ class name : public NumericBinaryOperation \
     name(const NumericExpr * lhs, const NumericExpr * rhs) \
       : NumericBinaryOperation(VarType::eInt16, lhs, rhs) \
     { }  \
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override; \
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override; \
 };
 
 DEFINE_NUMERICCOMPARISONOP(NumericEquality)
@@ -504,7 +504,7 @@ class UnaryOperation : public NumericOperator
       , m_expr(expr)
     { }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const = 0;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const = 0;
 
     const Expr * m_expr;
 };
@@ -516,7 +516,7 @@ class Negation : public UnaryOperation
       : UnaryOperation(expr)
     { }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 };
 
 class Power : public UnaryOperation
@@ -526,7 +526,7 @@ class Power : public UnaryOperation
       : UnaryOperation(expr)
     { }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -555,7 +555,7 @@ class NumericConstant : public Constant
     virtual int32_t AsInt32() const = 0;
     virtual int16_t AsInt16() const = 0;
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 };
 
 template<VarType t, typename N>
@@ -569,7 +569,7 @@ class ConstantType : public NumericConstant
 
     static AST::NumericExpr * Create(const std::string & str);
 
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
 
     virtual bool IsConstant() const override
     { return true; }
@@ -608,7 +608,7 @@ class AssignStatement : public Statement
       , m_expr(expr)
     {}
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 
     Expr * m_expr;
 };
@@ -626,9 +626,9 @@ class StringConstant : public StringExpr
     std::string GetValue() const
     { return m_value; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
-    virtual int Print(CodeGenerator & gen) const override;
+    virtual int Print(PseudoCodeGenerator & gen) const override;
 
   protected:   
     std::string m_value;  
@@ -647,7 +647,7 @@ class End : public Statement
     virtual bool IsJump() const override
     { return true; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 };
 
 class System : public Statement
@@ -660,7 +660,7 @@ class System : public Statement
     virtual bool IsJump() const override
     { return true; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 };
 
 class Rem : public Statement
@@ -671,7 +671,7 @@ class Rem : public Statement
       , m_comment(comment)
     {}
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 
     std::string m_comment;
 };
@@ -699,7 +699,7 @@ class GotoStatement : public JumpStatement
     virtual bool IsJump() const override
     { return true; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 };
 
 
@@ -713,7 +713,7 @@ class GosubStatement : public JumpStatement
     virtual bool IsJump() const override
     { return true; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 };
 
 class ReturnStatement : public Statement
@@ -726,7 +726,7 @@ class ReturnStatement : public Statement
     virtual bool IsJump() const override
     { return true; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -741,7 +741,7 @@ class OnGotoStatement : public Statement
     virtual bool IsJump() const override
     { return true; }
 
-    virtual int Generate(CodeGenerator & gen) const override;
+    virtual int Generate(PseudoCodeGenerator & gen) const override;
 
     OnRefList m_onRefs;    
 };
@@ -759,7 +759,7 @@ class IntFunction : public NumericExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -777,7 +777,7 @@ class SqrFunction : public NumericExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -795,7 +795,7 @@ class RndFunction : public NumericExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -813,7 +813,7 @@ class AbsFunction : public NumericExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -830,7 +830,7 @@ class LenFunction : public NumericExpr
     const StringExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;
@@ -850,7 +850,7 @@ class TabFunction : public StringExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -866,7 +866,7 @@ class StrFunction : public StringExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -882,7 +882,7 @@ class ChrFunction : public StringExpr
     const NumericExpr * GetArg1() const
     { return m_arg1; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const NumericExpr * m_arg1;
@@ -902,7 +902,7 @@ class LeftFunction : public StringExpr
     const NumericExpr * GetArg2() const
     { return m_arg2; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;
@@ -927,7 +927,7 @@ class MidFunction : public StringExpr
     const NumericExpr * GetArg3() const
     { return m_arg3; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;
@@ -949,7 +949,7 @@ class RightFunction : public StringExpr
     const NumericExpr * GetArg2() const
     { return m_arg2; }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 
   protected:
     const StringExpr * m_arg1;
@@ -973,7 +973,7 @@ class IfStatement : public Statement
                 const IfConditional * falseStatements
                 );
 
-    virtual int Generate(CodeGenerator & gen) const;
+    virtual int Generate(PseudoCodeGenerator & gen) const;
 
     const NumericExpr * m_cond; 
     const IfConditional * m_trueStatements = nullptr;
@@ -991,7 +991,7 @@ class ForStatement : public Statement
                  const NumericExpr * toVal,
                  const NumericExpr * stepVal);
 
-    virtual int Generate(CodeGenerator & gen) const;
+    virtual int Generate(PseudoCodeGenerator & gen) const;
 
     VarType m_type;
     const NumericVarRef * m_var;
@@ -1005,7 +1005,7 @@ class NextStatement : public Statement
   public:
     NextStatement(unsigned lineNumber, const NumericVarRef * var);
 
-    virtual int Generate(CodeGenerator & gen) const;
+    virtual int Generate(PseudoCodeGenerator & gen) const;
 
     const NumericVarRef * m_var;
 };

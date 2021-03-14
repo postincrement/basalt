@@ -6,12 +6,14 @@
 #include <map>
 #include <memory>
 
+/*
 namespace std {
   template<typename T, typename... Args>
   std::unique_ptr<T> make_unique(Args&&... args) {
       return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
   }
 }
+*/
 
 std::string Trim(const std::string & str);
 void Tokenize(std::vector<std::string> & tokens, const std::string & str, char sep);

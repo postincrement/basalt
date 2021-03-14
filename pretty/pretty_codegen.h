@@ -6,16 +6,24 @@
 class Pretty_CodeGenerator : public CodeGenerator
 {
   public:
-    Pretty_CodeGenerator(AST::Parser & parser);
+    Pretty_CodeGenerator(PseudoCodeGenerator & pseudo);
 
-    virtual bool Body() override;
+//    virtual bool Body() override;
 
+    virtual int Generate(PseudoCodeGenerator::Node & node) override;
+    virtual int Generate(PseudoCodeGenerator::Block & node) override;
+    virtual int Generate(PseudoCodeGenerator::PrintStringConst & node) override;
+
+  protected:
+    int m_indent = 0;    
+
+#if 0
     std::stringstream m_output;
 
     virtual std::string CreateTempVar(VarType type) override;
 
-    virtual int PrintNewLine() override;
-    virtual int PrintTab() override;
+    //virtual int PrintNewLine() override;
+    //virtual int PrintTab() override;
 
     virtual int PrintStringVar(const std::string & name) override;
     virtual int PrintStringConst(const std::string & str) override;
@@ -28,7 +36,7 @@ class Pretty_CodeGenerator : public CodeGenerator
 
     virtual int StringAssign(const std::string & lhs, const std::string & rhs) override;
     virtual std::string StringFunction(const std::string & op, const std::string & arg) override;
-
+#endif
 #if 0
     virtual int Generate(const AST::SourceLine & expr) override;
 //    virtual int Generate(const AST::Statement & statement) override;
