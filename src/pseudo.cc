@@ -197,7 +197,7 @@ int PseudoCodeGenerator::Print(const AST::NumericExpr & expr)
     Block & block = Add<Block>();
     std::string tempName = GetTempName();
     Add<CreateTempVar, VarType, std::string>(block, type, str);
-    //NumericAssign(tempName, str, type);
+    Add<NumericAssign>(tempName, str, type);
     Add<PrintNumericVar, VarType, std::string>(block, type, tempName);
     Add<DestroyTempVar,  VarType, std::string>(block, type, tempName);
   }
@@ -210,21 +210,26 @@ int PseudoCodeGenerator::Print(const AST::StringExpr & expr)
   VarType type = expr.GetType();
   std::string str;    
   expr.Evaluate(*this, str);
-  if (expr.IsVarRef()) {
-    Add<PrintStringVar>(str);
-  }
-  else if (expr.IsConstant()) {
+  if (expr.IsConstant()) {
     Add<PrintStringConst>(str);
   }
   else {
-    std::string tempName = GetTempName();
-    Add<CreateTempVar, VarType, std::string>(VarType::eString, tempName);
-    //StringAssign(tempName, str);
     Add<PrintStringVar>(str);
-    Add<DestroyTempVar, VarType, std::string>(VarType::eString, tempName);
   }
 
   return 0;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+//
+//  Expressions
+//
+
+int PseudoCodeGenerator::Generate(const AST::AssignStatement & expr)
+{
+  m_currentStatementLine = expr.m_lineNumber;
+  return expr.m_expr->Generate(*this);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -256,39 +261,23 @@ int PseudoCodeGenerator::Generate(const AST::StringAssign & expr)
   }
 
   std::string rhs;
-
   expr.m_rhs->Evaluate(*this, rhs);
 
-#if 0
   if (expr.m_lhs->IsVarRef() &&
       expr.m_rhs->IsVarRef() &&
       (var.m_originalName == rhs)) {
     CompilerError(eWarning_RemovedUnecessaryAssignment, m_lineNumber, ""); // TopOutput() << "/* optimised out */\n";
   }
   else {
-    if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
-      TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\");\n";
-    }
-    else {
-      TopOutput() << "if (!" << rhs << ")\n";
-      TopOutput() << "  " << cvar.m_cname << " = 0;\n";
-      TopOutput() << "else\n";
-      TopOutput() << "  " << cvar.m_cname << " = " << rhs << ";\n";
-    }
-
-    Pop();
+    Add<StringAssign>(var.m_originalName, rhs);
   }
-  return eOp_NextStatement;
-#endif
-
-return 0;
-
+  return 0;
 }
 
 
 ///////////////////////////////////////////////////////////////////////
 //
-//  Integer expressions  
+//  Numeric expressions  
 //
 
 int PseudoCodeGenerator::Evaluate(const AST::NumericConstant & expr, std::string & result)
@@ -303,55 +292,35 @@ int PseudoCodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string &
   return 0; 
 }
 
+int PseudoCodeGenerator::Generate(const AST::NumericAssign & expr)
+{
+  // TBD
+  return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////
 //
 //  Functions  
 //
 
-int PseudoCodeGenerator::EvaluateNumericFunction(const std::string & op, const AST::NumericExpr * arg, std::string & result)
-{
-  if (arg == nullptr)
-    return -1;
-
-  std::string argStr;
-  arg->Evaluate(*this, argStr);
-
-  //result = NumericFunction(op, argStr, arg->GetType());
-
-  return 0;
-}
-
-int PseudoCodeGenerator::EvaluateStringFunction(const std::string & op, const AST::NumericExpr * arg, std::string & result)
-{
-  if (arg == nullptr)
-    return -1;
-
-  std::string argStr;
-  arg->Evaluate(*this, argStr);
-
-  //result = StringFunction(op, argStr);
-
-  return 0;
-}
-
 int PseudoCodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
 {
-  return EvaluateNumericFunction("(int)", expr.GetArg1(), result);
+  return 0; //EvaluateNumericFunction("(int)", expr.GetArg1(), result);
 }
 
 int PseudoCodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
 {
-  return EvaluateNumericFunction("sqrt", expr.GetArg1(), result);
+  return 0; //EvaluateNumericFunction("sqrt", expr.GetArg1(), result);
 }
 
 int PseudoCodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)
 {
-  return EvaluateStringFunction("tab", expr.GetArg1(), result);
+  return EvaluateStringFunction<FunctionTAB>(expr.GetArg1(), result);
 }
 
 int PseudoCodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
 {
-  return EvaluateStringFunction("chr", expr.GetArg1(), result);
+  return EvaluateStringFunction<FunctionCHR>(expr.GetArg1(), result);
 }
 
 ///////////////////////////////////////////////////////
@@ -366,7 +335,62 @@ int PseudoCodeGenerator::Block::Generate(CodeGenerator & gen)
   return gen.Generate(*this);
 }
 
+int PseudoCodeGenerator::CreateTempVar::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::DestroyTempVar::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::PrintNewLine::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::PrintTab::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
 int PseudoCodeGenerator::PrintStringConst::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::PrintStringVar::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::PrintNumericConst::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::PrintNumericVar::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::FunctionCHR::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::FunctionTAB::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::StringAssign::Generate(CodeGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int PseudoCodeGenerator::NumericAssign::Generate(CodeGenerator & gen)
 {
   return gen.Generate(*this);
 }
@@ -388,6 +412,8 @@ bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputSt
 {
   m_inputFilename = inputFilename;
   m_outputStream = outputStream;
+
+  cerr << m_pseudo.m_pseudoCode.m_code.size() << " nodes found" << endl;
 
   // traverse here
   for (auto & code : m_pseudo.m_pseudoCode.m_code) {

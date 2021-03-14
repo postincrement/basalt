@@ -8,6 +8,8 @@ using namespace std;
 
 #include "basalt.h"
 
+#include "pass.h"
+
 //#include "c/c_codegen.h"
 //#include "z80/z80_codegen.h"
 #include "pretty/pretty_codegen.h"
@@ -381,12 +383,6 @@ int Basalt::Main(int argc, char const *argv[])
   if (!codeGen->Run(g_printableInputFilename, outputStream)) {
     cerr << "error: code generation failed" << endl;
   }
-
-
-    if (!codeGen->Run(g_printableInputFilename, outputStream)) {
-    cerr << "error: code generation failed" << endl;
-  }
-
 
   return 0;
 }
