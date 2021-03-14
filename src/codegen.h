@@ -38,13 +38,8 @@ class CodeGenerator
     virtual int Generate(PseudoCodeGenerator::PrintNumericConst & node) = 0;
     virtual int Generate(PseudoCodeGenerator::PrintNumericVar & node) = 0;
 
-    virtual int Generate(PseudoCodeGenerator::FunctionCHR & node) = 0;
-    virtual int Generate(PseudoCodeGenerator::FunctionTAB & node) = 0;;
-
-    virtual int Generate(PseudoCodeGenerator::StringAssign & node) = 0;
-
-    virtual int Generate(PseudoCodeGenerator::NumericAssign & node) = 0;
-
+    virtual int Generate(PseudoCodeGenerator::UnaryOperator & node) = 0;
+    virtual int Generate(PseudoCodeGenerator::BinaryOperator & node) = 0;;
 
   protected:
     Config m_config;

@@ -70,19 +70,6 @@ class PseudoCodeGenerator
       virtual int Generate(CodeGenerator & gen) override; \
     }; \
 
-#define VALUE_NODE(name, func, type) \
-    struct name : public Node \
-    { \
-      name(const type & value) \
-        : Node(func) \
-        , m_value(value) \
-        { }  \
-      virtual int Generate(CodeGenerator & gen) override; \
-      type m_value; \
-    }; \
-
-#define STRING_NODE(name, func) VALUE_NODE(name, func, std::string)
-
 #define TYPED_VALUE_NODE(name, type, func) \
     struct name : public ValueNode<type> \
     { \
@@ -94,18 +81,49 @@ class PseudoCodeGenerator
 
 #define TYPED_STRING_NODE(name, func)  TYPED_VALUE_NODE(name, std::string, func)
 
-#define FUNCTION1_NODE(name, func) \
+#define VALUE_NODE(name, func, type) \
     struct name : public Node \
     { \
-      name(const std::string & value, const std::string & arg) \
+      name(const type & value) \
         : Node(func) \
-        , m_ret(value) \
-        , m_arg(arg) \
+        , m_value(value) \
         { }  \
       virtual int Generate(CodeGenerator & gen) override; \
-      std::string m_ret; \
-      std::string m_arg; \
+      type m_value; \
     }; \
+
+#define STRING_NODE(name, func) \
+    VALUE_NODE(name, func, std::string)
+
+    struct UnaryOperator : public Node
+    {
+      UnaryOperator(const std::string & func, VarType type, const std::string & ret, const std::string & arg) \
+        : Node(func)
+        , m_type(type)
+        , m_ret(ret)
+        , m_arg(arg)
+        { } 
+      virtual int Generate(CodeGenerator & gen) override;
+      VarType m_type;
+      std::string m_ret;
+      std::string m_arg;
+    };
+
+    struct BinaryOperator : public Node 
+    { 
+      BinaryOperator(const std::string & func, VarType type, const std::string & ret, const std::string & arg1, const std::string & arg2)
+        : Node(func)
+        , m_type(type)
+        , m_ret(ret)
+        , m_arg1(arg1)
+        , m_arg2(arg2)
+        { }
+      virtual int Generate(CodeGenerator & gen) override;
+      VarType m_type;
+      std::string m_ret;
+      std::string m_arg1;
+      std::string m_arg2;
+    };
 
     SIMPLE_NODE(BlockStart,            "block_start");
     SIMPLE_NODE(BlockEnd,              "block_end");
@@ -122,35 +140,6 @@ class PseudoCodeGenerator
 
     STRING_NODE(PrintStringVar,          "print_string_var");
     STRING_NODE(PrintStringConst,        "print_string_const");
-
-    FUNCTION1_NODE(FunctionCHR, "chr");
-    FUNCTION1_NODE(FunctionTAB, "tab");
-
-    struct StringAssign : public Node
-    {
-      StringAssign(const std::string & lhs, const std::string & rhs)
-        : Node("string_assign")
-        , m_lhs(lhs)
-        , m_rhs(rhs)
-      { }
-      virtual int Generate(CodeGenerator & gen);
-      std::string m_lhs;
-      std::string m_rhs;
-    };
-
-    struct NumericAssign : public Node
-    {
-      NumericAssign(const std::string & lhs, const std::string & rhs, VarType type)
-        : Node("numeric_assign")
-        , m_lhs(lhs)
-        , m_rhs(rhs)
-        , m_type(type)
-      { }
-      virtual int Generate(CodeGenerator & gen);
-      std::string m_lhs;
-      std::string m_rhs;
-      VarType m_type;
-    };
 
     PseudoCodeGenerator(AST::Parser & parser);
 
@@ -195,14 +184,16 @@ class PseudoCodeGenerator
     virtual int Generate(const AST::GosubStatement & expr) { return 0; }
     virtual int Generate(const AST::ReturnStatement & expr) { return 0; }
 
+    ////////////////////
+
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result);
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result);
 
     virtual int Evaluate(const AST::NumericVarRef & expr, std::string & result);
     virtual int Evaluate(const AST::NumericConstant & expr, std::string & result);
+    virtual int Evaluate(const AST::NumericAddition & expr, std::string & result);
 
     virtual int Evaluate(const AST::StrFunction & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericAddition & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Subtraction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Multiplication & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Division & expr, std::string & result) { return 0; }
@@ -248,33 +239,7 @@ class PseudoCodeGenerator
 
     std::string GetTempName();
 
-    template <class NodeType>
-    int EvaluateStringFunction(const AST::NumericExpr * arg, std::string & result)
-    {
-      if (arg == nullptr)
-        return -1;
-
-      result = GetTempName();
-      Add<CreateTempVar, VarType, std::string>(VarType::eString, result);
-
-      if (arg->IsVarRef()) {
-        std::string argStr;
-        arg->Evaluate(*this, argStr);
-        Add<NodeType>(result, argStr);
-      }
-      else if (arg->IsConstant()) {
-        std::string argStr;
-        arg->Evaluate(*this, argStr);
-        Add<NodeType>(result, argStr);
-      }
-      else {
-        std::string argStr;
-        arg->Evaluate(*this, argStr);
-        Add<NodeType>(result, argStr);
-      }
-
-      return 0;
-    }
+    int EvaluateUnaryStringOperator(const std::string & fn, const AST::NumericExpr * arg, std::string & result);
 
     template <class NodeType>
     int EvaluateNumericFunction(const AST::NumericExpr * arg, std::string & result)

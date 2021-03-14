@@ -24,11 +24,8 @@ class Pretty_CodeGenerator : public CodeGenerator
     virtual int Generate(PseudoCodeGenerator::PrintNumericConst & node) override;
     virtual int Generate(PseudoCodeGenerator::PrintNumericVar & node) override;
 
-    virtual int Generate(PseudoCodeGenerator::FunctionCHR & node) override;
-    virtual int Generate(PseudoCodeGenerator::FunctionTAB & node) override;
-    virtual int Generate(PseudoCodeGenerator::StringAssign & node) override;
-
-    virtual int Generate(PseudoCodeGenerator::NumericAssign & node) override;
+    virtual int Generate(PseudoCodeGenerator::UnaryOperator & node) override;
+    virtual int Generate(PseudoCodeGenerator::BinaryOperator & node) override;
 
   protected:
     int m_indent = 0;   

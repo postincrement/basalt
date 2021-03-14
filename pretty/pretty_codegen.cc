@@ -75,8 +75,6 @@ int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::type & node) \
   return 0; \
 } \
 
-PRINT_TYPED_STRING_NODE(CreateTempVar);
-
 PRINT_SIMPLE_NODE(PrintNewLine);
 PRINT_SIMPLE_NODE(PrintTab);
 
@@ -86,27 +84,20 @@ PRINT_STRING_NODE(PrintStringConst);
 PRINT_TYPED_STRING_NODE(PrintNumericVar);
 PRINT_TYPED_STRING_NODE(PrintNumericConst);
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::StringAssign & node)
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::CreateTempVar & node)
 {
-  *m_outputStream << INDENT() << "string_assign " << node.m_lhs << " " << node.m_rhs << endl;
+  *m_outputStream << INDENT() << AST::GetVarTypeInfo(node.m_type).m_name << " " << node.m_value << endl; \
+  return 0;
+} 
+
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::UnaryOperator & node)
+{
+  *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << endl;
   return 0;
 }
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::NumericAssign & node)
+int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BinaryOperator & node)
 {
-  *m_outputStream << INDENT() << "numeric_assign " << node.m_lhs << " " << node.m_rhs << endl;
+  *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << endl;
   return 0;
 }
-
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::FunctionCHR & node)
-{
-  *m_outputStream << INDENT() << node.m_ret << " = chr(" << node.m_arg << ")" << endl;
-  return 0;
-}
-
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::FunctionTAB & node)
-{
-  *m_outputStream << INDENT() << node.m_ret << " = tab(" << node.m_arg << ")" << endl;
-  return 0;
-}
-
