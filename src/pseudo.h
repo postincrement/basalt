@@ -195,6 +195,7 @@ class PseudoCodeGenerator
     virtual int Evaluate(const AST::Subtraction & expr, std::string & result);
     virtual int Evaluate(const AST::Multiplication & expr, std::string & result);
     virtual int Evaluate(const AST::Division & expr, std::string & result);
+    virtual int Evaluate(const AST::NumericCast & expr, std::string & result);
 
     virtual int Evaluate(const AST::StrFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) { return 0; }
@@ -205,7 +206,6 @@ class PseudoCodeGenerator
     virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Negation & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Power & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericCast & expr, std::string & result) { return 0; }
 
     virtual int Evaluate(const AST::IntFunction & expr, std::string & result);
     virtual int Evaluate(const AST::SqrFunction & expr, std::string & result);
@@ -213,8 +213,8 @@ class PseudoCodeGenerator
     virtual int Evaluate(const AST::TabFunction & expr, std::string & result);
     virtual int Evaluate(const AST::RndFunction & expr, std::string & result);
     virtual int Evaluate(const AST::AbsFunction & expr, std::string & result);
+    virtual int Evaluate(const AST::LenFunction & expr, std::string & result);
 
-    virtual int Evaluate(const AST::LenFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::LeftFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::MidFunction & explepr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::RightFunction & expr, std::string & result) { return 0; }
@@ -246,25 +246,15 @@ class PseudoCodeGenerator
             const AST::NumericExpr & arg, 
             std::string & result);
 
+    int EvaluateUnaryNumericOperator(
+            const std::string & op, 
+            const AST::UnaryNumericOperation & expr, 
+            std::string & result);
+
     int EvaluateBinaryNumericOperator(
             const std::string & op,
             const AST::NumericBinaryOperation & expr, 
             std::string & result);
-
-    int EvaluateUnaryNumericOperator(
-            const std::string & op, 
-            const AST::UnaryOperation & expr, 
-            std::string & result);
-
-    template <class NodeType>
-    int EvaluateNumericFunction(const AST::NumericExpr * arg, std::string & result)
-    {
-      if (arg == nullptr)
-        return -1;
-      arg->Evaluate(*this, result);
-      Add<NodeType>(result);
-      return 0;
-    }
 
     std::string m_inputFilename;
     unsigned m_currentStatementLine;

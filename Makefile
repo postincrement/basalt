@@ -1,13 +1,16 @@
 APP = basalt
 
-FLEX = flex
-BISON = bison
+FLEX = /opt/homebrew/opt/flex/bin/flex
+BISON = /opt/homebrew/opt/bison/bin/bison
 
 LINK.cc=c++
 
 CXXFLAGS        += -std=c++17 -g -I. -I./src
 BASALT_LDFLAGS  += -g  
 BASALT_LDLIBS   +=  
+
+#  export LDFLAGS="-L/opt/homebrew/opt/flex/lib"
+#  export CPPFLAGS="-I/opt/homebrew/opt/flex/include"
 
 OBJDIR = ./obj
 DEPDIR = ./.deps

@@ -102,8 +102,10 @@ std::string PseudoCodeGenerator::GetTempName()
 
 bool PseudoCodeGenerator::LookupGlobalVar(const std::string & varName, AST::VarInfo & var)
 {
-  if (m_parser.m_globalVars.count(varName) == 0)
+  if (m_parser.m_globalVars.count(varName) == 0) {
+    cerr << "cannot find global var " << varName << endl;
     return false;
+  }
 
   var = m_parser.m_globalVars[varName];
   return true;
@@ -113,7 +115,8 @@ bool PseudoCodeGenerator::LookupGlobalVar(const std::string & varName, AST::VarI
 
 int PseudoCodeGenerator::Generate(const AST::Node & expr)
 {
-//  InternalError("unimplemented Generate for " << DemangleTypeName(typeid(expr)));
+//  InternalError(
+  cout << "unimplemented Generate for " << DemangleTypeName(typeid(expr)) << endl;
   return 1;
 }
 
@@ -317,7 +320,30 @@ int PseudoCodeGenerator::Generate(const AST::NumericAssign & expr)
   return 0;
 }
 
-int PseudoCodeGenerator::EvaluateUnaryNumericOperator(const std::string & op, const AST::UnaryOperation & expr, std::string & result)
+int PseudoCodeGenerator::EvaluateUnaryNumericOperator(
+    const std::string & op, 
+    const AST::UnaryNumericOperation & expr, 
+    std::string & result)
+{
+  if (expr.m_arg == nullptr)
+    return -1;
+
+  std::string val;
+  expr.m_arg->Evaluate(*this, val);
+
+  result = GetTempName();
+  Add<CreateTempVar, VarType, std::string>(expr.GetType(), result);
+  Add<UnaryOperator>(op, expr.m_arg->GetType(), result, val);
+
+  return 0;
+}
+
+#if 0
+
+int PseudoCodeGenerator::EvaluateUnaryNumericOperator(
+    const std::string & op, 
+    const AST::UnaryNumericOperation<AST::StringExpr> & expr, 
+    std::string & result)
 {
   if (expr.m_expr == nullptr)
     return -1;
@@ -331,6 +357,8 @@ int PseudoCodeGenerator::EvaluateUnaryNumericOperator(const std::string & op, co
 
   return 0;
 }
+
+#endif
 
 int PseudoCodeGenerator::EvaluateBinaryNumericOperator(
    const std::string & op,
@@ -402,10 +430,9 @@ int PseudoCodeGenerator::EvaluateUnaryStringOperator(const std::string & func, c
   return 0;
 }
 
-
 int PseudoCodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
 {
-  return 0; //EvaluateNumericFunction("(int)", expr.GetArg1(), result);
+  return EvaluateUnaryNumericOperator("INT", expr, result);
 }
 
 int PseudoCodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
@@ -421,6 +448,23 @@ int PseudoCodeGenerator::Evaluate(const AST::RndFunction & expr, std::string & r
 int PseudoCodeGenerator::Evaluate(const AST::AbsFunction & expr, std::string & result)
 {
   return EvaluateUnaryNumericOperator("ABS", expr, result);
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::NumericCast & expr, std::string & result)
+{
+  std::string val;
+  expr.m_from->Evaluate(*this, val);
+
+  VarType toType   = expr.GetType();
+  result = GetTempName();
+  Add<CreateTempVar, VarType, std::string>(toType, result);
+  Add<BinaryOperator>("CAST", toType, result, AST::GetVarTypeInfo(toType).m_name, val);
+  return 0;
+}
+
+int PseudoCodeGenerator::Evaluate(const AST::LenFunction & expr, std::string & result)
+{
+  return EvaluateUnaryNumericOperator("LEN", expr, result);
 }
 
 int PseudoCodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)

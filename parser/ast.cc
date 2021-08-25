@@ -198,7 +198,7 @@ bool NumericAssign::Validate()
   }
 
   if (ltype == VarType::eString) {
-    msg = "error: rhs must be string type";
+    msg = "error: rhs cannot be string type";
     return false;
   }
 

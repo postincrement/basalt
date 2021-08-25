@@ -441,6 +441,14 @@ class NumericOperator : public NumericExpr
     {}
 };
 
+class StringOperator : public StringExpr
+{
+  public:
+    StringOperator()
+      : StringExpr()
+    {}
+};
+
 class NumericBinaryOperation : public NumericOperator
 {
   public:
@@ -496,34 +504,50 @@ DEFINE_NUMERICCOMPARISONOP(NumericLessThanEqual)
 
 ////////////////////////////////////////////////////////////////////////////
 
-class UnaryOperation : public NumericOperator
+class UnaryNumericOperation : public NumericOperator
 {
   public:
-    UnaryOperation(const NumericExpr * expr)
-      : NumericOperator(expr->GetType())
+    UnaryNumericOperation(VarType type, const Expr * arg)
+      : NumericOperator(type)
+      , m_arg(arg)
+    { }
+
+    virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const = 0;
+
+    const Expr * m_arg;
+};
+
+template<class ArgType>
+class UnaryStringOperation : public StringOperator
+{
+  public:
+    UnaryStringOperation(const ArgType * expr)
+      : StringOperator()
       , m_expr(expr)
     { }
 
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const = 0;
 
-    const Expr * m_expr;
+    const ArgType * m_expr;
 };
 
-class Negation : public UnaryOperation
+////////////////////////////////////////////////////////////////////////////
+
+class Negation : public UnaryNumericOperation
 {
   public:
     Negation(NumericExpr * expr)
-      : UnaryOperation(expr)
+      : UnaryNumericOperation(expr->GetType(), expr)
     { }
 
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 };
 
-class Power : public UnaryOperation
+class Power : public UnaryNumericOperation
 {
   public:
     Power(NumericExpr * expr)
-      : UnaryOperation(expr)
+      : UnaryNumericOperation(expr->GetType(), expr)
     { }
 
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
@@ -748,71 +772,57 @@ class OnGotoStatement : public Statement
 
 ////////////////////////////////////////////////////////////////////////////
 
-class IntFunction : public NumericExpr
+class IntFunction : public UnaryNumericOperation
 {
   public:
-    IntFunction(const NumericExpr * arg1)
-      : NumericExpr(g_parser->m_languageProfile->GetIntegerType())
-      , m_arg1(arg1)
+    IntFunction(const NumericExpr * arg)
+      : UnaryNumericOperation(arg->GetType(), arg)
     {}
 
-    const NumericExpr * GetArg1() const
-    { return m_arg1; }
-
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
-
-  protected:
-    const NumericExpr * m_arg1;
 };
 
-class SqrFunction : public UnaryOperation
+class SqrFunction : public UnaryNumericOperation
 {
   public:
-    SqrFunction(const NumericExpr * arg1)
-      : UnaryOperation(arg1)
+    SqrFunction(const NumericExpr * arg)
+      : UnaryNumericOperation(arg->GetType(), arg)
     {
     }
 
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 };
 
-class RndFunction : public UnaryOperation
+class RndFunction : public UnaryNumericOperation
 {
   public:
-    RndFunction(const NumericExpr * arg1)
-      : UnaryOperation(arg1)
+    RndFunction(const NumericExpr * arg)
+      : UnaryNumericOperation(arg->GetType(), arg)
     {
     }
 
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 };
 
-class AbsFunction : public UnaryOperation
+class AbsFunction : public UnaryNumericOperation
 {
   public:
-    AbsFunction(const NumericExpr * arg1)
-      : UnaryOperation(arg1)
+    AbsFunction(const NumericExpr * arg)
+      : UnaryNumericOperation(arg->GetType(), arg)
     {
     }
 
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
 };
 
-class LenFunction : public NumericExpr
+class LenFunction : public UnaryNumericOperation
 {
   public:
     LenFunction(const StringExpr * arg1)
-      : NumericExpr(g_parser->m_languageProfile->GetIntegerType())
-      , m_arg1(arg1)
+      : UnaryNumericOperation(g_parser->m_languageProfile->GetIntegerType(), arg1)
     {}
 
-    const StringExpr * GetArg1() const
-    { return m_arg1; }
-
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
-
-  protected:
-    const StringExpr * m_arg1;
 };
 
 

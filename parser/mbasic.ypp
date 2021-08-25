@@ -994,6 +994,7 @@ numeric_value:  numeric_var_ref
                   }
                 | LEN_TOKEN '(' string_expression ')'  
                   {
+                    cout << "creating LEN" << endl;
                     $$ = new AST::LenFunction($3);
                   }
                 | ABS_TOKEN '(' expression ')'  

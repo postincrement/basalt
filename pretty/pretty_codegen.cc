@@ -101,6 +101,9 @@ int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::UnaryOperator & node)
 
 int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BinaryOperator & node)
 {
-  *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << endl;
+  if (isalpha(node.m_func[0]))
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ")" << endl;
+  else  
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << endl;
   return 0;
 }
