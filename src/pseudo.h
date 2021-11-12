@@ -225,7 +225,7 @@ class PseudoCodeGenerator
 
     virtual int Print(const AST::Int16Constant & ngexpr) { return 0; }
     virtual int Print(const AST::Int32Constant & expr) { return 0; }
-    virtual int Print(const AST::SingleConstant & expr) { return 0; }
+    virtual int Print(const AST::SingleConstant & expr);
     virtual int Print(const AST::DoubleConstant & expr) { return 0; }
     virtual int Print(const AST::StringConstant & expr);
     virtual int Print(const AST::PrintComma & expr);

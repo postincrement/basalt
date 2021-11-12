@@ -193,6 +193,7 @@ int PseudoCodeGenerator::Print(const AST::NumericExpr & expr)
   std::string str;    
   expr.Evaluate(*this, str);
   if (expr.IsVarRef()) {
+    cerr << "print a numberic expr " << str << endl;
     Add<PrintNumericVar, VarType, std::string>(type, str);
   }
   else if (expr.IsConstant()) {
@@ -219,6 +220,16 @@ int PseudoCodeGenerator::Print(const AST::StringExpr & expr)
   else {
     Add<PrintStringVar>(str);
   }
+
+  return 0;
+}
+
+int PseudoCodeGenerator::Print(const AST::SingleConstant & expr)
+{
+  VarType type = expr.GetType();
+  std::string str = expr.AsString();
+
+  Add<PrintNumericConst, VarType, std::string>(type, str);
 
   return 0;
 }

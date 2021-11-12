@@ -947,7 +947,14 @@ MULT_expression:  MULT_expression '*' NEGATE_expression
                           
 NEGATE_expression:  '-' POWER_expression
                       {
-                        $$ = new AST::Negation($2);  
+                        if (!$2->IsConstant()) {
+                          $$ = new AST::Negation($2);
+                        }
+                        else {  
+                          AST::NumericConstant * nexpr = dynamic_cast<AST::NumericConstant *>($2);
+                          nexpr->Negate();
+                          $$ = $2;
+                        }
                       }
                     | '+' POWER_expression
                       {

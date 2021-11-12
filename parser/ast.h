@@ -580,6 +580,8 @@ class NumericConstant : public Constant
     virtual int16_t AsInt16() const = 0;
 
     virtual int Evaluate(PseudoCodeGenerator & gen, std::string & result) const override;
+
+    virtual void Negate() = 0;
 };
 
 template<VarType t, typename N>
@@ -597,6 +599,9 @@ class ConstantType : public NumericConstant
 
     virtual bool IsConstant() const override
     { return true; }
+
+    virtual void Negate() override
+    { m_value = -m_value; }
 
     N GetValue() const
     { return m_value; }
