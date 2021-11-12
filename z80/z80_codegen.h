@@ -1,9 +1,9 @@
 #ifndef Z80_CODEGEN_H_
 #define Z80_CODEGEN_H_
 
-#include "../codegen.h"
+#include "../outputgen.h"
 
-class Z80_CodeGenerator : public CodeGenerator
+class Z80_CodeGenerator : public OutputGenerator
 {
   public:
     Z80_CodeGenerator();

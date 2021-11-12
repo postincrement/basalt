@@ -5,7 +5,7 @@
 #include <string>
 #include <fstream>
 
-#include "codegen.h"
+#include "outputgen.h"
 #include "common.h"
 #include "errorcode.h"
 
@@ -45,7 +45,7 @@ class Basalt
 
     int m_verbose = 0;
     int m_displayHelp = 0;
-    std::string m_codeGeneratorName;
+    std::string m_outputGeneratorName;
     std::string m_outputFilename;
     std::string m_languageProfileName;
     std::string m_arch;

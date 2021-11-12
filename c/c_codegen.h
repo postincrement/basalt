@@ -3,13 +3,40 @@
 
 #include <deque>
 
-#include "../codegen.h"
+#include "outputgen.h"
 
-class C_CodeGenerator : public CodeGenerator
+class C_OutputGenerator : public OutputGenerator
 {
   public:
-    C_CodeGenerator();
+    C_OutputGenerator(CodeGenerator & pseudo);
 
+    virtual void OutputFilePrologue(std::ostream & strm) override;
+    virtual void OutputFileEpilogue(std::ostream & strm) override;
+
+    virtual int Generate(CodeGenerator::Node & node) override;
+
+    virtual int Generate(CodeGenerator::LineNumber & node) override;
+    virtual int Generate(CodeGenerator::BlockStart & node) override;
+    virtual int Generate(CodeGenerator::BlockEnd & node) override;
+
+    virtual int Generate(CodeGenerator::CreateTempVar & node) override;
+
+    virtual int Generate(CodeGenerator::PrintNewLine & node) override;
+    virtual int Generate(CodeGenerator::PrintTab & node) override;
+    virtual int Generate(CodeGenerator::PrintStringConst & node) override;
+    virtual int Generate(CodeGenerator::PrintStringVar & node) override;
+
+    virtual int Generate(CodeGenerator::PrintNumericConst & node) override;
+    virtual int Generate(CodeGenerator::PrintNumericVar & node) override;
+
+    virtual int Generate(CodeGenerator::UnaryOperator & node) override;
+    virtual int Generate(CodeGenerator::BinaryOperator & node) override;
+
+  protected:
+    int m_indent = 0;   
+    std::queue<std::stringstream *> m_blockStack; 
+   
+#if 0
     std::stringstream m_body;
 
     enum {
@@ -151,6 +178,7 @@ class C_CodeGenerator : public CodeGenerator
     virtual int Print(const AST::PrintComma & expr) override;
     virtual int Print(const AST::NumericVarRef & expr) override;
     virtual int Print(const AST::StringVarRef & expr) override;
+#endif    
 };
 
 #endif // C_CODEGEN_H_

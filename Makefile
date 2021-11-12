@@ -16,11 +16,11 @@ OBJDIR = ./obj
 DEPDIR = ./.deps
 DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
-SRCS_CC = src/basalt.cc src/pass.cc src/common.cc\
+SRCS_CC = src/basalt.cc src/pass.cc src/common.cc src/codegen.cc \
           parser/ast.cc parser/mbasic.lex.cpp parser/mbasic.tab.cpp \
-		  pseudo.cc pretty/pretty_codegen.cc
+		  		pretty/pretty_codegen.cc c/c_codegen.cc 
 	         
-#	        codegen.cc c/c_codegen.cc c/c_runtime.cc \
+#	        codegen.cc c/c_runtime.cc \
 #	        z80/z80_codegen.cc 
 
 ############################################################

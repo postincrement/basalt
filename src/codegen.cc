@@ -3,11 +3,11 @@
 using namespace std;
 
 #include "basalt.h"
-#include "codegen.h"
+#include "outputgen.h"
 
 #define DEFAULT_TEMP_PREFIX "temp_"
 
-PseudoCodeGenerator::PseudoCodeGenerator(AST::Parser & parser)
+CodeGenerator::CodeGenerator(AST::Parser & parser)
   : m_parser(parser)
   , m_program(parser.m_program)
 {
@@ -15,14 +15,14 @@ PseudoCodeGenerator::PseudoCodeGenerator(AST::Parser & parser)
 
 ///////////////////////////////////////////////////////
 
-void PseudoCodeGenerator::CompilerErrorInternal(ErrorCode code, unsigned ln, const std::string & msg)
+void CodeGenerator::CompilerErrorInternal(ErrorCode code, unsigned ln, const std::string & msg)
 {
   g_application.CompilerErrorInternal(code, ln, msg);
 }
 
 ///////////////////////////////////////////////////////
 
-bool PseudoCodeGenerator::Run(const std::string &inputFilename)
+bool CodeGenerator::Run(const std::string &inputFilename)
 {
   m_inputFilename = inputFilename;
 
@@ -48,7 +48,7 @@ bool PseudoCodeGenerator::Run(const std::string &inputFilename)
 
 ///////////////////////////////////////////////////////
 
-bool PseudoCodeGenerator::CheckVars()
+bool CodeGenerator::CheckVars()
 {
   // check global vars
   for (auto &r : m_parser.m_globalVars) {
@@ -63,7 +63,7 @@ bool PseudoCodeGenerator::CheckVars()
 
 ///////////////////////////////////////////////////////
 
-bool PseudoCodeGenerator::CheckJumps()
+bool CodeGenerator::CheckJumps()
 {
   // goto list is indexed by goto destination
   for (auto & r : m_parser.m_jumpDestinationInfo) {
@@ -93,14 +93,14 @@ std::string DemangleTypeName(const std::type_info &r)
   return ret;
 }
 
-std::string PseudoCodeGenerator::GetTempName()
+std::string CodeGenerator::GetTempName()
 {
   stringstream name;
   name << DEFAULT_TEMP_PREFIX << m_tempIndex++;
   return name.str();
 }
 
-bool PseudoCodeGenerator::LookupGlobalVar(const std::string & varName, AST::VarInfo & var)
+bool CodeGenerator::LookupGlobalVar(const std::string & varName, AST::VarInfo & var)
 {
   if (m_parser.m_globalVars.count(varName) == 0) {
     cerr << "cannot find global var " << varName << endl;
@@ -113,26 +113,26 @@ bool PseudoCodeGenerator::LookupGlobalVar(const std::string & varName, AST::VarI
 
 ///////////////////////////////////////////////////////
 
-int PseudoCodeGenerator::Generate(const AST::Node & expr)
+int CodeGenerator::Generate(const AST::Node & expr)
 {
 //  InternalError(
   cout << "unimplemented Generate for " << DemangleTypeName(typeid(expr)) << endl;
   return 1;
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::Node & expr, std::string &result)
+int CodeGenerator::Evaluate(const AST::Node & expr, std::string &result)
 {
   InternalError("unimplemented Evaluate for " << DemangleTypeName(typeid(expr)));
   return 1;
 }
 
-int PseudoCodeGenerator::Print(const AST::Node & expr)
+int CodeGenerator::Print(const AST::Node & expr)
 {
   CompilerError(eWarning_NotImplemented, m_lineNumber, "unimplemented Print for " << DemangleTypeName(typeid(expr)));
   return 0;
 }
 
-int PseudoCodeGenerator::Generate(const AST::SourceLine &line)
+int CodeGenerator::Generate(const AST::SourceLine &line)
 {
   if (line.m_statements)
     return line.m_statements->Generate(*this);
@@ -141,7 +141,7 @@ int PseudoCodeGenerator::Generate(const AST::SourceLine &line)
   return 0;
 }
 
-int PseudoCodeGenerator::Generate(const AST::Statement & statement)
+int CodeGenerator::Generate(const AST::Statement & statement)
 {
 //  m_currentStatementLine = statement.m_lineNumber;
   //CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
@@ -150,7 +150,7 @@ int PseudoCodeGenerator::Generate(const AST::Statement & statement)
 
 //////////////////////////////////////////////////////////////////////////
 
-int PseudoCodeGenerator::Generate(const AST::Print & printExpr)
+int CodeGenerator::Generate(const AST::Print & printExpr)
 {
   bool trailingNewLine = true;
   if (printExpr.m_list != nullptr) {
@@ -170,24 +170,24 @@ int PseudoCodeGenerator::Generate(const AST::Print & printExpr)
   return 0;
 }
 
-int PseudoCodeGenerator::Print(const AST::StringConstant & expr)
+int CodeGenerator::Print(const AST::StringConstant & expr)
 {
   Add<PrintStringConst, std::string>(expr.GetValue());
   return 0;
 }
 
-int PseudoCodeGenerator::Print(const AST::PrintComma & expr)
+int CodeGenerator::Print(const AST::PrintComma & expr)
 {
   Add<PrintTab>();
   return 0;
 }
 
-int PseudoCodeGenerator::Print(const AST::PrintSemiColon & expr)
+int CodeGenerator::Print(const AST::PrintSemiColon & expr)
 {
   return 0;
 }
 
-int PseudoCodeGenerator::Print(const AST::NumericExpr & expr)
+int CodeGenerator::Print(const AST::NumericExpr & expr)
 {
   VarType type = expr.GetType();
   std::string str;    
@@ -209,7 +209,7 @@ int PseudoCodeGenerator::Print(const AST::NumericExpr & expr)
   return 0;
 }
 
-int PseudoCodeGenerator::Print(const AST::StringExpr & expr)
+int CodeGenerator::Print(const AST::StringExpr & expr)
 {
   VarType type = expr.GetType();
   std::string str;    
@@ -224,7 +224,7 @@ int PseudoCodeGenerator::Print(const AST::StringExpr & expr)
   return 0;
 }
 
-int PseudoCodeGenerator::Print(const AST::SingleConstant & expr)
+int CodeGenerator::Print(const AST::SingleConstant & expr)
 {
   VarType type = expr.GetType();
   std::string str = expr.AsString();
@@ -239,7 +239,7 @@ int PseudoCodeGenerator::Print(const AST::SingleConstant & expr)
 //  Expressions
 //
 
-int PseudoCodeGenerator::Generate(const AST::AssignStatement & expr)
+int CodeGenerator::Generate(const AST::AssignStatement & expr)
 {
   m_currentStatementLine = expr.m_lineNumber;
   return expr.m_expr->Generate(*this);
@@ -250,19 +250,19 @@ int PseudoCodeGenerator::Generate(const AST::AssignStatement & expr)
 //  String functions
 //
 
-int PseudoCodeGenerator::Evaluate(const AST::StringConstant & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::StringConstant & expr, std::string & result)
 {
   result = expr.GetValue();
   return 0;
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::StringVarRef & expr, std::string & result) 
+int CodeGenerator::Evaluate(const AST::StringVarRef & expr, std::string & result) 
 { 
   result = expr.GetName();
   return 0; 
 }
 
-int PseudoCodeGenerator::Generate(const AST::StringAssign & expr)
+int CodeGenerator::Generate(const AST::StringAssign & expr)
 {
   AST::VarInfo var;
   if (!LookupGlobalVar(expr.m_lhs->GetName(), var))
@@ -293,19 +293,19 @@ int PseudoCodeGenerator::Generate(const AST::StringAssign & expr)
 //  Numeric expressions  
 //
 
-int PseudoCodeGenerator::Evaluate(const AST::NumericConstant & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::NumericConstant & expr, std::string & result)
 {
   result = expr.AsString();
   return 0;
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & result) 
+int CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & result) 
 { 
   result = expr.GetName();
   return 0; 
 }
 
-int PseudoCodeGenerator::Generate(const AST::NumericAssign & expr)
+int CodeGenerator::Generate(const AST::NumericAssign & expr)
 {
   AST::VarInfo var;
   if (!LookupGlobalVar(expr.m_lhs->GetName(), var))
@@ -331,7 +331,7 @@ int PseudoCodeGenerator::Generate(const AST::NumericAssign & expr)
   return 0;
 }
 
-int PseudoCodeGenerator::EvaluateUnaryNumericOperator(
+int CodeGenerator::EvaluateUnaryNumericOperator(
     const std::string & op, 
     const AST::UnaryNumericOperation & expr, 
     std::string & result)
@@ -351,7 +351,7 @@ int PseudoCodeGenerator::EvaluateUnaryNumericOperator(
 
 #if 0
 
-int PseudoCodeGenerator::EvaluateUnaryNumericOperator(
+int CodeGenerator::EvaluateUnaryNumericOperator(
     const std::string & op, 
     const AST::UnaryNumericOperation<AST::StringExpr> & expr, 
     std::string & result)
@@ -371,7 +371,7 @@ int PseudoCodeGenerator::EvaluateUnaryNumericOperator(
 
 #endif
 
-int PseudoCodeGenerator::EvaluateBinaryNumericOperator(
+int CodeGenerator::EvaluateBinaryNumericOperator(
    const std::string & op,
    const AST::NumericBinaryOperation & expr, 
    std::string & result)
@@ -392,22 +392,22 @@ int PseudoCodeGenerator::EvaluateBinaryNumericOperator(
   return 0;
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string & result)
 {
   return EvaluateBinaryNumericOperator("+", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & result)
 {
   return EvaluateBinaryNumericOperator("-", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::Multiplication & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::Multiplication & expr, std::string & result)
 {
   return EvaluateBinaryNumericOperator("*", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::Division & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::Division & expr, std::string & result)
 {
   return EvaluateBinaryNumericOperator("-", expr, result);
 }
@@ -417,7 +417,7 @@ int PseudoCodeGenerator::Evaluate(const AST::Division & expr, std::string & resu
 //  Functions  
 //
 
-int PseudoCodeGenerator::EvaluateUnaryStringOperator(const std::string & func, const AST::NumericExpr & arg, std::string & result)
+int CodeGenerator::EvaluateUnaryStringOperator(const std::string & func, const AST::NumericExpr & arg, std::string & result)
 {
   result = GetTempName();
   Add<CreateTempVar, VarType, std::string>(VarType::eString, result);
@@ -441,27 +441,27 @@ int PseudoCodeGenerator::EvaluateUnaryStringOperator(const std::string & func, c
   return 0;
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
 {
   return EvaluateUnaryNumericOperator("INT", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
 {
   return EvaluateUnaryNumericOperator("SQRT", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::RndFunction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::RndFunction & expr, std::string & result)
 {
   return EvaluateUnaryNumericOperator("RND", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::AbsFunction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::AbsFunction & expr, std::string & result)
 {
   return EvaluateUnaryNumericOperator("ABS", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::NumericCast & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::NumericCast & expr, std::string & result)
 {
   std::string val;
   expr.m_from->Evaluate(*this, val);
@@ -473,116 +473,127 @@ int PseudoCodeGenerator::Evaluate(const AST::NumericCast & expr, std::string & r
   return 0;
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::LenFunction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::LenFunction & expr, std::string & result)
 {
   return EvaluateUnaryNumericOperator("LEN", expr, result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)
 {
   return EvaluateUnaryStringOperator("TAB", *expr.GetArg1(), result);
 }
 
-int PseudoCodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
+int CodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
 {
   return EvaluateUnaryStringOperator("CHR", *expr.GetArg1(), result);
 }
 
 ///////////////////////////////////////////////////////
 
-int PseudoCodeGenerator::Node::Generate(CodeGenerator & gen)
+int CodeGenerator::Node::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::LineNumber::Generate(CodeGenerator & gen)
+int CodeGenerator::LineNumber::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::BlockStart::Generate(CodeGenerator & gen)
+int CodeGenerator::BlockStart::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::BlockEnd::Generate(CodeGenerator & gen)
+int CodeGenerator::BlockEnd::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::CreateTempVar::Generate(CodeGenerator & gen)
+int CodeGenerator::CreateTempVar::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::PrintNewLine::Generate(CodeGenerator & gen)
+int CodeGenerator::PrintNewLine::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::PrintTab::Generate(CodeGenerator & gen)
+int CodeGenerator::PrintTab::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::PrintStringConst::Generate(CodeGenerator & gen)
+int CodeGenerator::PrintStringConst::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::PrintStringVar::Generate(CodeGenerator & gen)
+int CodeGenerator::PrintStringVar::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::PrintNumericConst::Generate(CodeGenerator & gen)
+int CodeGenerator::PrintNumericConst::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::PrintNumericVar::Generate(CodeGenerator & gen)
+int CodeGenerator::PrintNumericVar::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::UnaryOperator::Generate(CodeGenerator & gen)
+int CodeGenerator::UnaryOperator::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int PseudoCodeGenerator::BinaryOperator::Generate(CodeGenerator & gen)
+int CodeGenerator::BinaryOperator::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
 ///////////////////////////////////////////////////////
 
-CodeGenerator::CodeGenerator(const Config & config, PseudoCodeGenerator & pseudoGenerator)
+OutputGenerator::OutputGenerator(const Config & config, CodeGenerator & codeGenerator)
   : m_config(config)
-  , m_pseudoGenerator(pseudoGenerator)
+  , m_codeGenerator(codeGenerator)
 {
 }
 
-const CodeGenerator::Config & CodeGenerator::GetConfig() const
+const OutputGenerator::Config & OutputGenerator::GetConfig() const
 {
   return m_config;
 }
 
-bool CodeGenerator::Run(const std::string &inputFilename, std::ostream *outputStream)
+bool OutputGenerator::Run(const std::string &inputFilename, std::ostream *outputStream)
 {
   m_inputFilename = inputFilename;
   m_outputStream  = new std::stringstream();
 
-  cerr << m_pseudoGenerator.m_pseudoCode.size() << " blocks found" << endl;
+  cerr << m_codeGenerator.m_code.size() << " blocks found" << endl;
 
   // traverse here
-  for (auto & code : m_pseudoGenerator.m_pseudoCode) {
+  for (auto & code : m_codeGenerator.m_code) {
     code->Generate(*this);
   }
 
+  OutputFilePrologue(*outputStream);
+
   *outputStream << m_outputStream->str();
+
+  OutputFileEpilogue(*outputStream );
 
   return true;
 }
+
+void OutputGenerator::OutputFilePrologue(ostream & strm)
+{}
+
+void OutputGenerator::OutputFileEpilogue(ostream & strm)
+{}
+
 
 

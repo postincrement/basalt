@@ -10,7 +10,7 @@ using namespace std;
 
 #include "pass.h"
 
-//#include "c/c_codegen.h"
+#include "c/c_codegen.h"
 //#include "z80/z80_codegen.h"
 #include "pretty/pretty_codegen.h"
 
@@ -27,7 +27,7 @@ std::string g_printableInputFilename;
 
 static int  g_warningCount      = 0;
 static Factory<LanguageProfile> g_languageProfileFactory;
-static Factory<CodeGenerator, PseudoCodeGenerator &> g_codeGenerators;
+static Factory<OutputGenerator, CodeGenerator &> g_outputGenerators;
 
 static LanguageProfileDef g_basicVariants[] = { 
 // name      varlen tab defnum              defint
@@ -154,7 +154,7 @@ void Basalt::Usage(bool showKeys)
     std::vector<std::string> keys;
 /*
     cout << "where generator is one of:\n";
-    keys = g_codegeneratorFactory.GetList();
+    keys = g_outputgeneratorFactory.GetList();
     for (auto & r : keys)
       cout << "  " << r << "\n";
 */      
@@ -224,7 +224,7 @@ int Basalt::Main(int argc, char const *argv[])
   
   std::vector<ArgDef> argDefs = {
     { 'v',   "verbose",   "",   &m_verbose,             "enable verbosity" },
-    { 't',   "target",    "s",  &m_codeGeneratorName,   "set code generator" },
+    { 't',   "target",    "s",  &m_outputGeneratorName, "set code generator" },
     { 'o',   "output",    "s",  &m_outputFilename,      "set output filename" },
     { 'p',   "profile",   "s",  &m_languageProfileName, "set language profile" },
     { ' ',   "yydebug",   "",   &mbasic_debug,          "enable bison debugging"},
@@ -327,7 +327,7 @@ int Basalt::Main(int argc, char const *argv[])
   //  generate pseudo code from AST
   //
 
-  PseudoCodeGenerator pseudoCodeGen(parser);
+  CodeGenerator pseudoCodeGen(parser);
   if (!pseudoCodeGen.Run(g_printableInputFilename)) {
     cerr << "error: pseudo code generation failed" << endl;
     return 0;
@@ -339,17 +339,17 @@ int Basalt::Main(int argc, char const *argv[])
   //  compile pseudo code into real code
   //
 
-  g_codeGenerators.Register<Pretty_CodeGenerator>("pretty");
+  g_outputGenerators.Register<Pretty_OutputGenerator>("pretty");
+  g_outputGenerators.Register<C_OutputGenerator>     ("ansi-c");
 
 #if 0  
   // register language profiles
-  g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
   g_codeGenerators.Register<Z80_CodeGenerator>("z80");
 #endif
 
-  // create code generator
-  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch, pseudoCodeGen);
-  if (codeGen == nullptr) {
+  // create output generator
+  OutputGenerator * outputGen = g_outputGenerators.CreateInstance(m_arch, pseudoCodeGen);
+  if (outputGen == nullptr) {
     cerr << "error: unknown arch '" << m_arch << "'" << endl;
     return -1;
   }
@@ -370,7 +370,7 @@ int Basalt::Main(int argc, char const *argv[])
     else {
       ofn = m_inputFilename.GetDir() + 
             m_inputFilename.GetBasename() + 
-            codeGen->GetConfig().m_extension;
+            outputGen->GetConfig().m_extension;
     }
     outputFile.open(ofn, std::ofstream::out | std::ofstream::trunc);
     if (!outputFile.is_open()) {
@@ -380,7 +380,7 @@ int Basalt::Main(int argc, char const *argv[])
     outputStream = &outputFile;
   }
 
-  if (!codeGen->Run(g_printableInputFilename, outputStream)) {
+  if (!outputGen->Run(g_printableInputFilename, outputStream)) {
     cerr << "error: code generation failed" << endl;
   }
 

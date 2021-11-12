@@ -2,7 +2,7 @@
 
 #include <ostream>
 
-void C_CodeGenerator::OutputRuntimeDecls(std::ostream & strm)
+void C_OutputGenerator::OutputRuntimeDecls(std::ostream & strm)
 {
   strm << "\n"
        << "int basalt_init();\n\n"
@@ -118,7 +118,7 @@ int print_int16(int16_t value)\n\
 }\n\n\
 ";
 
-void C_CodeGenerator::OutputRuntime(std::ostream & strm)
+void C_OutputGenerator::OutputRuntime(std::ostream & strm)
 {
   strm << "\n/* run time functions */\n\n"
        ;

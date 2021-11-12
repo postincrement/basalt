@@ -10,8 +10,8 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////
 
-Pretty_CodeGenerator::Pretty_CodeGenerator(PseudoCodeGenerator & pseudo)
-  : CodeGenerator(
+Pretty_OutputGenerator::Pretty_OutputGenerator(CodeGenerator & pseudo)
+  : OutputGenerator(
     {
       ".txt", "temp", "", "", 4, 0
     }, pseudo)
@@ -20,29 +20,29 @@ Pretty_CodeGenerator::Pretty_CodeGenerator(PseudoCodeGenerator & pseudo)
 
 #define INDENT() std::string(m_indent, ' ')
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::Node & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::Node & node)
 {
   *m_outputStream << INDENT() << "A node!" << endl;
   return 0;
 }
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::LineNumber & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::LineNumber & node)
 {
   *m_outputStream << INDENT() << node.m_value << ":" << endl;
   return 0;
 }
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BlockStart & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::BlockStart & node)
 {
   m_blockStack.push(m_outputStream);
   m_outputStream = new std::stringstream;
-  m_indent+=2;
+  m_indent += m_config.m_indentInc;
   return 0;
 }
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BlockEnd & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::BlockEnd & node)
 {
-  m_indent-=2;
+  m_indent -= m_config.m_indentInc;
   std::stringstream * lastBlock = m_outputStream;
   m_outputStream = m_blockStack.back();
   if (lastBlock->str().length() > 0) {
@@ -55,21 +55,21 @@ int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BlockEnd & node)
 }
 
 #define PRINT_SIMPLE_NODE(type) \
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::type & node) \
+int Pretty_OutputGenerator::Generate(CodeGenerator::type & node) \
 { \
   *m_outputStream << INDENT() << node.GetFunc() << endl; \
   return 0; \
 } \
 
 #define PRINT_STRING_NODE(type) \
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::type & node) \
+int Pretty_OutputGenerator::Generate(CodeGenerator::type & node) \
 { \
   *m_outputStream << INDENT() << node.GetFunc() << " \"" << node.m_value << "\"" << endl; \
   return 0; \
 } \
 
 #define PRINT_TYPED_STRING_NODE(type) \
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::type & node) \
+int Pretty_OutputGenerator::Generate(CodeGenerator::type & node) \
 { \
   *m_outputStream << INDENT() << node.GetFunc() << " " << AST::GetVarTypeInfo(node.m_type).m_name << " \"" << node.m_value << "\"" << endl; \
   return 0; \
@@ -84,13 +84,13 @@ PRINT_STRING_NODE(PrintStringConst);
 PRINT_TYPED_STRING_NODE(PrintNumericVar);
 PRINT_TYPED_STRING_NODE(PrintNumericConst);
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::CreateTempVar & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
 {
   *m_outputStream << INDENT() << AST::GetVarTypeInfo(node.m_type).m_name << " " << node.m_value << endl; \
   return 0;
 } 
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::UnaryOperator & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::UnaryOperator & node)
 {
   if (node.m_func != "=")
     *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ")" << endl;
@@ -99,7 +99,7 @@ int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::UnaryOperator & node)
   return 0;
 }
 
-int Pretty_CodeGenerator::Generate(PseudoCodeGenerator::BinaryOperator & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::BinaryOperator & node)
 {
   if (isalpha(node.m_func[0]))
     *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ")" << endl;
