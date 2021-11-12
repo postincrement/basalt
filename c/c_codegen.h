@@ -33,8 +33,9 @@ class C_OutputGenerator : public OutputGenerator
     virtual int Generate(CodeGenerator::BinaryOperator & node) override;
 
   protected:
-    int m_indent = 0;   
     std::queue<std::stringstream *> m_blockStack; 
+
+    int OutputFunc(CodeGenerator::Node & node);
    
 #if 0
     std::stringstream m_body;

@@ -28,7 +28,6 @@ class Pretty_OutputGenerator : public OutputGenerator
     virtual int Generate(CodeGenerator::BinaryOperator & node) override;
 
   protected:
-    int m_indent = 0;   
     std::queue<std::stringstream *> m_blockStack; 
 };
 

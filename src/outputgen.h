@@ -49,6 +49,7 @@ class OutputGenerator
     CodeGenerator & m_codeGenerator;
     std::string m_inputFilename;
     std::stringstream * m_outputStream = nullptr;    
+    int m_indent = 0;   
 };
 
 

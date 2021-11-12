@@ -193,7 +193,6 @@ int CodeGenerator::Print(const AST::NumericExpr & expr)
   std::string str;    
   expr.Evaluate(*this, str);
   if (expr.IsVarRef()) {
-    cerr << "print a numberic expr " << str << endl;
     Add<PrintNumericVar, VarType, std::string>(type, str);
   }
   else if (expr.IsConstant()) {
@@ -573,13 +572,14 @@ bool OutputGenerator::Run(const std::string &inputFilename, std::ostream *output
   m_inputFilename = inputFilename;
   m_outputStream  = new std::stringstream();
 
-  cerr << m_codeGenerator.m_code.size() << " blocks found" << endl;
+  m_indent = m_config.m_indent;
 
   // traverse here
   for (auto & code : m_codeGenerator.m_code) {
     code->Generate(*this);
   }
 
+  m_indent = m_config.m_indent;
   OutputFilePrologue(*outputStream);
 
   *outputStream << m_outputStream->str();

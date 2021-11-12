@@ -7,8 +7,90 @@
 
 using namespace std;
 
+#define INDENT() std::string(m_indent, ' ')
+
+typedef void (*PrintFunc)(ostream & strm, int indent, const CodeGenerator::Node & node);
 
 ////////////////////////////////////////////////////////////
+
+static void print_newline(ostream & strm, int indent, const CodeGenerator::Node & node)
+{
+  strm << std::string(indent, ' ') << "printf(\"\\n\");" << endl;
+}
+
+static void print_numeric_const(ostream & strm, int indent, const CodeGenerator::Node & node)
+{
+  strm << std::string(indent, ' ');
+
+  const CodeGenerator::PrintNumericConst * numConst = 
+    dynamic_cast<const CodeGenerator::PrintNumericConst *>(&node);
+
+  if (numConst == nullptr) {
+    cerr << "internal error: " << endl;
+    return;
+  }  
+
+  switch (numConst->m_type) {
+    case VarType::eInt16:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eInt32:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eSingle:
+      strm << "printf(\"%f\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eDouble:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eString:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+  }
+}
+
+static void print_numeric_var(ostream & strm, int indent, const CodeGenerator::Node & node)
+{
+  strm << std::string(indent, ' ');
+
+  const CodeGenerator::PrintNumericVar * numConst = 
+    dynamic_cast<const CodeGenerator::PrintNumericVar *>(&node);
+
+  if (numConst == nullptr) {
+    cerr << "internal error: " << endl;
+    return;
+  }  
+
+  switch (numConst->m_type) {
+    case VarType::eInt16:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eInt32:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eSingle:
+      strm << "printf(\"%f\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eDouble:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+    case VarType::eString:
+      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      break;
+  }
+}
+
+
+static std::map<std::string, PrintFunc> g_nameToFunc = {
+  { "print_newline",       &print_newline       },
+  { "print_numeric_const", &print_numeric_const },
+  { "print_numeric_var",   &print_numeric_var   },
+  { "block_end",           nullptr              },
+  { "block_start",         nullptr              }
+};
+
+////////////////////////////////////////////////////////////
+
 
 C_OutputGenerator::C_OutputGenerator(CodeGenerator & codegen)
   : OutputGenerator(
@@ -18,20 +100,6 @@ C_OutputGenerator::C_OutputGenerator(CodeGenerator & codegen)
 {
 }
 
-#define INDENT() std::string(m_indent, ' ')
-
-
-/*
-struct VarInfo {
-  VarType     m_type;
-  std::string m_originalName;
-  bool        m_lhs = false;
-  unsigned    m_lhsLine = 0;
-  bool        m_rhs = false;
-  unsigned    m_rhsLine = 0;
-};
-
-*/
 void C_OutputGenerator::OutputFilePrologue(ostream & strm)
 {
   strm << "//" << endl
@@ -79,6 +147,11 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
     strm << endl;
   }
 
+  const std::set<std::string> & funcsUsed = m_codeGenerator.GetFuncsUsed();
+  for (auto & r : funcsUsed) {
+    strm << "// " << r << endl;
+  }
+
   strm << "int main(int argc, char *argv[])" << endl
        << "{" << endl; 
 }
@@ -87,7 +160,6 @@ void C_OutputGenerator::OutputFileEpilogue(ostream & strm)
 {
   strm << "}" << endl;
 }
-
 
 int C_OutputGenerator::Generate(CodeGenerator::Node & node)
 {
@@ -144,14 +216,44 @@ int C_OutputGenerator::Generate(CodeGenerator::type & node) \
   return 0; \
 } \
 
-PRINT_SIMPLE_NODE(PrintNewLine);
+int C_OutputGenerator::OutputFunc(CodeGenerator::Node & node)
+{
+  auto r = g_nameToFunc.find(node.GetFunc());
+  if (r == g_nameToFunc.end()) {
+    cerr << "error: unknown function '" << node.GetFunc() << "'" << endl;
+    return 1;
+  }
+
+  if (r->second == NULL) {
+    return 0;
+  }
+
+  r->second(*m_outputStream, m_indent, node);
+  return 0; 
+} 
+
+//PRINT_SIMPLE_NODE(PrintNewLine);
+int C_OutputGenerator::Generate(CodeGenerator::PrintNewLine & node) 
+{
+  return OutputFunc(node);
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::PrintNumericVar & node) 
+{
+  return OutputFunc(node);
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::PrintNumericConst & node)
+{
+  return OutputFunc(node);
+}
+
+
+
 PRINT_SIMPLE_NODE(PrintTab);
 
 PRINT_STRING_NODE(PrintStringVar);
 PRINT_STRING_NODE(PrintStringConst);
-
-PRINT_TYPED_STRING_NODE(PrintNumericVar);
-PRINT_TYPED_STRING_NODE(PrintNumericConst);
 
 int C_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
 {
@@ -162,26 +264,20 @@ int C_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
 int C_OutputGenerator::Generate(CodeGenerator::UnaryOperator & node)
 {
   if (node.m_func != "=")
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ")" << endl;
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ");" << endl;
   else  
-    *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << endl;
+    *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << ";" << endl;
   return 0;
 }
 
 int C_OutputGenerator::Generate(CodeGenerator::BinaryOperator & node)
 {
   if (isalpha(node.m_func[0]))
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ")" << endl;
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ");" << endl;
   else  
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << endl;
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << ";" << endl;
   return 0;
 }
-
-
-
-
-
-
 
 #if 0
 

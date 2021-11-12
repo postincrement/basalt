@@ -150,9 +150,6 @@ class CodeGenerator
 
     bool LookupGlobalVar(const std::string & varName, AST::VarInfo & var);
 
-    const AST::VarList & GetGlobalVars() const
-    { return m_parser.m_globalVars; }
-
     template <class Type, class ... Args>
     Type & Add(Args... args)
     {
@@ -163,6 +160,12 @@ class CodeGenerator
         m_funcsUsed.insert(func);
       return added;  
     }
+
+    const AST::VarList & GetGlobalVars() const
+    { return m_parser.m_globalVars; }
+
+    const std::set<std::string> & GetFuncsUsed() const
+    { return m_funcsUsed; }
 
     // visitor interface for AST
     virtual int Generate(const AST::Node & node);

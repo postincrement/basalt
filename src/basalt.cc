@@ -324,7 +324,7 @@ int Basalt::Main(int argc, char const *argv[])
 
   //////////////////////////////////
   // 
-  //  generate pseudo code from AST
+  //  generate code from AST
   //
 
   CodeGenerator pseudoCodeGen(parser);
@@ -336,7 +336,7 @@ int Basalt::Main(int argc, char const *argv[])
 
   //////////////////////////////////
   //
-  //  compile pseudo code into real code
+  //  compile code into output code
   //
 
   g_outputGenerators.Register<Pretty_OutputGenerator>("pretty");
@@ -353,7 +353,6 @@ int Basalt::Main(int argc, char const *argv[])
     cerr << "error: unknown arch '" << m_arch << "'" << endl;
     return -1;
   }
-
 
   std::ostream * outputStream = nullptr;
   std::ofstream outputFile;
