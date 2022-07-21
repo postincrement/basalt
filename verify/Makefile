@@ -6,21 +6,23 @@ BASALT		= $(HOME)/Documents/basalt/basalt
 
 all: ctests # ztests
 
-ctests: ctest_1 #ctest_2 ctest_3 ctest_4 ctest_5 ctest_6 ctest_7 ctest_8 ctest_9 ctest_10
+ctests: ctest_1 ctest_2 # ctest_3 ctest_4 ctest_5 ctest_6 ctest_7 ctest_8 ctest_9 ctest_10
 
-ztests: ztest_1 #ztest_2 ztest_3 ztest_4 ztest_5 ztest_6 ztest_7 ztest_8 ztest_9 ztest_10
+ztests: ztest_1 ztest_2 # ztest_3 ztest_4 ztest_5 ztest_6 ztest_7 ztest_8 ztest_9 ztest_10
 
 # PRINT string constants
 ctest_1: test_1.bas test_1.out test_1.c_out $(BASALT)
-	diff test_1.out test_1.c_out
+	diff --suppress-common-lines test_1.out test_1.c_out
 
 ztest_1: test_1.bas test_1.out test_1.z_out $(BASALT)
-	diff test_1.out test_1.z_out
+	diff --suppress-common-lines test_1.out test_1.z_out
 
 # PRINT integers
-test_2: test_2.bas test_2.out test_2.c_out test_2.z_out $(BASALT) 
-	diff test_2.out test_2.c_out
-#	diff test_2.out test_2.z_out
+ctest_2: test_2.bas test_2.out test_2.c_out $(BASALT) 
+	diff --suppress-common-lines test_2.out test_2.c_out
+
+ztest_2: test_2.bas test_2.out test_2.z_out $(BASALT) 
+	diff --suppress-common-lines test_2.out test_2.z_out
 
 # single expressions
 test_3: test_3.bas test_3.out test_3.c_out $(BASALT) # test_3.z_out 

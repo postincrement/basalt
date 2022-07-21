@@ -464,7 +464,10 @@ class NumericBinaryOperation : public NumericOperator
 
     virtual bool Validate();
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const = 0;
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override = 0;
+
+    virtual bool IsConstant() const override
+    { return m_lhs->IsConstant() && m_rhs->IsConstant(); }
 
     const NumericExpr * m_lhs;
     const NumericExpr * m_rhs;
@@ -485,12 +488,26 @@ DEFINE_NUMERICBINARYOP(Subtraction)
 DEFINE_NUMERICBINARYOP(Multiplication)
 DEFINE_NUMERICBINARYOP(Division)
 
+class NumericComparisonOperation : public NumericBinaryOperation
+{
+  public:
+    NumericComparisonOperation(VarType type, const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(type, lhs, rhs)
+    { }
+    NumericComparisonOperation(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(lhs, rhs)
+    { }
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const = 0;
+};
+
+
 #define DEFINE_NUMERICCOMPARISONOP(name) \
-class name : public NumericBinaryOperation \
+class name : public NumericComparisonOperation \
 { \
   public: \
     name(const NumericExpr * lhs, const NumericExpr * rhs) \
-      : NumericBinaryOperation(VarType::eInt16, lhs, rhs) \
+      : NumericComparisonOperation(VarType::eInt16, lhs, rhs) \
     { }  \
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override; \
 };
@@ -512,7 +529,10 @@ class UnaryNumericOperation : public NumericOperator
       , m_arg(arg)
     { }
 
-    virtual int Evaluate(CodeGenerator & gen, std::string & result) const = 0;
+    virtual bool IsConstant() const override
+    { return m_arg->IsConstant(); }
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override = 0;
 
     const Expr * m_arg;
 };

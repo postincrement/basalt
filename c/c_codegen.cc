@@ -18,36 +18,6 @@ static void print_newline(ostream & strm, int indent, const CodeGenerator::Node 
   strm << std::string(indent, ' ') << "printf(\"\\n\");" << endl;
 }
 
-static void print_numeric_const(ostream & strm, int indent, const CodeGenerator::Node & node)
-{
-  strm << std::string(indent, ' ');
-
-  const CodeGenerator::PrintNumericConst * numConst = 
-    dynamic_cast<const CodeGenerator::PrintNumericConst *>(&node);
-
-  if (numConst == nullptr) {
-    cerr << "internal error: " << endl;
-    return;
-  }  
-
-  switch (numConst->m_type) {
-    case VarType::eInt16:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
-      break;
-    case VarType::eInt32:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
-      break;
-    case VarType::eSingle:
-      strm << "printf(\"%f\\n\", " << numConst->m_value << ");" << endl;
-      break;
-    case VarType::eDouble:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
-      break;
-    case VarType::eString:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
-      break;
-  }
-}
 
 static void print_numeric_var(ostream & strm, int indent, const CodeGenerator::Node & node)
 {
@@ -63,26 +33,24 @@ static void print_numeric_var(ostream & strm, int indent, const CodeGenerator::N
 
   switch (numConst->m_type) {
     case VarType::eInt16:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      strm << "printf(\"%d\", " << numConst->m_value << ");" << endl;
       break;
     case VarType::eInt32:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      strm << "printf(\"%dn\", " << numConst->m_value << ");" << endl;
       break;
     case VarType::eSingle:
-      strm << "printf(\"%f\\n\", " << numConst->m_value << ");" << endl;
+      strm << "printf(\"%f\", " << numConst->m_value << ");" << endl;
       break;
     case VarType::eDouble:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      strm << "printf(\"%d\", " << numConst->m_value << ");" << endl;
       break;
     case VarType::eString:
-      strm << "printf(\"%d\\n\", " << numConst->m_value << ");" << endl;
+      strm << "printf(\"%d\", " << numConst->m_value << ");" << endl;
       break;
   }
 }
 
 static std::map<std::string, PrintFunc> g_nameToFunc = {
-  { "print_newline",       &print_newline       },
-  { "print_numeric_const", &print_numeric_const },
   { "print_numeric_var",   &print_numeric_var   },
   { "block_end",           nullptr              },
   { "block_start",         nullptr              }
@@ -271,14 +239,53 @@ int C_OutputGenerator::Generate(CodeGenerator::PrintNewLine & node)
   return 0;
 }
 
+template<class NodeType>
+int GenerateNode(ostream & strm, NodeType & node) 
+{
+  switch (node.m_type) {
+    case VarType::eInt16:
+      if (std::stoi(node.m_value) < 0)
+        strm << "printf(\"%d \", " << node.m_value << ");";
+      else  
+        strm << "printf(\" %d \", " << node.m_value << ");";
+      break;
+    case VarType::eInt32:
+      if (std::stoi(node.m_value) < 0)
+        strm << "printf(\"%d \", " << node.m_value << ");";
+      else  
+        strm << "printf(\" %d \", " << node.m_value << ");";
+      break;
+    case VarType::eSingle:
+      if (std::stof(node.m_value) < 0)
+        strm << "printf(\"%.0f \", (float)" << node.m_value << ");";
+      else  
+        strm << "printf(\" %.0f \", (float)" << node.m_value << ");";
+      break;
+    case VarType::eDouble:
+      if (std::stod(node.m_value) < 0)
+        strm << "printf(\"%.0d \", (double)" << node.m_value << ");";
+      else  
+        strm << "printf(\" %.0d \", (double)" << node.m_value << ");";
+      break;
+    case VarType::eString:
+      strm << "print_string(" << node.m_value << ");";
+      break;
+  }
+  strm << "\n";
+  return 0;
+}
+
+
 int C_OutputGenerator::Generate(CodeGenerator::PrintNumericVar & node) 
 {
-  return OutputFunc(node);
+  *m_outputStream << INDENT();
+  return GenerateNode(*m_outputStream, node);
 }
 
 int C_OutputGenerator::Generate(CodeGenerator::PrintNumericConst & node)
 {
-  return OutputFunc(node);
+  *m_outputStream << INDENT();
+  return GenerateNode(*m_outputStream, node);
 }
 
 int C_OutputGenerator::Generate(CodeGenerator::PrintStringConst & node)
@@ -297,25 +304,25 @@ PRINT_STRING_NODE(PrintStringVar);
 
 int C_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
 {
-  *m_outputStream << INDENT() << AST::GetVarTypeInfo(node.m_type).m_name << " " << node.m_value << endl; \
+  *m_outputStream << INDENT() << AST::GetVarTypeInfo(node.m_type).m_name << " " << node.m_value << ";\n";
   return 0;
 } 
 
 int C_OutputGenerator::Generate(CodeGenerator::UnaryOperator & node)
 {
   if (node.m_func != "=")
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ");" << endl;
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ");\n";
   else  
-    *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << ";" << endl;
+    *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << ";\n";
   return 0;
 }
 
 int C_OutputGenerator::Generate(CodeGenerator::BinaryOperator & node)
 {
   if (isalpha(node.m_func[0]))
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ");" << endl;
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ");\n";
   else  
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << ";" << endl;
+    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << ";\n";
   return 0;
 }
 

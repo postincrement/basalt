@@ -71,7 +71,7 @@ int Pretty_OutputGenerator::Generate(CodeGenerator::type & node) \
 #define PRINT_TYPED_STRING_NODE(type) \
 int Pretty_OutputGenerator::Generate(CodeGenerator::type & node) \
 { \
-  *m_outputStream << INDENT() << node.GetFunc() << " " << AST::GetVarTypeInfo(node.m_type).m_name << " \"" << node.m_value << "\"" << endl; \
+  *m_outputStream << INDENT() << node.GetFunc() << " " << AST::GetVarTypeInfo(node.m_type).m_name << " " << node.m_value << endl; \
   return 0; \
 } \
 
@@ -86,24 +86,24 @@ PRINT_TYPED_STRING_NODE(PrintNumericConst);
 
 int Pretty_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
 {
-  *m_outputStream << INDENT() << AST::GetVarTypeInfo(node.m_type).m_name << " " << node.m_value << endl; \
+  *m_outputStream << INDENT() << "CreateTempVar: " << AST::GetVarTypeInfo(node.m_type).m_name << " " << node.m_value << endl; \
   return 0;
 } 
 
 int Pretty_OutputGenerator::Generate(CodeGenerator::UnaryOperator & node)
 {
-  if (node.m_func != "=")
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ")" << endl;
-  else  
-    *m_outputStream << INDENT() << node.m_ret << " " << node.m_func << " " << node.m_arg << endl;
+  if (node.m_func == "=")  
+    *m_outputStream << INDENT() << "UnaryOperator(assign): " << node.m_ret << " = " << node.m_arg << endl;
+  else 
+    *m_outputStream << INDENT() << "UnaryOperator: " << node.m_ret << " = " << node.m_func << "(" << node.m_arg << ")" << endl;
   return 0;
 }
 
 int Pretty_OutputGenerator::Generate(CodeGenerator::BinaryOperator & node)
 {
   if (isalpha(node.m_func[0]))
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ")" << endl;
+    *m_outputStream << INDENT() << "BinaryOperator: " << node.m_ret << " = " << node.m_func << "(" << node.m_arg1 << ", " << node.m_arg2 << ")" << endl;
   else  
-    *m_outputStream << INDENT() << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << endl;
+    *m_outputStream << INDENT() << "BinaryOperator: " << node.m_ret << " = " << node.m_arg1 << " " << node.m_func << " " << node.m_arg2 << endl;
   return 0;
 }

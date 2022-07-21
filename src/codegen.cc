@@ -200,10 +200,11 @@ int CodeGenerator::Print(const AST::NumericExpr & expr)
     Add<PrintNumericConst, VarType, std::string>(type, str);
   }
   else {
-    std::string tempName = GetTempName();
-    Add<CreateTempVar, VarType, std::string>(type, str);
-    Add<UnaryOperator>("=", type, tempName, str);
-    Add<PrintNumericVar, VarType, std::string>(type, tempName);
+    Add<PrintNumericVar, VarType, std::string>(type, str);
+    //std::string tempName = GetTempName();
+    //Add<CreateTempVar, VarType, std::string>(type, tempName);
+    //Add<UnaryOperator>("=", type, tempName, str);
+    //Add<PrintNumericVar, VarType, std::string>(type, tempName);
   }
 
   return 0;
@@ -349,27 +350,33 @@ int CodeGenerator::EvaluateUnaryNumericOperator(
   return 0;
 }
 
-#if 0
-
-int CodeGenerator::EvaluateUnaryNumericOperator(
-    const std::string & op, 
-    const AST::UnaryNumericOperation<AST::StringExpr> & expr, 
-    std::string & result)
-{
-  if (expr.m_expr == nullptr)
-    return -1;
-
-  std::string val;
-  expr.m_expr->Evaluate(*this, val);
-
-  result = GetTempName();
-  Add<CreateTempVar, VarType, std::string>(expr.m_expr->GetType(), result);
-  Add<UnaryOperator>(op, expr.m_expr->GetType(), result, val);
-
-  return 0;
+template <typename T>
+T FoldValue(const T x, const T y, const std::string & op, unsigned lineNumber)
+{      
+  if (op == "+")
+    return x + y;
+  else if (op == "-")
+    return x - y;
+  else if (op == "*") 
+    return x * y;
+  else if (op == "/") 
+    return x / y;
+  else if (op == "==") 
+    return (x == y) ? -1 : 0;
+  else if (op == "!=") 
+    return (x != y) ? -1 : 0;
+  else if (op == ">") 
+    return (x > y) ? -1 : 0;
+  else if (op == ">=") 
+    return (x >= y) ? -1 : 0;
+  else if (op == "<") 
+    return (x < y) ? -1 : 0;
+  else if (op == "<=") 
+    return (x <= y) ? -1 : 0;
+  else   
+    CompilerError(eError_UnknownInternalType, lineNumber, "Unknown internal type"); // TopOutput() << "/* optimised out */\n";
+  return 0;  
 }
-
-#endif
 
 int CodeGenerator::EvaluateBinaryNumericOperator(
    const std::string & op,
@@ -385,11 +392,109 @@ int CodeGenerator::EvaluateBinaryNumericOperator(
   std::string rhs;
   expr.m_rhs->Evaluate(*this, rhs);
 
-  result = GetTempName();
-  Add<CreateTempVar, VarType, std::string>(expr.m_lhs->GetType(), result);
-  Add<BinaryOperator>(op, expr.m_lhs->GetType(), result, lhs, rhs);
+  // constant folding
+  if (expr.m_lhs->IsConstant() && expr.m_rhs->IsConstant()) {
+    VarType toType = (VarType)std::max((int)expr.m_lhs->GetType(), (int)expr.m_rhs->GetType());
+    std::stringstream strm;
+    switch (toType) {
+      case VarType::eInt16:
+        strm << FoldValue<int16_t>(std::stoi(lhs), std::stoi(rhs), op, m_lineNumber);
+        break;
+      case VarType::eInt32:
+        strm << FoldValue<int32_t>(std::stoi(lhs), std::stoi(rhs), op, m_lineNumber);
+        break;
+      case VarType::eSingle:
+        strm << FoldValue<float>(std::stof(lhs), std::stof(rhs), op, m_lineNumber);
+        break;
+      case VarType::eDouble:
+        strm << FoldValue<double>(std::stod(lhs), std::stod(rhs), op, m_lineNumber);
+        break;
+    }
+    result = strm.str();
+  }
+  else {
+    result = GetTempName();
+    Add<CreateTempVar, VarType, std::string>(expr.m_lhs->GetType(), result);
+    Add<BinaryOperator>(op, expr.m_lhs->GetType(), result, lhs, rhs);
+  }
 
   return 0;
+}
+
+int CodeGenerator::EvaluateNumericComparisonOperator(
+   const std::string & op,
+   const AST::NumericComparisonOperation & expr, 
+   std::string & result)
+{
+  if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr)) {
+    cout << "lhs or rhs is null" << endl;
+    return -1;
+  }
+ 
+  std::string lhs;
+  expr.m_lhs->Evaluate(*this, lhs);
+
+  std::string rhs;
+  expr.m_rhs->Evaluate(*this, rhs);
+
+  // constant folding
+  if (expr.m_lhs->IsConstant() && expr.m_rhs->IsConstant()) {
+    VarType toType = (VarType)std::max((int)expr.m_lhs->GetType(), (int)expr.m_rhs->GetType());
+    std::stringstream strm;
+    switch (toType) {
+      case VarType::eInt16:
+        strm << FoldValue<int16_t>(std::stoi(lhs), std::stoi(rhs), op, m_lineNumber);
+        break;
+      case VarType::eInt32:
+        strm << FoldValue<int32_t>(std::stoi(lhs), std::stoi(rhs), op, m_lineNumber);
+        break;
+      case VarType::eSingle:
+        strm << FoldValue<float>(std::stof(lhs), std::stof(rhs), op, m_lineNumber);
+        break;
+      case VarType::eDouble:
+        strm << FoldValue<double>(std::stod(lhs), std::stod(rhs), op, m_lineNumber);
+        break;
+    }
+    result = strm.str();
+  }
+  else {
+    result = GetTempName();
+    Add<CreateTempVar, VarType, std::string>(VarType::eInt16, result);
+    Add<BinaryOperator>(op, VarType::eInt16, result, lhs, rhs);
+  }
+
+  return 0;
+}
+
+
+int CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & result)
+{
+  return EvaluateNumericComparisonOperator("==", expr, result);
+}
+
+int CodeGenerator::Evaluate(const AST::NumericNotEquality & expr, std::string & result)
+{
+  return EvaluateNumericComparisonOperator("!=", expr, result);
+}
+
+int CodeGenerator::Evaluate(const AST::NumericGreaterThan & expr, std::string & result)
+{
+  return EvaluateNumericComparisonOperator(">", expr, result);
+}
+
+int CodeGenerator::Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result)
+{
+  return EvaluateNumericComparisonOperator(">=", expr, result);
+}
+
+int CodeGenerator::Evaluate(const AST::NumericLessThan & expr, std::string & result)
+{
+  return EvaluateNumericComparisonOperator("<", expr, result);
+}
+
+int CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::string & result)
+{
+  return EvaluateNumericComparisonOperator("<=", expr, result);
 }
 
 int CodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string & result)

@@ -13,7 +13,7 @@
 
 #define CompilerError(code, ln, expr) \
 do { std::stringstream strm; strm << expr; \
-  CompilerErrorInternal(ErrorCode::code, ln, strm.str()); \
+  g_application.CompilerErrorInternal(ErrorCode::code, ln, strm.str()); \
 } while (0)
 
 #define InternalError(expr) \
@@ -203,13 +203,14 @@ class CodeGenerator
     virtual int Evaluate(const AST::Division & expr, std::string & result);
     virtual int Evaluate(const AST::NumericCast & expr, std::string & result);
 
+    virtual int Evaluate(const AST::NumericEquality & expr, std::string & result);
+    virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result);
+    virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result);
+    virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result);
+    virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result);
+    virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result);
+
     virtual int Evaluate(const AST::StrFunction & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) { return 0; }
-    virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Negation & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Power & expr, std::string & result) { return 0; }
 
@@ -260,6 +261,11 @@ class CodeGenerator
     int EvaluateBinaryNumericOperator(
             const std::string & op,
             const AST::NumericBinaryOperation & expr, 
+            std::string & result);
+
+    int EvaluateNumericComparisonOperator(
+            const std::string & op,
+            const AST::NumericComparisonOperation & expr, 
             std::string & result);
 
     std::string m_inputFilename;

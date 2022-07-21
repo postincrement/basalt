@@ -26,6 +26,7 @@ enum ErrorCode
   eError_Unknown = eError_First,
   eError_Parser,
   eError_GotoDestinationNotFound,
+  eError_UnknownInternalType,
   Error_DuplicateLineNumber,
   Error_UndeclaredVariable,
   Error_MismatchedNext
