@@ -17,14 +17,14 @@ void C_OutputGenerator::OutputRuntimeDecls(std::ostream & strm)
   if (m_funcsUsed.count("print_string")) 
     strm << "int print_string(const char *);\n";
 
-  if (m_funcsUsed.count("print_int16")) 
-   strm << "int print_int16(int16_t);\n";
+  if (m_funcsUsed.count("print_int16_var")) 
+   strm << "int print_int16_var(int16_t);\n";
 
-  if (m_funcsUsed.count("print_single")) 
-   strm << "int print_single(float);\n";
+  if (m_funcsUsed.count("print_single_var")) 
+   strm << "int print_single_var(float);\n";
 
-  if (m_funcsUsed.count("print_double")) 
-   strm << "int print_double(double);\n";
+  if (m_funcsUsed.count("print_double_var")) 
+   strm << "int print_double_var(double);\n";
 
 #if 0
   if (m_funcsUsed.count("print_int32")) 

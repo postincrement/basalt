@@ -193,18 +193,44 @@ int CodeGenerator::Print(const AST::NumericExpr & expr)
   VarType type = expr.GetType();
   std::string str;    
   expr.Evaluate(*this, str);
-  if (expr.IsVarRef()) {
-    Add<PrintNumericVar, VarType, std::string>(type, str);
-  }
-  else if (expr.IsConstant()) {
-    Add<PrintNumericConst, VarType, std::string>(type, str);
+  if (expr.IsConstant()) {
+    switch (type) {
+      case VarType::eNone:
+      case VarType::eString:
+        break;
+      case VarType::eInt16:
+        Add<PrintInt16Const, VarType, std::string>(type, str);
+        break;
+      case VarType::eInt32:
+        Add<PrintInt32Const, VarType, std::string>(type, str);
+        break;
+      case VarType::eSingle:
+        Add<PrintSingleConst, VarType, std::string>(type, str);
+        break;
+      case VarType::eDouble:
+      cerr << "double constant " << str << endl;
+        Add<PrintDoubleConst, VarType, std::string>(type, str);
+        break;
+    }
   }
   else {
-    Add<PrintNumericVar, VarType, std::string>(type, str);
-    //std::string tempName = GetTempName();
-    //Add<CreateTempVar, VarType, std::string>(type, tempName);
-    //Add<UnaryOperator>("=", type, tempName, str);
-    //Add<PrintNumericVar, VarType, std::string>(type, tempName);
+    switch (type) {
+      case VarType::eNone:
+      case VarType::eString:
+        break;
+      case VarType::eInt16:
+        Add<PrintInt16Var, VarType, std::string>(type, str);
+        break;
+      case VarType::eInt32:
+        Add<PrintInt32Var, VarType, std::string>(type, str);
+        break;
+      case VarType::eSingle:
+        Add<PrintSingleVar, VarType, std::string>(type, str);
+        break;
+      case VarType::eDouble:
+        Add<PrintDoubleVar, VarType, std::string>(type, str);
+        break;
+    }
   }
 
   return 0;
@@ -225,12 +251,42 @@ int CodeGenerator::Print(const AST::StringExpr & expr)
   return 0;
 }
 
+int CodeGenerator::Print(const AST::Int16Constant & expr)
+{
+  VarType type = expr.GetType();
+  std::string str = expr.AsString();
+
+  Add<PrintInt16Const, VarType, std::string>(type, str);
+
+  return 0;
+}
+
+int CodeGenerator::Print(const AST::Int32Constant & expr)
+{
+  VarType type = expr.GetType();
+  std::string str = expr.AsString();
+
+  Add<PrintInt32Const, VarType, std::string>(type, str);
+
+  return 0;
+}
+
 int CodeGenerator::Print(const AST::SingleConstant & expr)
 {
   VarType type = expr.GetType();
   std::string str = expr.AsString();
 
-  Add<PrintNumericConst, VarType, std::string>(type, str);
+  Add<PrintSingleConst, VarType, std::string>(type, str);
+
+  return 0;
+}
+
+int CodeGenerator::Print(const AST::DoubleConstant & expr)
+{
+  VarType type = expr.GetType();
+  std::string str = expr.AsString();
+
+  Add<PrintDoubleConst, VarType, std::string>(type, str);
 
   return 0;
 }
@@ -397,6 +453,9 @@ int CodeGenerator::EvaluateBinaryNumericOperator(
     VarType toType = (VarType)std::max((int)expr.m_lhs->GetType(), (int)expr.m_rhs->GetType());
     std::stringstream strm;
     switch (toType) {
+      case VarType::eNone:
+      case VarType::eString:
+        break;
       case VarType::eInt16:
         strm << FoldValue<int16_t>(std::stoi(lhs), std::stoi(rhs), op, m_lineNumber);
         break;
@@ -442,6 +501,9 @@ int CodeGenerator::EvaluateNumericComparisonOperator(
     VarType toType = (VarType)std::max((int)expr.m_lhs->GetType(), (int)expr.m_rhs->GetType());
     std::stringstream strm;
     switch (toType) {
+      case VarType::eNone:
+      case VarType::eString:
+        break;
       case VarType::eInt16:
         strm << FoldValue<int16_t>(std::stoi(lhs), std::stoi(rhs), op, m_lineNumber);
         break;
@@ -449,7 +511,12 @@ int CodeGenerator::EvaluateNumericComparisonOperator(
         strm << FoldValue<int32_t>(std::stoi(lhs), std::stoi(rhs), op, m_lineNumber);
         break;
       case VarType::eSingle:
+      try { 
         strm << FoldValue<float>(std::stof(lhs), std::stof(rhs), op, m_lineNumber);
+      }
+      catch (...) {
+        cerr << "codegen failed to convert " << lhs << " " << rhs << endl;
+      }
         break;
       case VarType::eDouble:
         strm << FoldValue<double>(std::stod(lhs), std::stod(rhs), op, m_lineNumber);
@@ -640,12 +707,42 @@ int CodeGenerator::PrintStringVar::Generate(OutputGenerator & gen)
   return gen.Generate(*this);
 }
 
-int CodeGenerator::PrintNumericConst::Generate(OutputGenerator & gen)
+int CodeGenerator::PrintInt16Var::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
 
-int CodeGenerator::PrintNumericVar::Generate(OutputGenerator & gen)
+int CodeGenerator::PrintInt32Var::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::PrintSingleVar::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::PrintDoubleVar::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::PrintInt16Const::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::PrintInt32Const::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::PrintSingleConst::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::PrintDoubleConst::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }

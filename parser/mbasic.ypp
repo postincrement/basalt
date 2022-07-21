@@ -34,7 +34,7 @@ void mbasic_error(const char * msg)
 }
 
 
-static AST::NumericExpr * CreateConstant(VarType type, const std::string & val)
+static AST::NumericConstant * CreateConstant(VarType type, const std::string & val)
 {
   switch (type) {
     case VarType::eInt16:
@@ -1184,7 +1184,7 @@ numeric_const_expr: INTEGER
                 for (auto & c : *$1)
                   if (isdigit(c))
                     s++;
-                int32_t v = strtoul($1->c_str(), nullptr, 10);
+                double v = std::stod(*$1);
                 if (
                     (AST::g_parser->m_languageProfile->GetDefaultNumericType() == VarType::eInt16) && 
                     (v <= 32767) && 

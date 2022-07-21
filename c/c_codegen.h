@@ -23,11 +23,18 @@ class C_OutputGenerator : public OutputGenerator
 
     virtual int Generate(CodeGenerator::PrintNewLine & node) override;
     virtual int Generate(CodeGenerator::PrintTab & node) override;
+    
     virtual int Generate(CodeGenerator::PrintStringConst & node) override;
-    virtual int Generate(CodeGenerator::PrintStringVar & node) override;
+    virtual int Generate(CodeGenerator::PrintInt16Const & node) override;
+    virtual int Generate(CodeGenerator::PrintInt32Const & node) override;
+    virtual int Generate(CodeGenerator::PrintSingleConst & node) override;
+    virtual int Generate(CodeGenerator::PrintDoubleConst & node) override;
 
-    virtual int Generate(CodeGenerator::PrintNumericConst & node) override;
-    virtual int Generate(CodeGenerator::PrintNumericVar & node) override;
+    virtual int Generate(CodeGenerator::PrintStringVar & node) override;
+    virtual int Generate(CodeGenerator::PrintInt16Var & node) override;
+    virtual int Generate(CodeGenerator::PrintInt32Var & node) override;
+    virtual int Generate(CodeGenerator::PrintSingleVar & node) override;
+    virtual int Generate(CodeGenerator::PrintDoubleVar & node) override;
 
     virtual int Generate(CodeGenerator::UnaryOperator & node) override;
     virtual int Generate(CodeGenerator::BinaryOperator & node) override;
@@ -35,8 +42,6 @@ class C_OutputGenerator : public OutputGenerator
   protected:
     std::queue<std::stringstream *> m_blockStack; 
 
-    int OutputFunc(CodeGenerator::Node & node);
-   
 #if 0
     std::stringstream m_body;
 

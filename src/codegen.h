@@ -135,12 +135,18 @@ class CodeGenerator
     SIMPLE_NODE(PrintNewLine,            "print_newline");
     SIMPLE_NODE(PrintTab,                "print_tab");
 
-    TYPED_STRING_NODE(PrintNumericVar,   "print_numeric_var");
-    TYPED_STRING_NODE(PrintNumericConst, "print_numeric_const");
-
-    STRING_NODE(PrintStringVar,          "print_string_var");
     STRING_NODE(PrintStringConst,        "print_string_const");
+    TYPED_STRING_NODE(PrintInt16Const,   "print_int16_const");
+    TYPED_STRING_NODE(PrintInt32Const,   "print_int32_const");
+    TYPED_STRING_NODE(PrintSingleConst,  "print_single_const");
+    TYPED_STRING_NODE(PrintDoubleConst,  "print_double_const");
 
+    STRING_NODE(PrintStringVar,           "print_string_var");
+    TYPED_STRING_NODE(PrintInt16Var,      "print_int16_var");
+    TYPED_STRING_NODE(PrintInt32Var,      "print_int32_var");
+    TYPED_STRING_NODE(PrintSingleVar,     "print_single_var");
+    TYPED_STRING_NODE(PrintDoubleVar,     "print_double_var");
+    
     CodeGenerator(AST::Parser & parser);
 
     bool Run(const std::string & inputFilename);
@@ -230,11 +236,12 @@ class CodeGenerator
     virtual int Print(const AST::NumericExpr & expr);
     virtual int Print(const AST::StringExpr & expr);
 
-    virtual int Print(const AST::Int16Constant & ngexpr) { return 0; }
-    virtual int Print(const AST::Int32Constant & expr) { return 0; }
-    virtual int Print(const AST::SingleConstant & expr);
-    virtual int Print(const AST::DoubleConstant & expr) { return 0; }
     virtual int Print(const AST::StringConstant & expr);
+    virtual int Print(const AST::Int16Constant & expr); 
+    virtual int Print(const AST::Int32Constant & expr);
+    virtual int Print(const AST::SingleConstant & expr);
+    virtual int Print(const AST::DoubleConstant & expr);
+    
     virtual int Print(const AST::PrintComma & expr);
     virtual int Print(const AST::PrintSemiColon & expr);
 

@@ -36,10 +36,18 @@ class OutputGenerator
 
     virtual int Generate(CodeGenerator::PrintNewLine & node) = 0;
     virtual int Generate(CodeGenerator::PrintTab & node) = 0;
+
     virtual int Generate(CodeGenerator::PrintStringConst & node) = 0;
+    virtual int Generate(CodeGenerator::PrintInt16Const & node) = 0;
+    virtual int Generate(CodeGenerator::PrintInt32Const & node) = 0;
+    virtual int Generate(CodeGenerator::PrintSingleConst & node) = 0;
+    virtual int Generate(CodeGenerator::PrintDoubleConst & node) = 0;
+
     virtual int Generate(CodeGenerator::PrintStringVar & node) = 0;
-    virtual int Generate(CodeGenerator::PrintNumericConst & node) = 0;
-    virtual int Generate(CodeGenerator::PrintNumericVar & node) = 0;
+    virtual int Generate(CodeGenerator::PrintInt16Var & node) = 0;
+    virtual int Generate(CodeGenerator::PrintInt32Var & node) = 0;
+    virtual int Generate(CodeGenerator::PrintSingleVar & node) = 0;
+    virtual int Generate(CodeGenerator::PrintDoubleVar & node) = 0;
 
     virtual int Generate(CodeGenerator::UnaryOperator & node) = 0;
     virtual int Generate(CodeGenerator::BinaryOperator & node) = 0;;

@@ -613,7 +613,7 @@ class ConstantType : public NumericConstant
       , m_value(v)
     { }  
 
-    static AST::NumericExpr * Create(const std::string & str);
+    static AST::NumericConstant * Create(const std::string & str);
 
     virtual int Print(CodeGenerator & gen) const override;
 
@@ -633,7 +633,7 @@ class ConstantType : public NumericConstant
     virtual std::string AsString() const override
     {
       std::stringstream strm;
-      strm << GetValue();
+      strm << std::fixed << GetValue();
       return strm.str();
     }
 

@@ -515,8 +515,8 @@ int NumericConstant::Evaluate(CodeGenerator & gen, std::string & result) const
 /////////////////////////////////////////
 
 template<>
-NumericExpr * Int16Constant::Create(const std::string & str)
-{ return new Int16Constant(atoi(str.c_str())); }
+NumericConstant * Int16Constant::Create(const std::string & str)
+{ return new Int16Constant(std::stoi(str)); }
 
 template<>
 int Int16Constant::Print(CodeGenerator & gen) const
@@ -525,8 +525,8 @@ int Int16Constant::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-NumericExpr * Int32Constant::Create(const std::string & str)
-{ return new Int32Constant(atoi(str.c_str())); }
+NumericConstant * Int32Constant::Create(const std::string & str)
+{ return new Int32Constant(std::stoi(str)); }
 
 template<>
 int Int32Constant::Print(CodeGenerator & gen) const
@@ -535,8 +535,8 @@ int Int32Constant::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-NumericExpr * SingleConstant::Create(const std::string & str)
-{ return new SingleConstant(atof(str.c_str())); }
+NumericConstant * SingleConstant::Create(const std::string & str)
+{ return new SingleConstant(std::stof(str)); }
 
 template<>
 int SingleConstant::Print(CodeGenerator & gen) const
@@ -545,8 +545,10 @@ int SingleConstant::Print(CodeGenerator & gen) const
 /////////////////////////////////////////
 
 template<>
-NumericExpr * DoubleConstant::Create(const std::string & str)
-{ return new DoubleConstant(atof(str.c_str())); }
+NumericConstant * DoubleConstant::Create(const std::string & str)
+{ 
+  return new DoubleConstant(std::stod(str)); 
+}
 
 template<>
 int DoubleConstant::Print(CodeGenerator & gen) const

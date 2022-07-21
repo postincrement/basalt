@@ -6,7 +6,7 @@ BASALT		= $(HOME)/Documents/basalt/basalt
 
 all: ctests # ztests
 
-ctests: ctest_1 ctest_2 # ctest_3 ctest_4 ctest_5 ctest_6 ctest_7 ctest_8 ctest_9 ctest_10
+ctests: ctest_1 ctest_2 ctest_3 # ctest_4 ctest_5 ctest_6 ctest_7 ctest_8 ctest_9 ctest_10
 
 ztests: ztest_1 ztest_2 # ztest_3 ztest_4 ztest_5 ztest_6 ztest_7 ztest_8 ztest_9 ztest_10
 
@@ -25,9 +25,11 @@ ztest_2: test_2.bas test_2.out test_2.z_out $(BASALT)
 	diff --suppress-common-lines test_2.out test_2.z_out
 
 # single expressions
-test_3: test_3.bas test_3.out test_3.c_out $(BASALT) # test_3.z_out 
+ctest_3: test_3.bas test_3.out test_3.c_out $(BASALT)
 	diff test_3.out test_3.c_out
-	#diff test_3.out test_3.z_out
+
+ztest_3: test_3.bas test_3.out test_3.z_out $(BASALT) 
+	diff test_3.out test_3.z_out
 
 # GOTO
 test_4: test_4.bas test_4.out test_4.c_out test_4.z_out $(BASALT) 

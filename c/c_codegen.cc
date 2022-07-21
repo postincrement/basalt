@@ -13,12 +13,7 @@ typedef void (*PrintFunc)(ostream & strm, int indent, const CodeGenerator::Node 
 
 ////////////////////////////////////////////////////////////
 
-static void print_newline(ostream & strm, int indent, const CodeGenerator::Node & node)
-{
-  strm << std::string(indent, ' ') << "printf(\"\\n\");" << endl;
-}
-
-
+#if 0
 static void print_numeric_var(ostream & strm, int indent, const CodeGenerator::Node & node)
 {
   strm << std::string(indent, ' ');
@@ -49,9 +44,11 @@ static void print_numeric_var(ostream & strm, int indent, const CodeGenerator::N
       break;
   }
 }
+#endif
+
 
 static std::map<std::string, PrintFunc> g_nameToFunc = {
-  { "print_numeric_var",   &print_numeric_var   },
+//  { "print_numeric_var",   &print_numeric_var   },
   { "block_end",           nullptr              },
   { "block_start",         nullptr              }
 };
@@ -146,8 +143,26 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
          << "    ++str;\n"
          << "  }\n"
          << "}\n"
-         << "\n"
          ;
+
+    if (funcsUsed.count("print_int16_var") || funcsUsed.count("print_int16_const"))         
+      strm << "void print_int16_var(int16_t v)\n"
+           << "{ printf((v < 0) ? \"%i \" : \" %i \", v); }\n"
+           ;
+
+    if (funcsUsed.count("print_int32_var") || funcsUsed.count("print_int32_const"))         
+      strm << "void print_int32_var(int32_t v)\n"
+           << "{ printf((v < 0) ? \"%i \" : \"%i \", v); }\n"
+           ;
+
+    if (funcsUsed.count("print_single_var") || funcsUsed.count("print_single_const"))       
+      strm << "void print_single_var(float v)\n"
+           << "{ printf((v < 0) ? \"%.0f \" : \" %.0f \", v); }\n"
+           ;
+    if (funcsUsed.count("print_double_var") || funcsUsed.count("print_double_const"))
+      strm << "void print_double_var(double v)\n"
+           << "{ printf((v < 0) ? \"%0.lf \" : \" %.0lf \", v); }\n"
+           ;
   }
 
   strm << "\n//\n"
@@ -217,75 +232,58 @@ int C_OutputGenerator::Generate(CodeGenerator::type & node) \
   return 0; \
 } \
 
-int C_OutputGenerator::OutputFunc(CodeGenerator::Node & node)
-{
-  auto r = g_nameToFunc.find(node.GetFunc());
-  if (r == g_nameToFunc.end()) {
-    cerr << "error: unknown function '" << node.GetFunc() << "'" << endl;
-    return 1;
-  }
-
-  if (r->second == NULL) {
-    return 0;
-  }
-
-  r->second(*m_outputStream, m_indent, node);
-  return 0; 
-} 
-
 int C_OutputGenerator::Generate(CodeGenerator::PrintNewLine & node) 
 {
   *m_outputStream << INDENT() << "print_newline();\n"; 
   return 0;
 }
 
-template<class NodeType>
-int GenerateNode(ostream & strm, NodeType & node) 
+int C_OutputGenerator::Generate(CodeGenerator::PrintInt16Var & node) 
 {
-  switch (node.m_type) {
-    case VarType::eInt16:
-      if (std::stoi(node.m_value) < 0)
-        strm << "printf(\"%d \", " << node.m_value << ");";
-      else  
-        strm << "printf(\" %d \", " << node.m_value << ");";
-      break;
-    case VarType::eInt32:
-      if (std::stoi(node.m_value) < 0)
-        strm << "printf(\"%d \", " << node.m_value << ");";
-      else  
-        strm << "printf(\" %d \", " << node.m_value << ");";
-      break;
-    case VarType::eSingle:
-      if (std::stof(node.m_value) < 0)
-        strm << "printf(\"%.0f \", (float)" << node.m_value << ");";
-      else  
-        strm << "printf(\" %.0f \", (float)" << node.m_value << ");";
-      break;
-    case VarType::eDouble:
-      if (std::stod(node.m_value) < 0)
-        strm << "printf(\"%.0d \", (double)" << node.m_value << ");";
-      else  
-        strm << "printf(\" %.0d \", (double)" << node.m_value << ");";
-      break;
-    case VarType::eString:
-      strm << "print_string(" << node.m_value << ");";
-      break;
-  }
-  strm << "\n";
+  *m_outputStream << INDENT() << "print_int16_var(" << node.m_value << ");\n";
   return 0;
 }
 
-
-int C_OutputGenerator::Generate(CodeGenerator::PrintNumericVar & node) 
+int C_OutputGenerator::Generate(CodeGenerator::PrintInt32Var & node) 
 {
-  *m_outputStream << INDENT();
-  return GenerateNode(*m_outputStream, node);
+  *m_outputStream << INDENT() << "print_int32_var(" << node.m_value << ");\n";
+  return 0;
 }
 
-int C_OutputGenerator::Generate(CodeGenerator::PrintNumericConst & node)
+int C_OutputGenerator::Generate(CodeGenerator::PrintSingleVar & node) 
 {
-  *m_outputStream << INDENT();
-  return GenerateNode(*m_outputStream, node);
+  *m_outputStream << INDENT() << "print_single_var(" << fixed << node.m_value << ");\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::PrintDoubleVar & node) 
+{
+  *m_outputStream << INDENT() << "print_double_var(" << fixed << node.m_value << ");\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::PrintInt16Const & node) 
+{
+  *m_outputStream << INDENT() << "print_int16_var(" << std::stoi(node.m_value) << ");\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::PrintInt32Const & node) 
+{
+  *m_outputStream << INDENT() << "print_int32_var(" << std::stoi(node.m_value) << ");\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::PrintSingleConst & node) 
+{
+  *m_outputStream << INDENT() << "print_single_var(" << fixed << std::stof(node.m_value) << ");\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::PrintDoubleConst & node) 
+{
+  *m_outputStream << INDENT() << "print_double_var(" << fixed << std::stod(node.m_value) << ");\n";
+  return 0;
 }
 
 int C_OutputGenerator::Generate(CodeGenerator::PrintStringConst & node)
