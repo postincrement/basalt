@@ -44,6 +44,8 @@ class OutputGenerator
     virtual int Generate(CodeGenerator::UnaryOperator & node) = 0;
     virtual int Generate(CodeGenerator::BinaryOperator & node) = 0;;
 
+    virtual bool IsPrintUsed() const;
+
   protected:
     Config m_config;
     CodeGenerator & m_codeGenerator;

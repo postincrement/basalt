@@ -152,6 +152,7 @@ int CodeGenerator::Generate(const AST::Statement & statement)
 
 int CodeGenerator::Generate(const AST::Print & printExpr)
 {
+  m_printUsed = true;
   bool trailingNewLine = true;
   if (printExpr.m_list != nullptr) {
     AST::ExprList & expr = *printExpr.m_list;
@@ -595,5 +596,9 @@ void OutputGenerator::OutputFilePrologue(ostream & strm)
 void OutputGenerator::OutputFileEpilogue(ostream & strm)
 {}
 
+bool OutputGenerator::IsPrintUsed() const
+{
+  return m_codeGenerator.m_printUsed;
+}
 
 

@@ -80,7 +80,6 @@ static void print_numeric_var(ostream & strm, int indent, const CodeGenerator::N
   }
 }
 
-
 static std::map<std::string, PrintFunc> g_nameToFunc = {
   { "print_newline",       &print_newline       },
   { "print_numeric_const", &print_numeric_const },
@@ -90,7 +89,6 @@ static std::map<std::string, PrintFunc> g_nameToFunc = {
 };
 
 ////////////////////////////////////////////////////////////
-
 
 C_OutputGenerator::C_OutputGenerator(CodeGenerator & codegen)
   : OutputGenerator(
@@ -102,16 +100,16 @@ C_OutputGenerator::C_OutputGenerator(CodeGenerator & codegen)
 
 void C_OutputGenerator::OutputFilePrologue(ostream & strm)
 {
-  strm << "//" << endl
-       << "// Generated from " << m_inputFilename << endl 
-       << "//" << endl
-       << endl;
+  strm << "//\n"
+       << "// Generated from " << m_inputFilename << "\n" 
+       << "//\n\n"
+       << "#include <stdio.h>\n\n";
 
   const AST::VarList & globalVars = m_codeGenerator.GetGlobalVars();  
   if (globalVars.size() > 0) {
-    strm << "//" << endl
-         << "// Global variables" << endl
-         << "//" << endl;
+    strm << "//\n"
+         << "// Global variables\n"
+         << "//\n";
     for (auto & v : globalVars) {
       const AST::VarInfo & var = v.second;
       std::string ctype;
@@ -141,10 +139,10 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
           break;
       }
       if (!ctype.empty()) {
-        strm << ctype << " " << v.first << " = " << init << ";" << endl;
+        strm << ctype << " " << v.first << " = " << init << ";\n";
       }
     }
-    strm << endl;
+    strm << "\n";
   }
 
   const std::set<std::string> & funcsUsed = m_codeGenerator.GetFuncsUsed();
@@ -152,7 +150,42 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
     strm << "// " << r << endl;
   }
 
-  strm << "int main(int argc, char *argv[])" << endl
+  if (IsPrintUsed()) {
+    strm << "\n//\n"
+         << "// tab handling\n"
+         << "//\n\n"
+         << "int print_col = 0;\n"
+         << "int print_tabstop = 14;\n"
+         << "void print_repeat(int count, char ch)\n"
+         << "{\n"
+         << "  int i; for (i = 0; i < count; ++i) putchar(ch);\n"
+         << "  print_col = (print_col + count) % print_tabstop;\n"
+         << "}\n"
+         << "void print_tab()\n"
+         << "{\n"
+         << "  print_repeat(print_tabstop - print_col, ' ');\n"
+         << "}\n"
+         << "void print_newline()\n"
+         << "{\n"
+         << "  print_col = 0; putchar('\\r\'); putchar('\\n\');\n"
+         << "}\n"
+         << "void print_string(const char * str)\n"
+         << "{\n"
+         << "  while (*str) {\n"
+         << "    if (*str == 0x09) print_tab();\n"
+         << "    else if (*str == 0x0d) print_newline();\n"
+         << "    else if (*str >= 0x20) { putchar(*str); print_col = (print_col + 1) % print_tabstop; }\n"
+         << "    ++str;\n"
+         << "  }\n"
+         << "}\n"
+         << "\n"
+         ;
+  }
+
+  strm << "\n//\n"
+        << "// main\n"
+        << "//\n\n"
+        << "int main(int argc, char *argv[])" << endl
        << "{" << endl; 
 }
 
@@ -232,10 +265,10 @@ int C_OutputGenerator::OutputFunc(CodeGenerator::Node & node)
   return 0; 
 } 
 
-//PRINT_SIMPLE_NODE(PrintNewLine);
 int C_OutputGenerator::Generate(CodeGenerator::PrintNewLine & node) 
 {
-  return OutputFunc(node);
+  *m_outputStream << INDENT() << "print_newline();\n"; 
+  return 0;
 }
 
 int C_OutputGenerator::Generate(CodeGenerator::PrintNumericVar & node) 
@@ -248,12 +281,19 @@ int C_OutputGenerator::Generate(CodeGenerator::PrintNumericConst & node)
   return OutputFunc(node);
 }
 
+int C_OutputGenerator::Generate(CodeGenerator::PrintStringConst & node)
+{
+  *m_outputStream << INDENT() << "print_string(\"" << node.m_value << "\");\n"; 
+  return 0;
+}
 
-
-PRINT_SIMPLE_NODE(PrintTab);
+int C_OutputGenerator::Generate(CodeGenerator::PrintTab & node)
+{
+  *m_outputStream << INDENT() << "print_tab();\n"; 
+  return 0;
+}
 
 PRINT_STRING_NODE(PrintStringVar);
-PRINT_STRING_NODE(PrintStringConst);
 
 int C_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
 {

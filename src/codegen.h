@@ -273,6 +273,7 @@ class CodeGenerator
     int m_lineNumber;
 
     std::set<std::string> m_funcsUsed;
+    bool m_printUsed = false;
     Block m_code;
 };
 
