@@ -33,7 +33,7 @@ bool CodeGenerator::Run(const std::string &inputFilename)
     if (line == nullptr)
       continue;
     if (m_parser.m_jumpDestinationInfo.count(line->GetBasicLineNumber()) > 0)
-      Add<LineNumber>(line->GetBasicLineNumber());
+      Add<GotoTarget>(std::string("line_") + line->GetBasicLineNumber());
     for (auto & statement : line->m_statements->m_list) {
       Add<BlockStart>();
       SetLineNumber(statement->m_lineNumber);
@@ -145,6 +145,36 @@ int CodeGenerator::Generate(const AST::Statement & statement)
 {
 //  m_currentStatementLine = statement.m_lineNumber;
   //CompilerError(eWarning_NotImplemented, statement.m_lineNumber, "unimplemented Generate for " << DemangleTypeName(typeid(statement)));
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::GotoStatement & statement)
+{
+  Add<Goto>(std::string("line_")  + statement.GetRef());
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::GosubStatement & statement)
+{
+  Add<Gosub>(statement.GetRef());
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::ReturnStatement & statement)
+{
+  Add<Return>();
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::System & statement)
+{
+  Add<System>();
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::End & statement)
+{
+  Add<End>();
   return 0;
 }
 
@@ -660,6 +690,68 @@ int CodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
   return EvaluateUnaryStringOperator("CHR", *expr.GetArg1(), result);
 }
 
+int CodeGenerator::Generate(const AST::IfStatement & expr)
+{
+  if (expr.m_cond == nullptr)
+    return 0;
+    
+  std::string cond;
+  expr.m_cond->Evaluate(*this, cond);
+  std::string condVar = GetTempName();
+  Add<CreateTempVar, VarType, std::string>(VarType::eInt16, condVar);
+  Add<UnaryOperator>("=", VarType::eInt16, condVar, cond);  
+
+  std::string trueTarget;
+  std::string falseTarget;
+  stringstream strm; strm << expr.m_lineNumber;
+  std::string endifTarget = std::string("endif_") + strm.str();
+
+  std::string trueGoto = expr.m_trueStatements->m_lineNumber;
+  Block trueBlock;
+  bool haveTrueBody = false;
+  if (!trueGoto.empty())
+    trueTarget = std::string("line_") + trueGoto;
+  else if (expr.m_trueStatements->m_statements != nullptr) {
+    trueTarget = std::string("if_") + strm.str();
+    Block saveBlock = PushBlock();
+    expr.m_trueStatements->m_statements->Generate(*this);
+    trueBlock = PopBlock(saveBlock);
+    haveTrueBody = true;
+  }
+
+  std::string falseGoto = expr.m_falseStatements->m_lineNumber;
+  bool havefalseBody = false;
+  if (!falseGoto.empty())
+    falseTarget = std::string("line_") + falseGoto;
+  else if (expr.m_falseStatements->m_statements != nullptr) {
+    falseTarget = std::string("else_") + strm.str();
+    havefalseBody = true;
+  }
+
+  Add<If>(condVar, trueTarget, falseTarget);
+
+  if (haveTrueBody) {
+    Add<GotoTarget>(trueTarget);
+    Add(trueBlock);
+  }
+
+  bool addEndif = false;
+  if (havefalseBody) {
+    if (haveTrueBody) {
+      Add<Goto>(endifTarget);
+      addEndif = true;
+    }
+    Add<GotoTarget>(falseTarget);
+    expr.m_falseStatements->m_statements->Generate(*this);
+  }
+
+  if (addEndif)
+    Add<GotoTarget>(endifTarget);
+
+  return 0;
+}
+
+
 ///////////////////////////////////////////////////////
 
 int CodeGenerator::Node::Generate(OutputGenerator & gen)
@@ -667,7 +759,7 @@ int CodeGenerator::Node::Generate(OutputGenerator & gen)
   return gen.Generate(*this);
 }
 
-int CodeGenerator::LineNumber::Generate(OutputGenerator & gen)
+int CodeGenerator::GotoTarget::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }
@@ -753,6 +845,36 @@ int CodeGenerator::UnaryOperator::Generate(OutputGenerator & gen)
 }
 
 int CodeGenerator::BinaryOperator::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::Goto::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::Gosub::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::Return::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::End::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::System::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::If::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }

@@ -6,7 +6,7 @@ BASALT		= $(HOME)/Documents/basalt/basalt
 
 all: ctests # ztests
 
-ctests: ctest_1 ctest_2 ctest_3 # ctest_4 ctest_5 ctest_6 ctest_7 ctest_8 ctest_9 ctest_10
+ctests: ctest_1 ctest_2 ctest_3 ctest_4 ctest_5 ctest_6 # ctest_7 ctest_8 ctest_9 ctest_10
 
 ztests: ztest_1 ztest_2 # ztest_3 ztest_4 ztest_5 ztest_6 ztest_7 ztest_8 ztest_9 ztest_10
 
@@ -32,19 +32,25 @@ ztest_3: test_3.bas test_3.out test_3.z_out $(BASALT)
 	diff test_3.out test_3.z_out
 
 # GOTO
-test_4: test_4.bas test_4.out test_4.c_out test_4.z_out $(BASALT) 
+ctest_4: test_4.bas test_4.out test_4.c_out $(BASALT) 
 	diff test_4.out test_4.c_out
-#	diff test_4.out test_4.z_out
+
+ztest_4: test_4.bas test_4.out test_4.z_out $(BASALT) 
+	diff test_4.out test_4.z_out
 
 # integer expressions
-test_5: test_5.bas test_5.out test_5.c_out test_5.z_out $(BASALT) 
+ctest_5: test_5.bas test_5.out test_5.c_out $(BASALT) 
 	diff test_5.out test_5.c_out
-#	diff test_5.out test_5.z_out
+
+ztest_5: test_5.bas test_5.out test_5.z_out $(BASALT) 
+	diff test_5.out test_5.z_out
 
 # IF / THEN
-test_6: test_6.bas test_6.out test_6.c_out test_6.z_out $(BASALT) 
+ctest_6: test_6.bas test_6.out test_6.c_out $(BASALT) 
 	diff test_6.out test_6.c_out
-#	diff test_6.out test_6.z_out
+
+ztest_6: test_6.bas test_6.out test_6.z_out $(BASALT) 
+	diff test_6.out test_6.z_out
 
 # simple FOR
 test_7: test_7.bas test_7.out test_7.c_out test_7.z_out $(BASALT) 

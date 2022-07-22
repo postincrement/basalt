@@ -26,9 +26,15 @@ int Pretty_OutputGenerator::Generate(CodeGenerator::Node & node)
   return 0;
 }
 
-int Pretty_OutputGenerator::Generate(CodeGenerator::LineNumber & node)
+int Pretty_OutputGenerator::Generate(CodeGenerator::GotoTarget & node)
 {
   *m_outputStream << INDENT() << node.m_value << ":" << endl;
+  return 0;
+}
+
+int Pretty_OutputGenerator::Generate(CodeGenerator::If & node)
+{
+  *m_outputStream << INDENT() << "if (" << node.m_condVar << ") goto " << node.m_trueTarget << "; else goto " << node.m_falseTarget << ";\n";
   return 0;
 }
 
@@ -75,8 +81,13 @@ int Pretty_OutputGenerator::Generate(CodeGenerator::type & node) \
   return 0; \
 } \
 
+PRINT_STRING_NODE(Goto);
+PRINT_STRING_NODE(Gosub);
+
 PRINT_SIMPLE_NODE(PrintNewLine);
 PRINT_SIMPLE_NODE(PrintTab);
+PRINT_SIMPLE_NODE(End);
+PRINT_SIMPLE_NODE(System);
 
 PRINT_STRING_NODE(PrintStringConst);
 PRINT_TYPED_STRING_NODE(PrintInt16Const);
@@ -89,6 +100,12 @@ PRINT_TYPED_STRING_NODE(PrintInt16Var);
 PRINT_TYPED_STRING_NODE(PrintInt32Var);
 PRINT_TYPED_STRING_NODE(PrintSingleVar);
 PRINT_TYPED_STRING_NODE(PrintDoubleVar);
+
+int Pretty_OutputGenerator::Generate(CodeGenerator::Return & node)
+{
+  *m_outputStream << INDENT() << "Return\n"; 
+  return 0;
+} 
 
 int Pretty_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
 {

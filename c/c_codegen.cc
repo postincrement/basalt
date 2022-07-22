@@ -68,7 +68,15 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
   strm << "//\n"
        << "// Generated from " << m_inputFilename << "\n" 
        << "//\n\n"
-       << "#include <stdio.h>\n\n";
+       << "#include <stdio.h>\n"
+       << "#include <stdlib.h>\n";
+
+  const std::set<std::string> & funcsUsed = m_codeGenerator.GetFuncsUsed();
+
+  if (funcsUsed.count("gosub"))
+    strm << "#include <ucontext.h>\n";    
+
+  strm << "\n";    
 
   const AST::VarList & globalVars = m_codeGenerator.GetGlobalVars();  
   if (globalVars.size() > 0) {
@@ -110,7 +118,6 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
     strm << "\n";
   }
 
-  const std::set<std::string> & funcsUsed = m_codeGenerator.GetFuncsUsed();
   for (auto & r : funcsUsed) {
     strm << "// " << r << endl;
   }
@@ -165,7 +172,13 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
            ;
   }
 
-  strm << "\n//\n"
+  strm << "\n";
+
+  if (funcsUsed.count("gosub")) {
+    strm << "static ucontext_t * return_context = 0;\n\n";
+  }
+
+  strm << "//\n"
         << "// main\n"
         << "//\n\n"
         << "int main(int argc, char *argv[])" << endl
@@ -183,9 +196,17 @@ int C_OutputGenerator::Generate(CodeGenerator::Node & node)
   return 0;
 }
 
-int C_OutputGenerator::Generate(CodeGenerator::LineNumber & node)
+int C_OutputGenerator::Generate(CodeGenerator::GotoTarget & node)
 {
   *m_outputStream << INDENT() << node.m_value << ":" << endl;
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::If & node)
+{
+  *m_outputStream << INDENT() << "if (" << node.m_condVar << ") goto " << node.m_trueTarget << ";\n";
+  if (!node.m_falseTarget.empty())
+     *m_outputStream << INDENT() << "else goto " << node.m_falseTarget << ";\n";
   return 0;
 }
 
@@ -210,6 +231,41 @@ int C_OutputGenerator::Generate(CodeGenerator::BlockEnd & node)
   m_blockStack.pop();
   return 0;
 }
+
+int C_OutputGenerator::Generate(CodeGenerator::Goto & node)
+{
+  *m_outputStream << INDENT() << "goto " << node.m_value << ";\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::Gosub & node)
+{
+  std::string cname = "savedContext";
+  *m_outputStream << INDENT() << "ucontext_t " << cname << ";\n"
+                  << INDENT() << "get_context(&" << cname <<");\n"
+                  << INDENT() << "return_context = &" << cname << ";\n"
+                  << INDENT() << "goto line_" << node.m_value << ";\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::Return & node)
+{
+  *m_outputStream << INDENT() << "set_context(return_context);\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::End & node)
+{
+  *m_outputStream << INDENT() << "exit(0);\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::System & node)
+{
+  *m_outputStream << INDENT() << "exit(0);\n";
+  return 0;
+}
+
 
 #define PRINT_SIMPLE_NODE(type) \
 int C_OutputGenerator::Generate(CodeGenerator::type & node) \

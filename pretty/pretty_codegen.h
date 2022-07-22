@@ -10,9 +10,14 @@ class Pretty_OutputGenerator : public OutputGenerator
 
     virtual int Generate(CodeGenerator::Node & node) override;
 
-    virtual int Generate(CodeGenerator::LineNumber & node) override;
+    virtual int Generate(CodeGenerator::GotoTarget & node) override;
     virtual int Generate(CodeGenerator::BlockStart & node) override;
     virtual int Generate(CodeGenerator::BlockEnd & node) override;
+    virtual int Generate(CodeGenerator::Goto & node) override;
+    virtual int Generate(CodeGenerator::Gosub & node) override;
+    virtual int Generate(CodeGenerator::Return & node) override;
+    virtual int Generate(CodeGenerator::End & node) override;
+    virtual int Generate(CodeGenerator::System & node) override;
 
     virtual int Generate(CodeGenerator::CreateTempVar & node) override;
 
@@ -33,6 +38,8 @@ class Pretty_OutputGenerator : public OutputGenerator
 
     virtual int Generate(CodeGenerator::UnaryOperator & node) override;
     virtual int Generate(CodeGenerator::BinaryOperator & node) override;
+
+    virtual int Generate(CodeGenerator::If & node) override;
 
   protected:
     std::queue<std::stringstream *> m_blockStack; 

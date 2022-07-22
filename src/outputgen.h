@@ -28,9 +28,14 @@ class OutputGenerator
 
     virtual int Generate(CodeGenerator::Node & node) = 0;
 
-    virtual int Generate(CodeGenerator::LineNumber & node) = 0;
     virtual int Generate(CodeGenerator::BlockStart & node) = 0;
     virtual int Generate(CodeGenerator::BlockEnd & node) = 0;
+    virtual int Generate(CodeGenerator::GotoTarget & node) = 0;
+    virtual int Generate(CodeGenerator::Goto & node) = 0;
+    virtual int Generate(CodeGenerator::Gosub & node) = 0;
+    virtual int Generate(CodeGenerator::Return & node) = 0;
+    virtual int Generate(CodeGenerator::End & node) = 0;
+    virtual int Generate(CodeGenerator::System & node) = 0;
 
     virtual int Generate(CodeGenerator::CreateTempVar & node) = 0;
 
@@ -50,7 +55,9 @@ class OutputGenerator
     virtual int Generate(CodeGenerator::PrintDoubleVar & node) = 0;
 
     virtual int Generate(CodeGenerator::UnaryOperator & node) = 0;
-    virtual int Generate(CodeGenerator::BinaryOperator & node) = 0;;
+    virtual int Generate(CodeGenerator::BinaryOperator & node) = 0;
+
+    virtual int Generate(CodeGenerator::If & node) = 0;
 
     virtual bool IsPrintUsed() const;
 

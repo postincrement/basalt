@@ -47,7 +47,7 @@ class CodeGenerator
       std::string m_func;
     };
 
-    typedef std::deque<std::unique_ptr<Node>> Block;
+    typedef std::deque<std::shared_ptr<Node>> Block;
 
     template <class Value>
     struct ValueNode : public Node
@@ -125,9 +125,28 @@ class CodeGenerator
       std::string m_arg2;
     };
 
+    struct If : public Node 
+    { 
+      If(const std::string & condVar, const std::string & trueTarget, const std::string & falseTarget)
+        : Node("if")
+        , m_condVar(condVar)
+        , m_trueTarget(trueTarget)
+        , m_falseTarget(falseTarget)
+        { }
+      virtual int Generate(OutputGenerator & gen) override;
+      std::string m_condVar;
+      std::string m_trueTarget;
+      std::string m_falseTarget;
+    };
+
     SIMPLE_NODE(BlockStart,            "block_start");
     SIMPLE_NODE(BlockEnd,              "block_end");
-    STRING_NODE(LineNumber,            "line_number");
+    STRING_NODE(GotoTarget,            "goto_target");
+    STRING_NODE(Goto,                  "goto");
+    STRING_NODE(Gosub,                 "gosub");
+    SIMPLE_NODE(Return,                "return");
+    SIMPLE_NODE(System,                "system");
+    SIMPLE_NODE(End,                   "end");
 
     TYPED_STRING_NODE(CreateTempVar,  "create_temp_var");
     TYPED_STRING_NODE(DestroyTempVar, "destroy_temp_var");
@@ -167,6 +186,26 @@ class CodeGenerator
       return added;  
     }
 
+    void Add(Block & block)
+    {
+      for (auto & r : block)
+        m_code.push_back(r);
+    }
+
+    Block PushBlock() 
+    {
+      Block prevBlock = m_code;
+      m_code = Block();
+      return prevBlock;
+    }
+
+    Block PopBlock(Block & prevBlock)
+    {
+      Block newBlock = m_code;
+      m_code = prevBlock;
+      return newBlock;
+    }
+
     const AST::VarList & GetGlobalVars() const
     { return m_parser.m_globalVars; }
 
@@ -186,16 +225,19 @@ class CodeGenerator
     virtual int Generate(const AST::AssignStatement & expr);
     virtual int Generate(const AST::NumericAssign & expr);
 
-    virtual int Generate(const AST::GotoStatement & expr) { return 0; }
-    virtual int Generate(const AST::End & expr) { return 0; }
-    virtual int Generate(const AST::System & expr) { return 0; }
-    virtual int Generate(const AST::Rem & expr) { return 0; }
-    virtual int Generate(const AST::IfStatement & expr) { return 0; }
+    virtual int Generate(const AST::GotoStatement & expr);
+    virtual int Generate(const AST::GosubStatement & expr);
+    virtual int Generate(const AST::ReturnStatement & expr);
+
+    virtual int Generate(const AST::End & expr);
+    virtual int Generate(const AST::System & expr);
+
+    virtual int Generate(const AST::IfStatement & expr);
+    
     virtual int Generate(const AST::ForStatement & expr) { return 0; }
     virtual int Generate(const AST::NextStatement & expr) { return 0; }
-    virtual int Generate(const AST::GosubStatement & expr) { return 0; }
-    virtual int Generate(const AST::ReturnStatement & expr) { return 0; }
 
+    virtual int Generate(const AST::Rem & expr) { return 0; }
     ////////////////////
 
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result);
@@ -241,7 +283,7 @@ class CodeGenerator
     virtual int Print(const AST::Int32Constant & expr);
     virtual int Print(const AST::SingleConstant & expr);
     virtual int Print(const AST::DoubleConstant & expr);
-    
+
     virtual int Print(const AST::PrintComma & expr);
     virtual int Print(const AST::PrintSemiColon & expr);
 
