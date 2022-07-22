@@ -44,6 +44,18 @@ int Pretty_OutputGenerator::Generate(CodeGenerator::Else & node)
   return 0;
 }
 
+int Pretty_OutputGenerator::Generate(CodeGenerator::For & node)
+{
+  *m_outputStream << INDENT() << "for\n";
+  return 0;
+}
+
+int Pretty_OutputGenerator::Generate(CodeGenerator::Next & node)
+{
+  *m_outputStream << INDENT() << "next\n";
+  return 0;
+}
+
 int Pretty_OutputGenerator::Generate(CodeGenerator::BlockStart & node)
 {
   *m_outputStream << INDENT() << "{\n";

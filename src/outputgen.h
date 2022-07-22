@@ -36,6 +36,8 @@ class OutputGenerator
     virtual int Generate(CodeGenerator::Return & node) = 0;
     virtual int Generate(CodeGenerator::End & node) = 0;
     virtual int Generate(CodeGenerator::System & node) = 0;
+    virtual int Generate(CodeGenerator::For & node) = 0;
+    virtual int Generate(CodeGenerator::Next & node) = 0;
 
     virtual int Generate(CodeGenerator::CreateTempVar & node) = 0;
 

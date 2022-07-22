@@ -6,7 +6,7 @@ BASALT		= $(HOME)/Documents/basalt/basalt
 
 all: ctests # ztests
 
-ctests: ctest_1 ctest_2 ctest_3 ctest_4 ctest_5 ctest_6 ctest_9 # ctest_7 ctest_8  ctest_10
+ctests: ctest_1 ctest_2 ctest_3 ctest_4 ctest_5 ctest_6 ctest_7 ctest_8 ctest_9 ctest_10
 
 ztests: ztest_1 ztest_2 # ztest_3 ztest_4 ztest_5 ztest_6 ztest_7 ztest_8 ztest_9 ztest_10
 
@@ -53,14 +53,19 @@ ztest_6: test_6.bas test_6.out test_6.z_out $(BASALT)
 	diff test_6.out test_6.z_out
 
 # simple FOR
-test_7: test_7.bas test_7.out test_7.c_out test_7.z_out $(BASALT) 
+ctest_7: test_7.bas test_7.out test_7.c_out $(BASALT) 
 	diff test_7.out test_7.c_out
-#	diff test_7.out test_7.z_out
+
+# simple FOR
+ztest_7: test_7.bas test_7.out test_7.z_out $(BASALT) 
+	diff test_7.out test_7.z_out
 
 # complex FOR
-test_8: test_8.bas test_8.out test_8.c_out $(BASALT) # test_8.z_out  
+ctest_8: test_8.bas test_8.out test_8.c_out $(BASALT)
 	diff test_8.out test_8.c_out
-#	#diff test_8.out test_8.z_out
+
+ztest_8: test_8.bas test_8.out test_8.z_out $(BASALT)  
+	diff test_8.out test_8.z_out
 
 # GOSUB
 ctest_9: test_9.bas test_9.out test_9.c_out $(BASALT) 
@@ -70,9 +75,11 @@ ztest_9: test_9.bas test_9.out test_9.z_out $(BASALT)
 	#diff test_9.out test_9.z_out
 
 # GOSUB and FOR
-test_10: test_10.bas test_10.out test_10.c_out test_10.z_out $(BASALT) 
+ctest_10: test_10.bas test_10.out test_10.c_out $(BASALT) 
 	diff test_10.out test_10.c_out 
-#	#diff test_10.out test_10.z_out
+
+ztest_10: test_10.bas test_10.out test_10.z_out $(BASALT) 
+	diff test_10.out test_10.z_out
 
 *.c: %.c $(BASALT)
 

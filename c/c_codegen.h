@@ -23,6 +23,8 @@ class C_OutputGenerator : public OutputGenerator
     virtual int Generate(CodeGenerator::Return & node) override;
     virtual int Generate(CodeGenerator::End & node) override;
     virtual int Generate(CodeGenerator::System & node) override;
+    virtual int Generate(CodeGenerator::For & node) override;
+    virtual int Generate(CodeGenerator::Next & node) override;
 
     virtual int Generate(CodeGenerator::CreateTempVar & node) override;
 

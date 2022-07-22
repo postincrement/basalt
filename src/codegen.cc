@@ -728,6 +728,62 @@ int CodeGenerator::Generate(const AST::IfStatement & expr)
   return 0;
 }
 
+int CodeGenerator::Generate(const AST::ForStatement & expr)
+{
+  ForInfo forInfo;
+
+  // get index variable
+  const AST::NumericVarRef * indexVar = expr.m_var;
+  forInfo.m_indexName = indexVar->GetName();
+  forInfo.m_indexType = indexVar->GetType();
+
+  // get from value
+  const AST::NumericExpr * fromExpr = expr.m_fromVal;
+  std::string fromVal;
+  fromExpr->Evaluate(*this, fromVal);
+
+  // get to value
+  const AST::NumericExpr * toExpr = expr.m_toVal;
+  toExpr->Evaluate(*this, forInfo.m_toVal);
+
+  // get step value
+  const AST::NumericExpr * stepExpr = expr.m_stepVal;
+  if (stepExpr != nullptr)
+    stepExpr->Evaluate(*this, forInfo.m_stepVal);
+  else
+    forInfo.m_stepVal = "1";
+
+  // set initial value of index variable
+  Add<UnaryOperator>("=", forInfo.m_indexType, forInfo.m_indexName, fromVal);
+  stringstream strm;
+  strm << "next_" << expr.m_lineNumber;
+  forInfo.m_nextTarget = strm.str();
+
+  m_forStack.push_back(forInfo);
+  Add<GotoTarget>(forInfo.m_nextTarget);
+
+  return 0;
+}
+
+int CodeGenerator::Generate(const AST::NextStatement & expr)
+{
+  ForInfo forInfo = m_forStack.back();
+  m_forStack.pop_back();
+
+  std::string incVar = GetTempName();
+  std::string testVar = GetTempName();
+
+  Add<CreateTempVar, VarType, std::string>(forInfo.m_indexType, incVar);
+  Add<BinaryOperator>("+", forInfo.m_indexType, incVar, forInfo.m_indexName, forInfo.m_stepVal);
+  Add<UnaryOperator>("=", forInfo.m_indexType, forInfo.m_indexName, incVar);
+  Add<CreateTempVar, VarType, std::string>(VarType::eInt16, testVar);
+  Add<BinaryOperator>("<=", VarType::eInt16, testVar, forInfo.m_indexName, forInfo.m_toVal);
+
+  Add<If>(testVar);
+  Add<Goto>(forInfo.m_nextTarget);
+
+  return 0;
+}
 
 ///////////////////////////////////////////////////////
 
@@ -857,6 +913,16 @@ int CodeGenerator::If::Generate(OutputGenerator & gen)
 }
 
 int CodeGenerator::Else::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::For::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
+int CodeGenerator::Next::Generate(OutputGenerator & gen)
 {
   return gen.Generate(*this);
 }

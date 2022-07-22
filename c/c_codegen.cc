@@ -153,26 +153,59 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
          << "    else if (*str >= 0x20) { putchar(*str); print_col = (print_col + 1) % print_tabstop; }\n"
          << "    ++str;\n"
          << "  }\n"
-         << "}\n"
-         ;
+         << "}\n";
+
+    if (funcsUsed.count("print_int16_var") || 
+        funcsUsed.count("print_int16_const") ||        
+        funcsUsed.count("print_int32_var") || 
+        funcsUsed.count("print_int32_const") ||       
+        funcsUsed.count("print_single_var") || 
+        funcsUsed.count("print_single_const") ||     
+        funcsUsed.count("print_double_var") || 
+        funcsUsed.count("print_double_const")
+       ) {
+      strm << "static char print_buffer[40];\n";
+    }
+    if (funcsUsed.count("print_single_var") || 
+        funcsUsed.count("print_single_const") ||     
+        funcsUsed.count("print_double_var") || 
+        funcsUsed.count("print_double_const")
+      ) {
+      strm << "#include <string.h>\n"
+           << "void print_rt0()\n"
+           << "{\n"
+           //<< "  printf(\"before '%s'\\n\", print_buffer);\n"
+           << "  size_t len = strlen(print_buffer);\n"
+           << "  while (len > 0) {\n"
+           << "    len--;\n"
+           << "    char ch = print_buffer[len];\n"
+           << "    if (ch == '.') break;\n"
+           << "    if (ch != '0') { ++len; break; }\n"
+           << "  }\n"
+           << "  print_buffer[len++] = ' ';\n"
+           << "  print_buffer[len++] = '\\0';\n"
+           //<< "  printf(\"after '%s'\\n\", print_buffer);\n"
+           << "  print_string(print_buffer);\n"
+           << "}\n";
+    }
 
     if (funcsUsed.count("print_int16_var") || funcsUsed.count("print_int16_const"))         
       strm << "void print_int16_var(int16_t v)\n"
-           << "{ printf((v < 0) ? \"%i \" : \" %i \", v); }\n"
+           << "{ sprintf(print_buffer, (v < 0) ? \"%i \" : \" %i \", v); print_string(print_buffer); }\n"
            ;
 
     if (funcsUsed.count("print_int32_var") || funcsUsed.count("print_int32_const"))         
       strm << "void print_int32_var(int32_t v)\n"
-           << "{ printf((v < 0) ? \"%i \" : \"%i \", v); }\n"
+           << "{ sprintf(print_buffer, (v < 0) ? \"%i \" : \"%i \", v); print_string(print_buffer); }\n"
            ;
 
     if (funcsUsed.count("print_single_var") || funcsUsed.count("print_single_const"))       
       strm << "void print_single_var(float v)\n"
-           << "{ printf((v < 0) ? \"%.0f \" : \" %.0f \", v); }\n"
+           << "{ sprintf(print_buffer, (v < 0) ? \"%f\" : \" %f\", v); print_rt0(); }\n"
            ;
     if (funcsUsed.count("print_double_var") || funcsUsed.count("print_double_const"))
       strm << "void print_double_var(double v)\n"
-           << "{ printf((v < 0) ? \"%0.lf \" : \" %.0lf \", v); }\n"
+           << "{ sprintf(print_buffer, (v < 0) ? \"%lf\" : \" %lf\", v); print_rt0(); }\n"
            ;
   }
 
@@ -202,7 +235,7 @@ int C_OutputGenerator::Generate(CodeGenerator::Node & node)
 
 int C_OutputGenerator::Generate(CodeGenerator::GotoTarget & node)
 {
-  *m_outputStream << INDENT() << node.m_value << ":" << endl;
+  *m_outputStream << INDENT() << node.m_value << ": do {} while(0);" << endl;
   return 0;
 }
 
@@ -280,6 +313,18 @@ int C_OutputGenerator::Generate(CodeGenerator::End & node)
 int C_OutputGenerator::Generate(CodeGenerator::System & node)
 {
   *m_outputStream << INDENT() << "exit(0);\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::For & node)
+{
+  *m_outputStream << INDENT() << "for\n";
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::Next & node)
+{
+  *m_outputStream << INDENT() << "next\n";
   return 0;
 }
 

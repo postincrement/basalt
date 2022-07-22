@@ -136,6 +136,17 @@ class CodeGenerator
     };
     SIMPLE_NODE(Else,                 "else");
 
+    struct For : public Node 
+    { 
+      For(const std::string & indexVar)
+        : Node("for")
+        , m_indexVar(indexVar)
+        { }
+      virtual int Generate(OutputGenerator & gen) override;
+      std::string m_indexVar;
+    };
+    SIMPLE_NODE(Next,                  "next");
+
     SIMPLE_NODE(BlockStart,            "block_start");
     SIMPLE_NODE(BlockEnd,              "block_end");
     STRING_NODE(GotoTarget,            "goto_target");
@@ -232,9 +243,8 @@ class CodeGenerator
     virtual int Generate(const AST::System & expr);
 
     virtual int Generate(const AST::IfStatement & expr);
-    
-    virtual int Generate(const AST::ForStatement & expr) { return 0; }
-    virtual int Generate(const AST::NextStatement & expr) { return 0; }
+    virtual int Generate(const AST::ForStatement & expr);
+    virtual int Generate(const AST::NextStatement & expr);
 
     virtual int Generate(const AST::Rem & expr) { return 0; }
     ////////////////////
@@ -329,6 +339,15 @@ class CodeGenerator
     std::set<std::string> m_funcsUsed;
     bool m_printUsed = false;
     Block m_code;
+
+    struct ForInfo {
+      std::string m_nextTarget;
+      std::string m_indexName;
+      VarType m_indexType;
+      std::string m_stepVal;
+      std::string m_toVal;
+    };
+    std::deque<ForInfo> m_forStack;
 };
 
 
