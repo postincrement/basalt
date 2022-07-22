@@ -67,14 +67,18 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
 {
   strm << "//\n"
        << "// Generated from " << m_inputFilename << "\n" 
-       << "//\n\n"
-       << "#include <stdio.h>\n"
-       << "#include <stdlib.h>\n";
+       << "//\n\n";
 
   const std::set<std::string> & funcsUsed = m_codeGenerator.GetFuncsUsed();
 
+  //if (funcsUsed.count("gosub"))
+  //  strm << "#define _XOPEN_SOURCE\n";
+
+  strm << "#include <stdio.h>\n"
+       << "#include <stdlib.h>\n";
+
   if (funcsUsed.count("gosub"))
-    strm << "#include <ucontext.h>\n";    
+    strm << "#include <setjmp.h>\n";    
 
   strm << "\n";    
 
@@ -175,7 +179,7 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
   strm << "\n";
 
   if (funcsUsed.count("gosub")) {
-    strm << "static ucontext_t * return_context = 0;\n\n";
+    strm << "static jmp_buf * return_context = 0;\n\n";
   }
 
   strm << "//\n"
@@ -254,16 +258,16 @@ int C_OutputGenerator::Generate(CodeGenerator::Goto & node)
 int C_OutputGenerator::Generate(CodeGenerator::Gosub & node)
 {
   std::string cname = "savedContext";
-  *m_outputStream << INDENT() << "ucontext_t " << cname << ";\n"
-                  << INDENT() << "get_context(&" << cname <<");\n"
+  *m_outputStream << INDENT() << "static jmp_buf " << cname << ";\n"
                   << INDENT() << "return_context = &" << cname << ";\n"
-                  << INDENT() << "goto line_" << node.m_value << ";\n";
+                  << INDENT() << "if (!setjmp(" << cname <<"))\n"
+                  << INDENT() << "  goto line_" << node.m_value << ";\n";
   return 0;
 }
 
 int C_OutputGenerator::Generate(CodeGenerator::Return & node)
 {
-  *m_outputStream << INDENT() << "set_context(return_context);\n";
+  *m_outputStream << INDENT() << "longjmp(*return_context, 1);\n";
   return 0;
 }
 

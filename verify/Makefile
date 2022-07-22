@@ -6,7 +6,7 @@ BASALT		= $(HOME)/Documents/basalt/basalt
 
 all: ctests # ztests
 
-ctests: ctest_1 ctest_2 ctest_3 ctest_4 ctest_5 ctest_6 # ctest_7 ctest_8 ctest_9 ctest_10
+ctests: ctest_1 ctest_2 ctest_3 ctest_4 ctest_5 ctest_6 ctest_9 # ctest_7 ctest_8  ctest_10
 
 ztests: ztest_1 ztest_2 # ztest_3 ztest_4 ztest_5 ztest_6 ztest_7 ztest_8 ztest_9 ztest_10
 
@@ -63,9 +63,11 @@ test_8: test_8.bas test_8.out test_8.c_out $(BASALT) # test_8.z_out
 #	#diff test_8.out test_8.z_out
 
 # GOSUB
-test_9: test_9.bas test_9.out test_9.c_out test_9.z_out $(BASALT) 
+ctest_9: test_9.bas test_9.out test_9.c_out $(BASALT) 
 	diff test_9.out test_9.c_out 
-#	#diff test_9.out test_9.z_out
+
+ztest_9: test_9.bas test_9.out test_9.z_out $(BASALT) 
+	#diff test_9.out test_9.z_out
 
 # GOSUB and FOR
 test_10: test_10.bas test_10.out test_10.c_out test_10.z_out $(BASALT) 
@@ -82,7 +84,7 @@ test_10: test_10.bas test_10.out test_10.c_out test_10.z_out $(BASALT)
 
 %.c_out : %.bas $(BASALT)
 	$(BASALT) -a ansi-c -o ${basename $<}.c $< && \
-	gcc ${basename $<}.c -o ${basename $<}.bin && \
+	gcc -Wall ${basename $<}.c -o ${basename $<}.bin && \
 	./${basename $<}.bin | sed "1d" > $@
 
 #%.z_out : %.bas

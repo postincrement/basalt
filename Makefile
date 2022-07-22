@@ -5,9 +5,9 @@ BISON = /opt/homebrew/opt/bison/bin/bison
 
 LINK.cc=c++
 
-CXXFLAGS        += -std=c++17 -g -I. -I./src
-BASALT_LDFLAGS  += -g  
-BASALT_LDLIBS   +=  
+CXXFLAGS += -std=c++17 -g -I. -I./src
+LDFLAGS  += -g -std=c++17  
+LDLIBS   +=  
 
 #  export LDFLAGS="-L/opt/homebrew/opt/flex/lib"
 #  export CPPFLAGS="-I/opt/homebrew/opt/flex/include"

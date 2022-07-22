@@ -4,4 +4,3 @@
 30 system
 100 PRINT "made it to subroutine"
 110 return
-9999 system
