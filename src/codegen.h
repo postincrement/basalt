@@ -127,17 +127,14 @@ class CodeGenerator
 
     struct If : public Node 
     { 
-      If(const std::string & condVar, const std::string & trueTarget, const std::string & falseTarget)
+      If(const std::string & condVar)
         : Node("if")
         , m_condVar(condVar)
-        , m_trueTarget(trueTarget)
-        , m_falseTarget(falseTarget)
         { }
       virtual int Generate(OutputGenerator & gen) override;
       std::string m_condVar;
-      std::string m_trueTarget;
-      std::string m_falseTarget;
     };
+    SIMPLE_NODE(Else,                 "else");
 
     SIMPLE_NODE(BlockStart,            "block_start");
     SIMPLE_NODE(BlockEnd,              "block_end");
@@ -186,6 +183,7 @@ class CodeGenerator
       return added;  
     }
 
+/*
     void Add(Block & block)
     {
       for (auto & r : block)
@@ -205,6 +203,7 @@ class CodeGenerator
       m_code = prevBlock;
       return newBlock;
     }
+*/
 
     const AST::VarList & GetGlobalVars() const
     { return m_parser.m_globalVars; }

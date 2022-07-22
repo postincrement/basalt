@@ -58,6 +58,7 @@ class OutputGenerator
     virtual int Generate(CodeGenerator::BinaryOperator & node) = 0;
 
     virtual int Generate(CodeGenerator::If & node) = 0;
+    virtual int Generate(CodeGenerator::Else & node) = 0;
 
     virtual bool IsPrintUsed() const;
 
@@ -65,8 +66,9 @@ class OutputGenerator
     Config m_config;
     CodeGenerator & m_codeGenerator;
     std::string m_inputFilename;
-    std::stringstream * m_outputStream = nullptr;    
+    std::ostringstream * m_outputStream = nullptr;    
     int m_indent = 0;   
+    std::deque<std::ostringstream *> m_blockStack; 
 };
 
 

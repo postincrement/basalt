@@ -39,7 +39,6 @@ bool CodeGenerator::Run(const std::string &inputFilename)
       SetLineNumber(statement->m_lineNumber);
       statement->Generate(*this);
       Add<BlockEnd>();
-      //m_output << "#  " << statement->m_text << endl;
     }
   }
 
@@ -701,52 +700,30 @@ int CodeGenerator::Generate(const AST::IfStatement & expr)
   Add<CreateTempVar, VarType, std::string>(VarType::eInt16, condVar);
   Add<UnaryOperator>("=", VarType::eInt16, condVar, cond);  
 
-  std::string trueTarget;
-  std::string falseTarget;
+  Add<If>(condVar);
+
   stringstream strm; strm << expr.m_lineNumber;
-  std::string endifTarget = std::string("endif_") + strm.str();
 
   std::string trueGoto = expr.m_trueStatements->m_lineNumber;
-  Block trueBlock;
-  bool haveTrueBody = false;
   if (!trueGoto.empty())
-    trueTarget = std::string("line_") + trueGoto;
+    Add<Goto>(std::string("line_") + trueGoto);
   else if (expr.m_trueStatements->m_statements != nullptr) {
-    trueTarget = std::string("if_") + strm.str();
-    Block saveBlock = PushBlock();
+    Add<BlockStart>();
     expr.m_trueStatements->m_statements->Generate(*this);
-    trueBlock = PopBlock(saveBlock);
-    haveTrueBody = true;
+    Add<BlockEnd>();
   }
 
   std::string falseGoto = expr.m_falseStatements->m_lineNumber;
-  bool havefalseBody = false;
-  if (!falseGoto.empty())
-    falseTarget = std::string("line_") + falseGoto;
+  if (!falseGoto.empty()) {
+    Add<Else>();
+    Add<Goto>(std::string("line_") + falseGoto);
+  }
   else if (expr.m_falseStatements->m_statements != nullptr) {
-    falseTarget = std::string("else_") + strm.str();
-    havefalseBody = true;
-  }
-
-  Add<If>(condVar, trueTarget, falseTarget);
-
-  if (haveTrueBody) {
-    Add<GotoTarget>(trueTarget);
-    Add(trueBlock);
-  }
-
-  bool addEndif = false;
-  if (havefalseBody) {
-    if (haveTrueBody) {
-      Add<Goto>(endifTarget);
-      addEndif = true;
-    }
-    Add<GotoTarget>(falseTarget);
+    Add<Else>();
+    Add<BlockStart>();
     expr.m_falseStatements->m_statements->Generate(*this);
+    Add<BlockEnd>();
   }
-
-  if (addEndif)
-    Add<GotoTarget>(endifTarget);
 
   return 0;
 }
@@ -879,6 +856,11 @@ int CodeGenerator::If::Generate(OutputGenerator & gen)
   return gen.Generate(*this);
 }
 
+int CodeGenerator::Else::Generate(OutputGenerator & gen)
+{
+  return gen.Generate(*this);
+}
+
 ///////////////////////////////////////////////////////
 
 OutputGenerator::OutputGenerator(const Config & config, CodeGenerator & codeGenerator)
@@ -895,7 +877,7 @@ const OutputGenerator::Config & OutputGenerator::GetConfig() const
 bool OutputGenerator::Run(const std::string &inputFilename, std::ostream *outputStream)
 {
   m_inputFilename = inputFilename;
-  m_outputStream  = new std::stringstream();
+  m_outputStream  = new std::ostringstream(std::ios_base::ate);
 
   m_indent = m_config.m_indent;
 
@@ -909,7 +891,7 @@ bool OutputGenerator::Run(const std::string &inputFilename, std::ostream *output
 
   *outputStream << m_outputStream->str();
 
-  OutputFileEpilogue(*outputStream );
+  OutputFileEpilogue(*outputStream);
 
   return true;
 }

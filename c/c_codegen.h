@@ -45,9 +45,9 @@ class C_OutputGenerator : public OutputGenerator
     virtual int Generate(CodeGenerator::BinaryOperator & node) override;
 
     virtual int Generate(CodeGenerator::If & node) override;
+    virtual int Generate(CodeGenerator::Else & node) override;
 
   protected:
-    std::queue<std::stringstream *> m_blockStack; 
 };
 
 #endif // C_CODEGEN_H_

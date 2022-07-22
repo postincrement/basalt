@@ -40,9 +40,7 @@ class Pretty_OutputGenerator : public OutputGenerator
     virtual int Generate(CodeGenerator::BinaryOperator & node) override;
 
     virtual int Generate(CodeGenerator::If & node) override;
-
-  protected:
-    std::queue<std::stringstream *> m_blockStack; 
+    virtual int Generate(CodeGenerator::Else & node) override;
 };
 
 #endif // PRETYY_CODEGEN_H_

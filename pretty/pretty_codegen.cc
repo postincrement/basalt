@@ -13,7 +13,7 @@ using namespace std;
 Pretty_OutputGenerator::Pretty_OutputGenerator(CodeGenerator & pseudo)
   : OutputGenerator(
     {
-      ".txt", "temp", "", "", 4, 0
+      ".txt", "temp", "", "", 2, 2
     }, pseudo)
 {
 }
@@ -34,14 +34,19 @@ int Pretty_OutputGenerator::Generate(CodeGenerator::GotoTarget & node)
 
 int Pretty_OutputGenerator::Generate(CodeGenerator::If & node)
 {
-  *m_outputStream << INDENT() << "if (" << node.m_condVar << ") goto " << node.m_trueTarget << "; else goto " << node.m_falseTarget << ";\n";
+  *m_outputStream << INDENT() << "if (" << node.m_condVar << ")\n";
+  return 0;
+}
+
+int Pretty_OutputGenerator::Generate(CodeGenerator::Else & node)
+{
+  *m_outputStream << INDENT() << "else\n";
   return 0;
 }
 
 int Pretty_OutputGenerator::Generate(CodeGenerator::BlockStart & node)
 {
-  m_blockStack.push(m_outputStream);
-  m_outputStream = new std::stringstream;
+  *m_outputStream << INDENT() << "{\n";
   m_indent += m_config.m_indentInc;
   return 0;
 }
@@ -49,14 +54,7 @@ int Pretty_OutputGenerator::Generate(CodeGenerator::BlockStart & node)
 int Pretty_OutputGenerator::Generate(CodeGenerator::BlockEnd & node)
 {
   m_indent -= m_config.m_indentInc;
-  std::stringstream * lastBlock = m_outputStream;
-  m_outputStream = m_blockStack.back();
-  if (lastBlock->str().length() > 0) {
-    *m_outputStream << INDENT() << "{" << endl 
-                    << lastBlock->str()
-                    << INDENT() << "}" << endl;
-  }
-  m_blockStack.pop();
+  *m_outputStream << INDENT() << "}\n";
   return 0;
 }
 
