@@ -636,6 +636,9 @@ int StringCompare::Evaluate(CodeGenerator & gen, std::string & result) const
 int RndFunction::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 
+int AbsFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
+
 int LogicalAnd::Evaluate(CodeGenerator & gen, std::string & result) const
 { return gen.Evaluate(*this, result); }
 

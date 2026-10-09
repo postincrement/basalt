@@ -1,1446 +1,349 @@
-#include "../basalt.h"
-
 #include "c_codegen.h"
+#include "../irutil.h"
+
 #include <iostream>
-#include <iomanip>
-#include <typeinfo>
-#include <cxxabi.h>
 
 using namespace std;
 
-#define STRING_CTYPE    "char *"
-#define TEMP_PREFIX     "temp_"
-#define BLOCKFN_PREFIX  "Block_"
-#define BLOCK_FN        "Block_end"
-
-struct CTypeInfoRec {
-    const char * m_ctype;
-    const char * m_initializer;
-    const char * m_printFn;
-    const char * m_strFn;
-    const char * m_suffix;
-};
-
-// must be indexed by VarType
-static CTypeInfoRec g_varTypeInfo[] ={
-    { 0 },                        // none
-    { "int16_t",    "0", "print_int16",  "basalt_str_int16",  "int16" },     // eInt16
-    { "int32_t",    "0", "print_int32",  "basalt_str_int32",  "int32" },     // eInt32
-    { "float",      "0", "print_single", "basalt_str_single", "single" },    // eSingle
-    { "double",     "0", "print_double", "basalt_str_double", "double" },    // eDouble
-    { STRING_CTYPE, "0", "print_string", 0,                   "string" }     // eString
-};
-
-
-////////////////////////////////////////////////////////////
-
-C_CodeGenerator::C_CodeGenerator()
-    : CodeGenerator(
-        {
-            ".c", TEMP_PREFIX, "{", "}", 2, 2
-        }
-    )
+C_OutputGenerator::C_OutputGenerator(CodeGenerator & codeGenerator)
+  : OutputGenerator({ ".c", 2, 2 }, codeGenerator)
 {
 }
 
-////////////////////////////////////////////////////////////////
-
-static std::string QuoteLiteral(const std::string & str_)
+std::string C_OutputGenerator::Operand(const std::string & name) const
 {
-    std::string str("\"");
-    str += str_;
-    str += "\"";
-    return str;
+  if (IsNumberLiteral(name))
+    return name;
+  return Mangle(name);
 }
 
-////////////////////////////////////////////////////////////////
-
-static bool CreateCVar(const std::string & name,
-    const AST::VarInfo & var,
-    C_CodeGenerator::CVarDef & cvar,
-    int tag)
+std::string C_OutputGenerator::StringPtr(const std::string & name) const
 {
-  stringstream strm;
-
-  strm << "USER_";
-  for (auto r : name) {
-      if (isalnum(r))
-          strm << r;
-  }
-  if (tag != 0)
-      strm << "_" << tag;
-  strm << "_";
-  strm << g_varTypeInfo[(int)var.m_type].m_suffix;
-  cvar.m_cname = strm.str();
-  cvar.m_type  = var.m_type;
-
-  return true;
+  if (name.rfind("str_", 0) == 0)
+    return name;
+  std::string mangled = Mangle(name);
+  return "(" + mangled + " ? " + mangled + " : \"\")";
 }
 
-bool C_CodeGenerator::Body()
+void C_OutputGenerator::Line(const std::string & text)
 {
-  for (auto & entry : AST::g_subscriptArity) {
-    if (AST::g_userFunctions.count(entry.first) != 0)
-      continue;
-    if (AST::g_arrayBounds.count(entry.first) == 0)
-      AST::g_arrayBounds[entry.first] = std::vector<int>(entry.second, 10);
-  }
-
-  // map names of all variables to C
-  for (auto & r : AST::g_globalVars) {
-    AST::VarInfo & info = r.second;
-    int tag = 0;
-    CVarDef cvar;
-    for (;;) {
-      if (!CreateCVar(r.first, info, cvar, tag)) {
-        InternalError("cannot map var to C type");
-        return false;
-      }
-      if (m_cnames.count(cvar.m_cname) == 0)
-        break;
-      ++tag;
-    }
-    m_globalVars[r.first] = cvar;
-    m_cnames.insert(cvar.m_cname);
-  }
-
-  Generate();
-
-  // output code
-  *m_outputStream
-      << "/* C generator by basalt */\n"
-      << "#include <stdlib.h>\n"
-      << "#include <unistd.h>\n"
-      << "#include <stdio.h>\n"
-      << "#include <stdint.h>\n"
-      << "#include <math.h>\n"
-      << "#include <string.h>\n"
-      ;
-
-  OutputRuntimeDecls(*m_outputStream);
-
-  *m_outputStream << "/* Vars */\n";
-  if (m_funcsUsed.count("width") || m_funcsUsed.count("print_tab") || m_funcsUsed.count("print_newline")
-      || m_funcsUsed.count("print_string") || m_funcsUsed.count("print_int16")
-      || m_funcsUsed.count("print_int32") || m_funcsUsed.count("print_single")
-      || m_funcsUsed.count("print_double")) {
-    *m_outputStream << "static int g_tabLen = " << g_languageProfile->GetTabWidth() << ";\n"
-                    << "static int g_outputColumn = 0;\n";
-  }
-  for (auto & r : m_globalVars) {
-    CTypeInfoRec & info = g_varTypeInfo[(int)r.second.m_type];
-    auto bounds = AST::g_arrayBounds.find(r.first);
-    if (bounds != AST::g_arrayBounds.end() && AST::g_userFunctions.count(r.first) == 0) {
-      *m_outputStream << info.m_ctype << " " << r.second.m_cname;
-      for (int upper : bounds->second)
-        *m_outputStream << "[" << (upper + 1) << "]";
-      *m_outputStream << " = {0}; /* " << r.first << " */\n";
-    }
-    else {
-      *m_outputStream << info.m_ctype
-          << " "
-          << r.second.m_cname
-          << " = "
-          << info.m_initializer
-          << "; /* " << r.first << " */\n"
-          ;
-    }
-  }
-  *m_outputStream << "\n";
-
-  OutputBlocks();
-
-  OutputRuntime(*m_outputStream);
-
-  return true;
+  *m_outputStream << std::string(m_indent, ' ') << text << "\n";
 }
 
-void C_CodeGenerator::Generate()
-{  
-  // generate code for the list of source lines
-  int ret = 0;
-
-  m_startBlock = true;
-  m_lastBlockHadReturn = true;
-
-  // loop through the source lines
-  // but ignore lines with no data
-  for (size_t i = 0; i < m_program->m_list.size(); ++i) {
-    if (m_program->m_list[i]) {
-      GenerateLine(i, *m_program->m_list[i]);
-    }
+std::string C_OutputGenerator::IndexText(const CodeGenerator::IndexOp & node) const
+{
+  const auto & bounds = AST::g_arrayBounds[node.m_array];
+  std::string offset = "(int)(" + Operand(node.m_indexes[0]) + ")";
+  for (size_t i = 1; i < node.m_indexes.size(); ++i) {
+    int dim = (i < bounds.size()) ? bounds[i] + 1 : 11;
+    offset = "((" + offset + ") * " + std::to_string(dim) + " + (int)(" + Operand(node.m_indexes[i]) + "))";
   }
-
-  // finish last block
-  EndBlock();
+  return Mangle(node.m_array) + "[" + offset + "]";
 }
 
-void C_CodeGenerator::GenerateLine(int index, const AST::SourceLine & sourceLine)
+void C_OutputGenerator::OutputFilePrologue(ostream & strm)
 {
-  // always start a block if the line number 
-  // is the destination of a GOTO or GOSUB
-  if (
-      m_startBlock ||
-      AST::g_jumpDestinationInfo.count(sourceLine.GetBasicLineNumber()) ||
-      (m_codeBlocks.size() == 0)
-      ) {
-    //if (!m_lastBlockHadReturn) {
-    //  TopOutput() << "return 0;\n";
-    //  m_lastBlockHadReturn = true;
-    //}  
-    StartBlock(sourceLine.GetBasicLineNumber());
-    m_startBlock = false;
+  strm << "/* Generated from " << m_inputFilename << " */\n"
+       << "#include <stdint.h>\n"
+       << "#include <stdio.h>\n"
+       << "#include <stdlib.h>\n"
+       << "#include <string.h>\n"
+       << "#include <unistd.h>\n"
+       << "#include <math.h>\n\n";
+
+  m_needStrings = m_codeGenerator.GetFuncsUsed().count("sets") != 0
+               || m_codeGenerator.GetFuncsUsed().count("cat") != 0;
+  for (auto & entry : AST::g_globalVars) {
+    if (entry.second.m_type == VarType::eString)
+      m_needStrings = true;
+  }
+  if (m_needStrings) {
+    strm << "static char * basalt_dup(const char * src);\n";
+    strm << "static char * basalt_concat(const char * a, const char * b);\n";
   }
 
-  // if no statements in this line, nothing to do
-  if (!sourceLine.m_statements) {
-    //cout << "\n" << sourceLine.GetLine() << " - no statements\n";
-    return;
-  }
-
-  const AST::StatementList & statements = *sourceLine.m_statements;
-  if (statements.m_list.size() == 0) {
-    //cout << "\n" << sourceLine.GetLine() << " - empty list\n";
-    return;
-  }
-
-  // insert text of BASIC line into source
-  //TopOutput(false) << "\n  /* " << sourceLine.GetLine() << " */\n";
-
-  // get next line in program
-  if (index >= m_program->m_list.size()-1)
-    m_nextLine = nullptr;
-  else  
-    m_nextLine = m_program->m_list[index+1].get();
-
-  // loop through the statements
-  for (int j = 0; j < statements.m_list.size(); ++j) {
-    auto const & statement = *statements.m_list[j]; 
-    //cout << "\n  " << statement.m_text << "\n";
-    //TopOutput(false) << "// statement " << statement.m_text << "\n";
-
-    int ret = GenerateStatement(j, 
-                        sourceLine.GetBasicLineNumber(),
-                        j == statements.m_list.size()-1, 
-                        statement);
-
-    bool finishLine = false;
-    switch (ret) {
-      case eOp_Next:
-      case eOp_NextLine:
-      case eOp_EndProgram:
-      case eOp_Goto:
-      case eOp_Return:
-        finishLine = true;
-        break;
-      case eOp_NextStatement:
-        break;
-      default:
-        cerr << "unknown code generator code " << ret 
-              << " from '" << statement.m_text << "'" 
-              << " and type " << DemangleTypeName(typeid(statement))
-              << endl;
-        break;  
+  for (auto & entry : AST::g_globalVars) {
+    if (IsArrayName(entry.first)) {
+      strm << CTypeName(entry.second.m_type) << " " << Mangle(entry.first)
+           << "[" << ArrayLength(entry.first) << "] = {0};\n";
     }
-
-    if (finishLine) {
-      if (j != statements.m_list.size()-1) {
-        CompilerError(eWarning_UnreachableCode, statement.m_lineNumber, "unreachable code with code " << ret);
-      }
-      break;
-    }
-  }                        
-}
-
-int C_CodeGenerator::GenerateStatement(int index, 
-                        const std::string & basicLineNumber,
-                                       bool isLastStatementOnLine, 
-                     const AST::Statement & statement)
-{
-  // start a new block if needed
-  if (m_startBlock) {
-    StartBlock(basicLineNumber);
-    m_nextBlockRef = "";
-    m_startBlock = false;
-  }
-
-  // set flags needed by code generation
-  if (!isLastStatementOnLine)
-    STRM_STR(m_nextBlockRef, basicLineNumber << "_" << index+1);
-  else if (m_nextLine == nullptr) 
-    m_nextBlockRef = "0";
-  else { 
-    m_nextBlockRef = m_nextLine->GetBasicLineNumber();
-    STRM_STR(m_nextBlockRef, m_nextLine->GetBasicLineNumber());
-  }
-
-  // insert the statement text as a comment
-  TopOutput(false) << ((m_codeBlocks.size() != 0) ? "\n" : "") 
-                    << "  /* " << statement.m_text << " */\n";
-
-  // generate code for statement
-  return statement.Generate(*this);
-}
-
-void C_CodeGenerator::OutputBlocks()
-{
-  *m_outputStream 
-      << "/* declare structure used to link code blocks */\n"
-      << "struct BlockFunction {\n"
-      << "  int (* m_func)(struct BlockFunction *);\n"
-      << "};\n"
-      << "\n"
-      << "int execute(struct BlockFunction * block);\n\n"
-      ;
-#if 0
-  if (m_funcsUsed.count("for")) {
-    *m_outputStream 
-        << "/* declare structure for FOR */\n"
-        << "struct ForInfo {\n"
-        << "  struct BlockFunction (* m_func)();\n"
-        << "  struct ForInfo * g_next;\n"
-        << "  union {\n"
-        << "    int16_t m_int16[3];\n"
-        << "    float   m_float[3];\n"
-        << "    double  m_double[3];\n"
-        << "  } m_val;\n"
-        << "};\n\n"
-        << "/* declare queue for FOR */\n"
-        << "struct ForInfo g_forQueueEntry;\n"
-        << "struct ForInfo * g_forQueue = NULL;\n"
-        << "\n";
-  }
-
-  if (m_funcsUsed.count("gosub")) {
-    *m_outputStream 
-        << "/* declare structure for GOSUB */\n"
-        << "struct BlockQueue {\n"
-        << "  struct BlockQueue * m_next;\n"
-        << "  struct BlockFunction m_return;\n"
-        ;
-    if (m_funcsUsed.count("for")) {
-      *m_outputStream 
-          << "  struct ForInfo * m_forQueue;\n"
-          ;
-    }     
-    *m_outputStream 
-        << "};\n"
-        << "\n"
-        << "/* declare queue for GOSUB */\n"
-        << "struct BlockQueue * g_blockQueue;\n"
-        << "\n"
-        << "/* GOSUB function */\n"
-        << "void Gosub(struct BlockFunction ret)\n"
-        << "{\n"
-        << "  struct BlockQueue * block = (struct BlockQueue *)malloc(sizeof(struct BlockQueue));\n"
-        << "  block->m_next = g_blockQueue;\n"
-        << "  block->m_return = ret;\n"
-        ;
-    if (m_funcsUsed.count("for")) {
-      *m_outputStream 
-          << "  block->m_forQueue = NULL;\n"
-          ;
-    }
-    *m_outputStream 
-        << "  g_blockQueue = block;\n"
-        << "}\n"
-        << "\n"
-        << "/* RETURN function */\n"
-        << "struct BlockFunction Return()\n"
-        << "{\n"
-        << "  if (g_blockQueue == 0) {\n"
-        << "    /* mismatched return */;\n"
-        << "  }"
-        << "  struct BlockFunction ret;\n"
-        << "  ret = g_blockQueue->m_return;\n"
-        << "  struct BlockQueue * next = g_blockQueue->m_next;\n"
-        << "  free(g_blockQueue);\n"
-        << "  g_blockQueue = next;\n"
-        << "  return ret;\n"
-        << "}\n"
-        << "\n"
-        ;
-  }
-#endif
-
-  if (m_funcsUsed.count("gosub")) {
-    *m_outputStream
-      << "static struct BlockFunction g_gosubStack[64];\n"
-      << "static int g_gosubSp = 0;\n"
-      << "static void Gosub(struct BlockFunction ret)\n"
-      << "{\n"
-      << "  if (g_gosubSp < 64)\n"
-      << "    g_gosubStack[g_gosubSp++] = ret;\n"
-      << "}\n"
-      << "static struct BlockFunction ReturnBlock(void)\n"
-      << "{\n"
-      << "  struct BlockFunction none;\n"
-      << "  none.m_func = 0;\n"
-      << "  if (g_gosubSp <= 0)\n"
-      << "    return none;\n"
-      << "  return g_gosubStack[--g_gosubSp];\n"
-      << "}\n"
-      << "\n";
-  }
-
-  // output forward declarations of each block
-  *m_outputStream << "/* forward declare each block of code */\n";
-  for (auto & r : m_codeBlocks) {
-    *m_outputStream << "int " BLOCKFN_PREFIX << r.m_ref << "(struct BlockFunction *);\n";
-  }
-  *m_outputStream << "\n";
-
-  // output each block
-  for (size_t i = 0; i < m_codeBlocks.size(); ++i) {
-    CodeBlock & block = m_codeBlocks[i];
-
-    // function header
-    *m_outputStream << "int " BLOCKFN_PREFIX << block.m_ref << "(struct BlockFunction * block)\n"
-      << "{\n"
-      ;
-
-    // set pointer to next block, unless we know this block ends
-    // with a jump to another block
-    *m_outputStream << "  block->m_func = ";
-    if (i < m_codeBlocks.size()-1)
-      *m_outputStream << "&" << BLOCKFN_PREFIX << m_codeBlocks[i+1].m_ref;
+    else if (entry.second.m_type == VarType::eString)
+      strm << "char * " << Mangle(entry.first) << " = 0;\n";
     else
-      *m_outputStream << "0";
-    *m_outputStream << ";\n";
+      strm << CTypeName(entry.second.m_type) << " " << Mangle(entry.first) << " = 0;\n";
+  }
+  strm << "\n";
 
-    // output the block body
-    *m_outputStream << block.m_body.str() 
-//        << "  return 0;\n"
-        << "}\n"
-        << "\n"
-        ;
-}
+  for (auto & entry : AST::g_stringConstants) {
+    strm << "static const char str_" << entry.second << "[] = \""
+         << EscapeC(entry.first) << "\";\n";
+  }
+  if (!AST::g_stringConstants.empty())
+    strm << "\n";
 
-*m_outputStream
-    << "int execute(struct BlockFunction * block)\n"
-    << "{\n"
-    << "  int ret = 1;\n"
-    << "  while (block->m_func != 0) {\n"
-    << "    int ret = (*block->m_func)(block);\n"
-    << "    if (ret != 0)\n"
-    << "      break;\n"
-    << "  }\n"
-    << "  if (ret <= 1)\n"
-    << "    return ret;\n"
-    << "  return 0; // return\n"
-    << "}\n"
-    << "\n"
-    << "int main(int argc, char * argv[])\n"
-    << "{\n"
-    << "  basalt_init();\n"
-    << "  struct BlockFunction block;\n"
-    << "  block.m_func = &" BLOCKFN_PREFIX << m_codeBlocks.front().m_ref << ";\n"
-    << "  execute(&block);\n"
-    << "  exit(0);\n"
-    << "}\n"
-    ;
-}
-
-void C_CodeGenerator::StartBlock(const std::string & ref, bool autoEnd)
-{
-  if (autoEnd)
-    EndBlock();
-
-  m_currentBlock = -1;
-  for (int i = 0; i < m_codeBlocks.size(); ++i) {
-    if (m_codeBlocks[i].m_ref == ref)
-      m_currentBlock = i;
-    break;
+  if (m_codeGenerator.IsPrintUsed() || m_codeGenerator.GetFuncsUsed().count("width")) {
+    int tab = g_languageProfile ? g_languageProfile->GetTabWidth() : 14;
+    strm << "int g_outputColumn = 0;\n";
+    strm << "int g_tabLen = " << tab << ";\n\n";
   }
 
-  if (m_currentBlock < 0) {
-    CodeBlock block;
-    block.m_ref = ref;
-    m_codeBlocks.push_back(std::move(block));
-    m_currentBlock = m_codeBlocks.size()-1;
-    Push();
+  BasaltWriteCRuntimeDecls(strm, m_codeGenerator.GetFuncsUsed());
+
+  strm << "int main(void)\n{\n";
+  for (auto & code : m_codeGenerator.m_code) {
+    auto * temp = dynamic_cast<CodeGenerator::CreateTempVar *>(code.get());
+    if (temp == nullptr)
+      continue;
+    if (temp->m_type == VarType::eString)
+      strm << "  char * " << temp->m_value << " = 0;\n";
+    else
+      strm << "  " << CTypeName(temp->m_type) << " " << temp->m_value << " = 0;\n";
+  }
+  if (m_codeGenerator.GetFuncsUsed().count("gosub")) {
+    strm << "  int gs_sp = 0;\n";
+    strm << "  int gs_stk[64];\n";
   }
 }
 
-void C_CodeGenerator::EndBlock()
+void C_OutputGenerator::OutputFileEpilogue(ostream & strm)
 {
-  if (m_codeBlocks.size() == 0 || m_currentBlock < 0)
-    return;
-
-  CodeBlock & block = m_codeBlocks[m_currentBlock];
-  block.m_body << Pop();
-  block.m_body << "  return 0;\n";
-  block.m_ended = true;
-}
-
-int C_CodeGenerator::Generate(const AST::SourceLine & line)
-{
-  TopOutput(false) << "  /* " << line.GetLine() << " */\n";
-  return CodeGenerator::Generate(line);
-}
-
-int C_CodeGenerator::Generate(const AST::End & expr)
-{
-  TopOutput() << "return -1;\n";
-  return eOp_EndProgram;
-}
-
-int C_CodeGenerator::Generate(const AST::System & expr)
-{
-  TopOutput() << "return -1;\n";
-  return eOp_EndProgram;
-}
-
-int C_CodeGenerator::Generate(const AST::Rem & expr)
-{
-  return eOp_NextLine;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Generate(const AST::Print & printExpr)
-{
-  AST::ExprList & expr = *printExpr.m_list;
-  for (auto & r : expr.m_list) {
-    r->Print(*this);
+  if (!m_gosubs.empty()) {
+    strm << "  gs_return:\n";
+    strm << "  if (gs_sp <= 0) return 0;\n";
+    strm << "  switch (gs_stk[--gs_sp]) {\n";
+    for (int id : m_gosubs)
+      strm << "    case " << id << ": goto gs_" << id << ";\n";
+    strm << "    default: return 0;\n";
+    strm << "  }\n";
   }
+  strm << "  return 0;\n}\n\n";
 
-  if ((expr.m_list.size() > 0) && !expr.m_list[expr.m_list.size()-1]->IsPrintSemiColon()) {
-    m_funcsUsed.insert("print_newline");
-    TopOutput() << "print_newline();\n";
+  if (m_needStrings) {
+    strm << "static char * basalt_dup(const char * src)\n"
+         << "{\n"
+         << "  size_t n;\n"
+         << "  char * out;\n"
+         << "  if (src == 0) src = \"\";\n"
+         << "  n = strlen(src);\n"
+         << "  out = (char *)malloc(n + 1);\n"
+         << "  memcpy(out, src, n + 1);\n"
+         << "  return out;\n"
+         << "}\n"
+         << "static char * basalt_concat(const char * a, const char * b)\n"
+         << "{\n"
+         << "  size_t na, nb;\n"
+         << "  char * out;\n"
+         << "  if (a == 0) a = \"\";\n"
+         << "  if (b == 0) b = \"\";\n"
+         << "  na = strlen(a);\n"
+         << "  nb = strlen(b);\n"
+         << "  out = (char *)malloc(na + nb + 1);\n"
+         << "  memcpy(out, a, na);\n"
+         << "  memcpy(out + na, b, nb + 1);\n"
+         << "  return out;\n"
+         << "}\n";
   }
-
-  return eOp_NextStatement;
+  BasaltWriteCRuntime(strm, m_codeGenerator.GetFuncsUsed());
 }
 
-int C_CodeGenerator::Print(const AST::NumericVarRef & expr)
+int C_OutputGenerator::Generate(CodeGenerator::GotoTarget & node)
 {
-  if (m_globalVars.count(expr.GetName()) == 0) {
-    CompilerError(Error_UndeclaredVariable, 0, "unknown variable \"" << expr.GetName() << "\"");
-    return eOp_NextLine;
-  }
-  CVarDef & cvar = m_globalVars[expr.GetName()];
-  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
-  m_funcsUsed.insert(funcName);
-  TopOutput(true) << funcName << "(" << cvar.m_cname << ");\n";
-  return eOp_NextStatement;
-}
-
-
-int C_CodeGenerator::Print(const AST::NumericExpr & expr)
-{
-  std::string str;
-  expr.Evaluate(*this, str);
-  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
-  m_funcsUsed.insert(funcName);
-  TopOutput(true) << funcName << "(" << str << ");\n";
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Print(const AST::StringVarRef & expr)
-{
-  if (m_globalVars.count(expr.GetName()) == 0) {
-    CompilerError(Error_UndeclaredVariable, 0, "variable \"" << expr.GetName() << "\" not declared");
-    return -1;
-  }
-  CVarDef & cvar = m_globalVars[expr.GetName()];
-  m_funcsUsed.insert("print_string");
-  TopOutput(true) << "print_string(" <<  cvar.m_cname << ");\n";
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Print(const AST::StringConstant & expr)
-{
-  m_funcsUsed.insert("print_string");
-  TopOutput(true) << "print_string(" << QuoteLiteral(expr.GetValue()) << ");\n";
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Print(const AST::Int16Constant & expr)
-{
-  m_funcsUsed.insert("print_int16");
-  TopOutput(true) << "print_int16(" << expr.GetValue() << ");\n";
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Print(const AST::Int32Constant & expr)
-{
-  m_funcsUsed.insert("print_int32");
-  TopOutput(true) << "print_int32(" << expr.GetValue() << ");\n";
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Print(const AST::SingleConstant & expr)
-{
-  m_funcsUsed.insert("print_single");
-  TopOutput(true) << "print_single(" << std::setprecision(13) << std::noshowpoint << expr.GetValue() << ");\n";
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Print(const AST::DoubleConstant & expr)
-{
-  m_funcsUsed.insert("print_double");
-  TopOutput(true) << "print_double(" << std::setprecision(13) << std::noshowpoint << expr.GetValue() << ");\n";
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Print(const AST::PrintComma & expr)
-{
-  m_funcsUsed.insert("print_tab");
-  TopOutput(true) << "print_tab();\n";
-  return eOp_NextStatement;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Generate(const AST::GotoStatement & expr)
-{
-  TopOutput() << "block->m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";
-  TopOutput() << "return 0;\n";
-  return eOp_Goto;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Generate(const AST::GosubStatement & expr)
-{
-  // Statements after GOSUB on this line, and following lines that stay in
-  // this block, continue in a fresh block that RETURN jumps back to.
-  std::string cont = GetGlobalTempName();
-
-  TopOutput() << "{\n";
-  TopOutput() << "  struct BlockFunction target;\n";
-  TopOutput() << "  target.m_func = &" BLOCKFN_PREFIX << cont << ";\n";
-  TopOutput() << "  Gosub(target);\n";
-  TopOutput() << "}\n";
-  TopOutput() << "block->m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";
-  TopOutput() << "return 0;\n";
-
-  m_funcsUsed.insert("gosub");
-  StartBlock(cont, true);
-
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Generate(const AST::ReturnStatement & expr)
-{
-  TopOutput() << "*block = ReturnBlock();\n";
-  TopOutput() << "return 0;\n";
-  m_funcsUsed.insert("gosub");
-
-  return eOp_Return;
-}
-
-////////////////////////////////////////////////////////////////
-
-void C_CodeGenerator::CatStrings(const std::string & tempName,
-    const std::string & lhs,
-    const std::string & rhs,
-    const std::string & pre,
-    bool indent)
-{
-  TopOutput(indent) << pre << tempName << " = (char *)malloc(strlen(" << lhs << ") + strlen(" << rhs << ") + 1);\n";
-  TopOutput(indent) << "strcpy(" << tempName << ", " << lhs << ");\n";
-  TopOutput(indent) << "strcat(" << tempName << ", " << rhs << ");\n";
-}
-
-int C_CodeGenerator::Generate(const AST::StringAssign & expr)
-{
-  CVarDef cvar;
-  if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
-    return eOp_NextLine;
-
-  if (expr.m_rhs == nullptr) {
-    InternalError("expression missing rhs");
-    return eOp_NextLine;
-  }
-
-  std::string rhs;
-
-  expr.m_rhs->Evaluate(*this, rhs);
-
-  if (expr.m_lhs->IsVarRef() &&
-      expr.m_rhs->IsVarRef() &&
-      (cvar.m_cname == rhs)) {
-    TopOutput() << "/* optimised out */\n";
-  }
-  else {
-    Push();
-
-    TopOutput() << "if (" << cvar.m_cname << ")\n";
-    TopOutput() << "  free(" << cvar.m_cname << ");\n";
-
-    if (expr.m_rhs->IsConstant() || expr.m_rhs->IsVarRef()) {
-      TopOutput() << cvar.m_cname << " = strdup(\"" << rhs << "\");\n";
-    }
-    else {
-      TopOutput() << "if (!" << rhs << ")\n";
-      TopOutput() << "  " << cvar.m_cname << " = 0;\n";
-      TopOutput() << "else\n";
-      TopOutput() << "  " << cvar.m_cname << " = " << rhs << ";\n";
-    }
-
-    Pop();
-  }
-
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Evaluate(const AST::StringAddition & expr, std::string & result)
-{
-  std::string lhs, rhs;
-  expr.m_lhs->Evaluate(*this, lhs);
-  expr.m_rhs->Evaluate(*this, rhs);
-
-  // if either operand is a variable, deal with possibility
-  // that one (or both) may be null
-  int code = 0;
-  if (expr.m_lhs->IsConstant()) {
-    code += 0x10;
-    lhs = QuoteLiteral(lhs);
-  }
-  else if (expr.m_lhs->IsVarRef()) {
-    code += 0x20;
-  }
-  else {
-    code += 0x30;
-  }
-  if (expr.m_rhs->IsConstant()) {
-    code += 0x01;
-    rhs = QuoteLiteral(rhs);
-  }
-  else if (expr.m_rhs->IsVarRef()) {
-    code += 0x02;
-  }
-  else {
-    code += 0x03;
-  }
-
-  stringstream strm;
-  std::string temp1 = Top().GetTempName();
-  result = temp1;
-
-  switch (code) {
-  case 0x11:  // both constants
-    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-    break;
-  case 0x12:  // left constant, right var
-    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-    TopOutput() << "if (!" << rhs << ")\n";
-    TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
-    TopOutput() << "else\n";
-    Push();
-    CatStrings(temp1, lhs, rhs, "");
-    Pop();
-    break;
-  case 0x13:  // left constant, right expr
-    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-    TopOutput() << "free(" << rhs << ");\n";
-    break;
-
-  case 0x21:  // left var, right constant
-    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-    TopOutput() << "if (!" << lhs << ")\n";
-    TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
-    TopOutput() << "else\n";
-    Push();
-    CatStrings(temp1, lhs, rhs, "");
-    Pop();
-    break;
-  case 0x22:  // left var, right var
-    TopOutput() << STRING_CTYPE " " << temp1 << " = 0;\n";
-    TopOutput() << "if (("<< lhs << " | " << rhs << ") != 0)\n";
-    Push();
-    TopOutput() << "if (!" << lhs << ")\n";
-    TopOutput() << "  " << temp1 << " = strdup(" << rhs << ");\n";
-    TopOutput() << "else if (!" << rhs << ")";
-    TopOutput() << "  " << temp1 << " = strdup(" << lhs << ");\n";
-    TopOutput() << "else {\n";
-    Push();
-    CatStrings(temp1, lhs, rhs, "");
-    Pop();
-    Pop();
-    break;
-  case 0x23:  // left var, right expr
-    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-    TopOutput() << "if (!" << lhs << ")\n";
-    TopOutput() << "  " << temp1 << " = " << rhs << ";\n";
-    Push();
-    CatStrings(temp1, lhs, rhs, "");
-    TopOutput() << "free(" << rhs << ");\n";
-    Pop();
-    break;
-
-  case 0x31:  // left expression, right constant
-    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-    TopOutput() << "free(" << lhs << ");\n";
-    break;
-  case 0x32:  // left expression, right var
-    TopOutput() << STRING_CTYPE " " << temp1 << ";\n";
-    TopOutput() << "if (!" << rhs << ")\n";
-    TopOutput() << "  " << temp1 << " = " << lhs << ";\n";
-    Push();
-    CatStrings(temp1, lhs, rhs, "");
-    TopOutput() << "free(" << lhs << ");\n";
-    Pop();
-    break;
-  case 0x33:  // left expression, right expr
-    CatStrings(temp1, lhs, rhs, STRING_CTYPE " ");
-    TopOutput() << "free(" << rhs << ");\n";
-    TopOutput() << "free(" << lhs << ");\n";
-    break;
-  }
-
+  *m_outputStream << node.m_value << ": ;\n";
   return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Generate(const AST::AssignStatement & expr)
+int C_OutputGenerator::Generate(CodeGenerator::Goto & node)
 {
-  m_currentStatementLine = expr.m_lineNumber;
-  return expr.m_expr->Generate(*this);
-}
-
-int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
-{
-  Closure & us = Top();
-
-  if (expr.m_rhs == nullptr) {
-    InternalError("expression missing rhs");
-    return eOp_NextLine;
-  }
-
-  auto * subscript = dynamic_cast<const AST::NumericSubscript *>(expr.m_lhs);
-  std::string rhs;
-  expr.m_rhs->Evaluate(*this, rhs);
-  if (subscript != nullptr && AST::g_userFunctions.count(subscript->GetName()) == 0) {
-    std::string loc;
-    subscript->Evaluate(*this, loc);
-    us.Output() << "  " << loc << " = " << rhs << ";" << endl;
-    return eOp_NextStatement;
-  }
-
-  CVarDef cvar;
-  if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
-    return eOp_NextLine;
-
-  us.Output() << "  " << cvar.m_cname << " = " << rhs << ";" << endl;
-
-  return eOp_NextStatement;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::StringVarRef & expr, std::string & result)
-{
-  if (m_globalVars.count(expr.GetName()) == 0) {
-    CompilerError(Error_UndeclaredVariable, 0, "variable \"" << expr.GetName() << "\" not declared");
-    return eOp_NextLine;
-  }
-  CVarDef & cvar = m_globalVars[expr.GetName()];
-  result = cvar.m_cname;
+  Line("goto " + node.m_value + ";");
   return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::Int32Constant & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::Gosub & node)
 {
-  stringstream strm;
-  strm << expr.GetValue();
-  result = strm.str();
+  int id = ++m_gosubId;
+  m_gosubs.push_back(id);
+  Line("gs_stk[gs_sp++] = " + std::to_string(id) + ";");
+  Line("goto line_" + node.m_value + ";");
+  *m_outputStream << "gs_" << id << ": ;\n";
   return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::SingleConstant & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::Return &)
 {
-  stringstream strm;
-  strm << /* std::setprecision(7) << */ expr.GetValue();
-  result = strm.str();
+  Line("goto gs_return;");
   return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::DoubleConstant & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::End &)
 {
-    stringstream strm;
-    strm << /* std::setprecision(10) << */ expr.GetValue();
-    result = strm.str();
-    return 0;
-}
-
-////////////////////////////////////////////////////////////////
-
-bool C_CodeGenerator::LookupGlobalVar(const std::string & varName, CVarDef & cvar)
-{
-    if (m_globalVars.count(varName) == 0)
-        return false;
-
-    cvar = m_globalVars[varName];
-    return true;
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericVarRef & expr, std::string & result)
-{
-    if (m_globalVars.count(expr.GetName()) == 0) {
-        CompilerError(Error_UndeclaredVariable, 0, "variable \"" << expr.GetName() << "\" not declared");
-        return -1;
-    }
-    CVarDef & cvar = m_globalVars[expr.GetName()];
-    result = cvar.m_cname;
-    return 0;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::NumericExpr(const std::string & op, const AST::NumericExpr * expr, std::string & result)
-{
-  if (expr == nullptr)
-    return -1;
-
-  std::string str;
-  expr->Evaluate(*this, str);
-  stringstream strm;
-  strm << op << "(" << str << ")";
-  result = strm.str();
+  Line("return 0;");
   return 0;
 }
 
-int C_CodeGenerator::StringExpr(const std::string & op, const AST::StringExpr * expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::System &)
 {
-    if (expr == nullptr)
-        return -1;
-
-    std::string str;
-    expr->Evaluate(*this, str);
-    stringstream strm;
-    strm << op << "(" << str << ")";
-    result = strm.str();
-    return 0;
-}
-
-int C_CodeGenerator::NumericBinaryOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result)
-{
-    if ((expr == nullptr) || (expr->m_lhs == nullptr) || (expr->m_rhs == nullptr))
-        return -1;
-
-    std::string temp1 = Top().GetTempName();
-    CTypeInfoRec & info = g_varTypeInfo[(int)expr->GetType()];
-
-    std::string lhs, rhs;
-    // always evaluate LHS first, to ensure left to right evaluation
-    expr->m_rhs->Evaluate(*this, rhs);
-    expr->m_lhs->Evaluate(*this, lhs);
-    TopOutput() << info.m_ctype << " " << temp1 << " = " << lhs << " " << op << " " << rhs << ";\n";
-
-    result = temp1;
-
-    return 0;
-}
-
-int C_CodeGenerator::NumericComparisonOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result)
-{
-    if ((expr == nullptr) || (expr->m_lhs == nullptr) || (expr->m_rhs == nullptr)) {
-        InternalError("numeric comparison failed");
-        return -1;
-    }
-
-    std::string temp1 = Top().GetTempName();
-    CTypeInfoRec & info = g_varTypeInfo[(int)expr->GetType()];
-
-    std::string lhs, rhs;
-    expr->m_lhs->Evaluate(*this, lhs);
-    expr->m_rhs->Evaluate(*this, rhs);
-
-    TopOutput() << info.m_ctype << " " << temp1 << " = (" << lhs << " " << op << " " << rhs << ") ? -1 : 0;\n";
-
-    result = temp1;
-
-    return 0;
-}
-
-int C_CodeGenerator::UnaryOperator(const std::string & op, const AST::UnaryOperation * expr, std::string & result)
-{
-    if (expr->m_expr == nullptr)
-        return -1;
-
-    std::string str;
-    expr->m_expr->Evaluate(*this, str);
-    stringstream strm;
-    strm << "(" << op << " " << str << ")";
-    result = strm.str();
-
-    return 0;
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::NumericAddition & expr, std::string & result)
-{
-    return NumericBinaryOperator("+", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::Subtraction & expr, std::string & result)
-{
-    return NumericBinaryOperator("-", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::Multiplication & expr, std::string & result)
-{
-    return NumericBinaryOperator("*", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::Division & expr, std::string & result)
-{
-    return NumericBinaryOperator("/", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::Negation & expr, std::string & result)
-{
-    return UnaryOperator("-", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::Power & expr, std::string & result)
-{
-    if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
-        return -1;
-    std::string lhs, rhs;
-    expr.m_lhs->Evaluate(*this, lhs);
-    expr.m_rhs->Evaluate(*this, rhs);
-    CTypeInfoRec & info = g_varTypeInfo[(int)expr.GetType()];
-    std::string temp = Top().GetTempName();
-    const char * ctype = (info.m_ctype != nullptr) ? info.m_ctype : "double";
-    TopOutput() << ctype << " " << temp << " = (" << ctype << ")pow((double)(" << lhs
-                << "), (double)(" << rhs << "));\n";
-    result = temp;
-    return 0;
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & result)
-{
-    return NumericComparisonOperator("==", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericNotEquality & expr, std::string & result)
-{
-    return NumericComparisonOperator("!=", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericGreaterThan & expr, std::string & result)
-{
-    return NumericComparisonOperator(">", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result)
-{
-    return NumericComparisonOperator(">=", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericLessThan & expr, std::string & result)
-{
-    return NumericComparisonOperator("<", &expr, result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericLessThanEqual & expr, std::string & result)
-{
-    return NumericComparisonOperator("<=", &expr, result);
-}
-
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::IntFunction & expr, std::string & result)
-{
-  return NumericExpr("(int)", expr.GetArg1(), result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::SqrFunction & expr, std::string & result)
-{
-  return NumericExpr("sqrt", expr.GetArg1(), result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::TabFunction & expr, std::string & result)
-{
-  return NumericExpr("basalt_tab", expr.GetArg1(), result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::ChrFunction & expr, std::string & result)
-{
-  return NumericExpr("basalt_chr", expr.GetArg1(), result);
-}
-
-int C_CodeGenerator::Evaluate(const AST::StrFunction & expr, std::string & result)
-{
-  const char * funcName = g_varTypeInfo[(int)expr.GetArg1()->GetType()].m_strFn;
-  if (funcName == 0) {
-    InternalError("cannot find str function for type " << (int)expr.GetArg1()->GetType());
-    return -1;
-  }
-
-  std::string str;
-  if (NumericExpr(funcName, expr.GetArg1(), str) != 0)
-    return -1;
-  std::string temp1 = Top().GetTempName();
-  TopOutput() << STRING_CTYPE " " << temp1 << " = " << str << ";\n";
-  result = temp1;
+  Line("return 0;");
   return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::LenFunction & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::If & node)
 {
-    return StringExpr("basalt_strlen", expr.GetArg1(), result);
+  Line("if (" + Operand(node.m_cond) + ") {");
+  m_indent += 2;
+  return 0;
 }
 
-
-int C_CodeGenerator::Evaluate(const AST::LeftFunction & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::Else &)
 {
-    if (expr.GetArg1() == nullptr)
-        return -1;
-
-    result = "basalt_left()";
-    return 0;
+  m_indent -= 2;
+  Line("} else {");
+  m_indent += 2;
+  return 0;
 }
 
-int C_CodeGenerator::Evaluate(const AST::MidFunction & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::EndIf &)
 {
-    if (expr.GetArg1() == nullptr)
-        return -1;
-
-    result = "basalt_mid()";
-    return 0;
+  m_indent -= 2;
+  Line("}");
+  return 0;
 }
 
-int C_CodeGenerator::Evaluate(const AST::RightFunction & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::PrintNewLine &)
 {
-    if (expr.GetArg1() == nullptr)
-        return -1;
-
-    result = "basalt_right()";
-    return 0;
+  Line("print_newline();");
+  return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Evaluate(const AST::NumericCast & expr, std::string & result)
+int C_OutputGenerator::Generate(CodeGenerator::PrintTab &)
 {
-    std::string str;
-    expr.m_from->Evaluate(*this, str);
-    stringstream strm;
-    strm << "/* cast from "
-        << (int)expr.m_from->GetType()
-        << " to "
-        << (int)expr.GetType()
-        << " */ ("
-        << str
-        << ")";
-    result = strm.str();
-    return 0;
+  Line("print_tab();");
+  return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Generate(const AST::IfStatement & expr)
+int C_OutputGenerator::Generate(CodeGenerator::PrintStringConst & node)
 {
-  if (expr.m_cond == nullptr)
-    return eOp_NextLine;
-  if (expr.m_trueStatements == nullptr)
-    return eOp_NextLine;
-
-  std::string str;
-  expr.m_cond->Evaluate(*this, str);
-
-  TopOutput(true) << "if (" << str << ")\n";
-
-  std::string gotoLine = expr.m_trueStatements->m_lineNumber;
-  if (!gotoLine.empty()) {
-    Push();
-    TopOutput() << "block->m_func = &" BLOCKFN_PREFIX << gotoLine << ";\n";
-    TopOutput() << "return 0;\n";
-    Pop();
-  }
-  else {
-    Push();
-    expr.m_trueStatements->m_statements->Generate(*this);
-    Pop();
-  }
-  if (expr.m_falseStatements) {
-    TopOutput(true) << "else\n";
-    Push();
-    expr.m_falseStatements->Generate(*this);
-    Pop();
-  }
-  return eOp_NextStatement;
+  Line("print_string(\"" + EscapeC(node.m_value) + "\");");
+  return 0;
 }
 
-////////////////////////////////////////////////////////////////
-
-int C_CodeGenerator::Generate(const AST::ForStatement & expr)
+int C_OutputGenerator::Generate(CodeGenerator::PrintStringVar & node)
 {
-  std::string forRef = GetGlobalTempName();
+  Line("print_string(" + StringPtr(node.m_value) + ");");
+  return 0;
+}
 
-  CVarDef cvar;
-  if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
-    return eOp_NextLine;
+int C_OutputGenerator::Generate(CodeGenerator::PrintNumber & node)
+{
+  std::string func = node.m_func;
+  std::string value = node.m_literal ? node.m_value : Operand(node.m_value);
+  Line(func + "(" + value + ");");
+  return 0;
+}
 
-  VarType forType = cvar.m_type;
-  std::string forCType = g_varTypeInfo[(int)forType].m_ctype;
-
-  std::string fromValue;
-  expr.m_fromVal->Evaluate(*this, fromValue);
-
-  std::string toValue;
-  expr.m_toVal->Evaluate(*this, toValue);
-
-  std::string stepValue;
-  if (expr.m_stepVal)
-    expr.m_stepVal->Evaluate(*this, stepValue);
-
-  ForBlock forBlock;
-  forBlock.m_isConst = false;
-  forBlock.m_ref = forRef;
-  forBlock.m_index = cvar.m_cname;
-  forBlock.m_ctype = forCType;
-  m_forQueue.push_back(forBlock);
-
-  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
-  TopOutput() << forCType << " " << forRef << "_to = " << toValue << ";\n";
-  TopOutput() << forCType << " " << forRef << "_step = ";
-  if (stepValue.empty())
-    TopOutput(false) << "((" << fromValue << " <= " << toValue << ") ? 1 : -1)";
+int C_OutputGenerator::Generate(CodeGenerator::UnaryOperator & node)
+{
+  std::string dest = Operand(node.m_ret);
+  std::string src = Operand(node.m_arg);
+  if (node.m_func == "=")
+    Line(dest + " = " + src + ";");
+  else if (node.m_func == "sets")
+    Line("{ char * copy = basalt_dup(" + StringPtr(node.m_arg) + "); if (" + dest + ") free(" + dest + "); " + dest + " = copy; }");
+  else if (node.m_func == "neg")
+    Line(dest + " = -(" + src + ");");
+  else if (node.m_func == "int")
+    Line(dest + " = (int16_t)(" + src + ");");
+  else if (node.m_func == "abs")
+    Line(dest + " = (" + src + " < 0) ? -(" + src + ") : (" + src + ");");
+  else if (node.m_func == "rnd")
+    Line(dest + " = basalt_rnd((float)(" + src + "));");
+  else if (node.m_func == "sqrt")
+    Line(dest + " = sqrt(" + src + ");");
+  else if (node.m_func == "cast")
+    Line(dest + " = (" + std::string(CTypeName(node.m_type)) + ")(" + src + ");");
+  else if (node.m_func == "len")
+    Line(dest + " = (int16_t)strlen(" + StringPtr(node.m_arg) + ");");
   else
-    TopOutput(false) << Trim(stepValue);
-  TopOutput(false) << ";\n";
-  TopOutput() << "while (((" << forRef << "_step >= 0) ? ("
-              << cvar.m_cname << " <= " << forRef << "_to) : ("
-              << cvar.m_cname << " >= " << forRef << "_to))) {\n";
-
-  return eOp_NextStatement;
+    Line("/* " + node.m_func + " */");
+  return 0;
 }
 
-int C_CodeGenerator::Generate(const AST::NextStatement & expr)
+int C_OutputGenerator::Generate(CodeGenerator::BinaryOperator & node)
 {
-  if (m_forQueue.empty()) {
-    CompilerError(Error_MismatchedNext, expr.m_lineNumber, "NEXT without FOR");
-    return eOp_NextLine;
+  std::string dest = Operand(node.m_ret);
+  std::string lhs = Operand(node.m_arg1);
+  std::string rhs = Operand(node.m_arg2);
+  const std::string & op = node.m_func;
+  if (op == "==" || op == "!=" || op == "<" || op == "<=" || op == ">" || op == ">=")
+    Line(dest + " = (" + lhs + " " + op + " " + rhs + ") ? -1 : 0;");
+  else if (op == "&" || op == "|")
+    Line(dest + " = (int16_t)(" + lhs + ") " + op + " (int16_t)(" + rhs + ");");
+  else if (op == "pow")
+    Line(dest + " = (" + std::string(CTypeName(node.m_type)) + ")pow((double)(" + lhs + "), (double)(" + rhs + "));");
+  else if (op == "cat")
+    Line(dest + " = basalt_concat(" + StringPtr(node.m_arg1) + ", " + StringPtr(node.m_arg2) + ");");
+  else if (op == "seq" || op == "sne") {
+    const char * cmp = (op == "seq") ? "==" : "!=";
+    Line(dest + " = (strcmp(" + StringPtr(node.m_arg1) + ", " + StringPtr(node.m_arg2) + ") " + cmp + " 0) ? -1 : 0;");
   }
-
-  ForBlock forBlock = m_forQueue.back();
-  m_forQueue.pop_back();
-
-  TopOutput() << forBlock.m_index << " += " << forBlock.m_ref << "_step;\n";
-  TopOutput() << "}\n";
-  return eOp_NextStatement;
-}
-
-static std::string QuotedIfConstant(const AST::Expr * expr, const std::string & text)
-{
-  if (expr != nullptr && expr->IsConstant())
-    return std::string("\"") + text + "\"";
-  return text;
-}
-
-int C_CodeGenerator::Evaluate(const AST::LogicalAnd & expr, std::string & result)
-{
-  std::string lhs, rhs;
-  expr.m_lhs->Evaluate(*this, lhs);
-  expr.m_rhs->Evaluate(*this, rhs);
-  result = Top().GetTempName();
-  TopOutput() << "int16_t " << result << " = (int16_t)(" << lhs << ") & (int16_t)(" << rhs << ");\n";
-  return 0;
-}
-
-int C_CodeGenerator::Evaluate(const AST::LogicalOr & expr, std::string & result)
-{
-  std::string lhs, rhs;
-  expr.m_lhs->Evaluate(*this, lhs);
-  expr.m_rhs->Evaluate(*this, rhs);
-  result = Top().GetTempName();
-  TopOutput() << "int16_t " << result << " = (int16_t)(" << lhs << ") | (int16_t)(" << rhs << ");\n";
-  return 0;
-}
-
-int C_CodeGenerator::Evaluate(const AST::StringCompare & expr, std::string & result)
-{
-  std::string lhs, rhs;
-  expr.m_lhs->Evaluate(*this, lhs);
-  expr.m_rhs->Evaluate(*this, rhs);
-  lhs = QuotedIfConstant(expr.m_lhs, lhs);
-  rhs = QuotedIfConstant(expr.m_rhs, rhs);
-  result = Top().GetTempName();
-  const char * op = expr.m_equal ? "==" : "!=";
-  TopOutput() << "int16_t " << result << " = (strcmp("
-              << lhs << " ? " << lhs << " : \"\", "
-              << rhs << " ? " << rhs << " : \"\") " << op << " 0) ? -1 : 0;\n";
-  return 0;
-}
-
-int C_CodeGenerator::Evaluate(const AST::RndFunction & expr, std::string & result)
-{
-  std::string arg = "1";
-  if (expr.m_arg != nullptr)
-    expr.m_arg->Evaluate(*this, arg);
-  result = Top().GetTempName();
-  TopOutput() << "float " << result << " = basalt_rnd(" << arg << ");\n";
-  m_funcsUsed.insert("rnd");
-  return 0;
-}
-
-int C_CodeGenerator::Evaluate(const AST::NumericSubscript & expr, std::string & result)
-{
-  auto function = AST::g_userFunctions.find(expr.GetName());
-  if (function != AST::g_userFunctions.end()) {
-    const AST::UserFunction & fn = function->second;
-    if (fn.m_params.size() != expr.m_indexes.size()) {
-      CompilerError(eError_Parser, m_currentStatementLine,
-                    "wrong number of arguments for FN " << expr.GetName());
-      result = "0";
-      return -1;
-    }
-    std::vector<std::string> args;
-    for (auto * index : expr.m_indexes) {
-      std::string arg;
-      index->Evaluate(*this, arg);
-      args.push_back(arg);
-    }
-    std::vector<std::pair<std::string, std::string>> saved;
-    for (size_t i = 0; i < fn.m_params.size(); ++i) {
-      CVarDef cvar;
-      if (!LookupGlobalVar(fn.m_params[i], cvar)) {
-        result = "0";
-        return -1;
-      }
-      std::string slot = Top().GetTempName();
-      TopOutput() << g_varTypeInfo[(int)cvar.m_type].m_ctype << " " << slot
-                  << " = " << cvar.m_cname << ";\n";
-      TopOutput() << cvar.m_cname << " = " << args[i] << ";\n";
-      saved.push_back(std::make_pair(cvar.m_cname, slot));
-    }
-    if (fn.m_body == nullptr) {
-      result = "0";
-      return -1;
-    }
-    fn.m_body->Evaluate(*this, result);
-    for (auto it = saved.rbegin(); it != saved.rend(); ++it)
-      TopOutput() << it->first << " = " << it->second << ";\n";
-    return 0;
-  }
-
-  CVarDef cvar;
-  if (!LookupGlobalVar(expr.GetName(), cvar))
-    return -1;
-  result = cvar.m_cname;
-  for (auto * index : expr.m_indexes) {
-    std::string idx;
-    index->Evaluate(*this, idx);
-    result += "[(int)(" + idx + ")]";
-  }
-  return 0;
-}
-
-int C_CodeGenerator::Print(const AST::NumericSubscript & expr)
-{
-  std::string value;
-  if (Evaluate(expr, value) != 0)
-    return -1;
-  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
-  if (AST::g_userFunctions.count(expr.GetName()) != 0) {
-    auto & fn = AST::g_userFunctions[expr.GetName()];
-    if (fn.m_body != nullptr)
-      funcName = g_varTypeInfo[(int)fn.m_body->GetType()].m_printFn;
-  }
-  m_funcsUsed.insert(funcName);
-  TopOutput() << funcName << "(" << value << ");\n";
-  return 0;
-}
-
-int C_CodeGenerator::Generate(const AST::DimStatement & expr)
-{
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Generate(const AST::DefStatement & expr)
-{
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Generate(const AST::InputStatement & expr)
-{
-  m_funcsUsed.insert("input");
-  m_funcsUsed.insert("print_string");
-  if (!expr.m_prompt.empty())
-    TopOutput() << "print_string(" << QuoteLiteral(expr.m_prompt) << ");\n";
-  if (expr.m_vars == nullptr)
-    return eOp_NextStatement;
-  for (auto & item : expr.m_vars->m_list) {
-    auto * numeric = dynamic_cast<AST::NumericVarRef *>(item.get());
-    auto * str = dynamic_cast<AST::StringVarRef *>(item.get());
-    if (expr.m_lineInput && str != nullptr) {
-      CVarDef cvar;
-      if (!LookupGlobalVar(str->GetName(), cvar))
-        return eOp_NextLine;
-      TopOutput() << "basalt_line_input(&" << cvar.m_cname << ");\n";
-      continue;
-    }
-    if (str != nullptr) {
-      CVarDef cvar;
-      if (!LookupGlobalVar(str->GetName(), cvar))
-        return eOp_NextLine;
-      TopOutput() << "basalt_input_string(&" << cvar.m_cname << ");\n";
-      continue;
-    }
-    if (numeric != nullptr) {
-      std::string loc;
-      numeric->Evaluate(*this, loc);
-      const char * ctype = g_varTypeInfo[(int)numeric->GetType()].m_ctype;
-      TopOutput() << loc << " = (" << ctype << ")basalt_read_number();\n";
-    }
-  }
-  return eOp_NextStatement;
-}
-
-int C_CodeGenerator::Generate(const AST::OnGotoStatement & expr)
-{
-  std::string index;
-  if (expr.m_index != nullptr)
-    expr.m_index->Evaluate(*this, index);
   else
-    index = "0";
-  TopOutput() << "switch ((int)(" << index << ")) {\n";
-  for (size_t i = 0; i < expr.m_lines.size(); ++i) {
-    TopOutput() << "case " << (i + 1) << ": block->m_func = &" BLOCKFN_PREFIX
-                << expr.m_lines[i] << "; return 0;\n";
-  }
-  TopOutput() << "default: break;\n}\n";
-  return eOp_NextStatement;
+    Line(dest + " = " + lhs + " " + op + " " + rhs + ";");
+  return 0;
 }
 
-int C_CodeGenerator::Generate(const AST::ClearStatement & expr)
+int C_OutputGenerator::Generate(CodeGenerator::IndexOp & node)
 {
-  for (auto & entry : m_globalVars) {
-    if (AST::g_userFunctions.count(entry.first) != 0)
-      continue;
+  if (node.m_indexes.empty())
+    return 0;
+  if (node.m_store)
+    Line(IndexText(node) + " = " + Operand(node.m_value) + ";");
+  else
+    Line(Operand(node.m_value) + " = " + IndexText(node) + ";");
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::Input & node)
+{
+  std::string name = Mangle(node.m_name);
+  if (node.m_string && node.m_line)
+    Line("basalt_line_input(&" + name + ");");
+  else if (node.m_string)
+    Line("basalt_input_string(&" + name + ");");
+  else
+    Line(name + " = (" + std::string(CTypeName(node.m_type)) + ")basalt_read_number();");
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::OnGoto & node)
+{
+  Line("switch ((int)(" + Operand(node.m_index) + ")) {");
+  for (size_t i = 0; i < node.m_lines.size(); ++i)
+    Line("case " + std::to_string(i + 1) + ": goto line_" + node.m_lines[i] + ";");
+  Line("default: break;");
+  Line("}");
+  return 0;
+}
+
+int C_OutputGenerator::Generate(CodeGenerator::Clear &)
+{
+  for (auto & entry : AST::g_globalVars) {
+    if (AST::g_userFunctions.count(entry.first) != 0 && !IsArrayName(entry.first)
+        && entry.second.m_type != VarType::eString && entry.first.size() > 2)
+      ;
+    std::string name = Mangle(entry.first);
     if (entry.second.m_type == VarType::eString) {
-      TopOutput() << "if (" << entry.second.m_cname << ") free(" << entry.second.m_cname << ");\n";
-      TopOutput() << entry.second.m_cname << " = 0;\n";
+      Line("if (" + name + ") free(" + name + ");");
+      Line(name + " = 0;");
     }
-    else if (AST::g_arrayBounds.count(entry.first) != 0) {
-      TopOutput() << "memset(" << entry.second.m_cname << ", 0, sizeof " << entry.second.m_cname << ");\n";
-    }
-    else {
-      TopOutput() << entry.second.m_cname << " = 0;\n";
-    }
+    else if (IsArrayName(entry.first))
+      Line("memset(" + name + ", 0, sizeof " + name + ");");
+    else
+      Line(name + " = 0;");
   }
-  return eOp_NextStatement;
+  return 0;
 }
 
-int C_CodeGenerator::Generate(const AST::WidthStatement & expr)
+int C_OutputGenerator::Generate(CodeGenerator::Width & node)
 {
-  m_funcsUsed.insert("width");
-  TopOutput() << "g_tabLen = " << expr.m_width << ";\n";
-  return eOp_NextStatement;
+  Line("g_tabLen = " + std::to_string(node.m_width) + ";");
+  return 0;
 }

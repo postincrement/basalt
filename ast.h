@@ -283,6 +283,19 @@ class RndFunction : public NumericExpr
     const NumericExpr * m_arg;
 };
 
+class AbsFunction : public NumericExpr
+{
+  public:
+    explicit AbsFunction(const NumericExpr * arg)
+      : NumericExpr(arg != nullptr ? arg->GetType() : VarType::eSingle)
+      , m_arg(arg)
+    { }
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+
+    const NumericExpr * m_arg;
+};
+
 class StringVarRef : public StringExpr
 {
   public:

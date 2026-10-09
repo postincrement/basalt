@@ -1,21 +1,17 @@
-#ifndef LLVM_CODEGEN_H_
-#define LLVM_CODEGEN_H_
-
-#include <map>
-#include <string>
-#include <vector>
+#ifndef PRETTY_CODEGEN_H_
+#define PRETTY_CODEGEN_H_
 
 #include "../outputgen.h"
 
-class LLVM_OutputGenerator : public OutputGenerator
+class Pretty_OutputGenerator : public OutputGenerator
 {
   public:
-    explicit LLVM_OutputGenerator(CodeGenerator & codeGenerator);
+    explicit Pretty_OutputGenerator(CodeGenerator & codeGenerator);
 
   protected:
     void OutputFilePrologue(std::ostream & strm) override;
     void OutputFileEpilogue(std::ostream & strm) override;
-
+    int Generate(CodeGenerator::Node & node) override;
     int Generate(CodeGenerator::GotoTarget & node) override;
     int Generate(CodeGenerator::Goto & node) override;
     int Generate(CodeGenerator::Gosub & node) override;
@@ -39,37 +35,7 @@ class LLVM_OutputGenerator : public OutputGenerator
     int Generate(CodeGenerator::Clear & node) override;
     int Generate(CodeGenerator::Width & node) override;
 
-    void Prepare();
-    void Emit(const std::string & text);
-    void EnsureOpen();
-    void Close(const std::string & next);
-    std::string Tmp();
-    std::string Lab(const std::string & prefix);
-    const char * Ty(VarType type) const;
-    std::string Ptr(const std::string & name) const;
-    std::string Literal(VarType type, const std::string & text) const;
-    std::string FLit(float value) const;
-    std::string DLit(double value) const;
-    std::string LoadAs(VarType type, const std::string & name);
-    std::string Cast(const std::string & value, VarType from, VarType to);
-    void Store(VarType type, const std::string & value, const std::string & name);
-    std::string StringPtr(const std::string & name, bool nullable);
-    std::string LlvmString(const std::string & text) const;
-    VarType TypeOf(const std::string & name) const;
-
-    bool m_ready = false;
-    bool m_terminated = false;
-    int m_ssa = 0;
-    int m_lab = 0;
-    std::map<std::string, VarType> m_types;
-    std::vector<int> m_gosubs;
-    int m_gosubId = 0;
-    struct IfFrame {
-      std::string m_elseLabel;
-      std::string m_endLabel;
-      bool m_sawElse = false;
-    };
-    std::vector<IfFrame> m_ifStack;
+    void Line(const std::string & text);
 };
 
 #endif

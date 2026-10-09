@@ -224,3 +224,20 @@ float basalt_rnd(float x)
     g_rndSeed = g_rndSeed * 214013ul + 2531011ul;
   return (float)((g_rndSeed >> 16) & 32767ul) / 32768.0f;
 }
+
+char * basalt_concat(const char * a, const char * b)
+{
+  size_t na;
+  size_t nb;
+  char * out;
+  if (a == NULL)
+    a = "";
+  if (b == NULL)
+    b = "";
+  na = strlen(a);
+  nb = strlen(b);
+  out = (char *)malloc(na + nb + 1);
+  memcpy(out, a, na);
+  memcpy(out + na, b, nb + 1);
+  return out;
+}

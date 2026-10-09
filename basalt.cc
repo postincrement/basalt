@@ -10,6 +10,7 @@ using namespace std;
 
 #include "c/c_codegen.h"
 #include "z80/z80_codegen.h"
+#include "pretty/pretty_codegen.h"
 #ifdef BASALT_WITH_LLVM
 #include "llvm/llvm_codegen.h"
 #endif
@@ -28,7 +29,7 @@ LanguageProfile * g_languageProfile = nullptr;
 
 static int  g_warningCount      = 0;
 static Factory<LanguageProfile> g_languageProfileFactory;
-static Factory<CodeGenerator>   g_codeGenerators;
+static Factory<OutputGenerator, CodeGenerator &> g_outputGenerators;
 
 static LanguageProfileDef g_basicVariants[] = { 
 // name      varlen tab defnum              defint
@@ -220,10 +221,11 @@ void Basalt::DisplayHelp(const std::vector<ArgDef> & argDefs)
 int Basalt::Main(int argc, char const *argv[])
 {
   // register language profiles
-  g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
-  g_codeGenerators.Register<Z80_CodeGenerator>("z80");
+  g_outputGenerators.Register<C_OutputGenerator>("ansi-c");
+  g_outputGenerators.Register<Z80_OutputGenerator>("z80");
+  g_outputGenerators.Register<Pretty_OutputGenerator>("pretty");
 #ifdef BASALT_WITH_LLVM
-  g_codeGenerators.Register<LLVM_CodeGenerator>("llvm");
+  g_outputGenerators.Register<LLVM_OutputGenerator>("llvm");
 #endif
 
   m_arch           = "ansi-c";
@@ -250,8 +252,9 @@ int Basalt::Main(int argc, char const *argv[])
     return 0;
   }
 
-  // create code generator
-  CodeGenerator * codeGen = g_codeGenerators.CreateInstance(m_arch);
+  // One lowering pass feeds every backend.
+  CodeGenerator lowered;
+  OutputGenerator * codeGen = g_outputGenerators.CreateInstance(m_arch, lowered);
   if (codeGen == nullptr) {
     cerr << "error: unknown arch '" << m_arch << "'" << endl;
     return -1;
@@ -349,7 +352,12 @@ int Basalt::Main(int argc, char const *argv[])
     return -1;
   }
 
-  if (!codeGen->Run(g_printableInputFilename, outputStream, AST::g_program)) {
+  if (!lowered.Build(AST::g_program)) {
+    cerr << "error: code generation failed" << endl;
+    return -1;
+  }
+
+  if (!codeGen->Run(g_printableInputFilename, outputStream)) {
     cerr << "error: code generation failed" << endl;
     return -1;
   }

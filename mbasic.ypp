@@ -20,6 +20,7 @@
 #define STR_TOKEN MBASIC_TOK_STR_TOKEN
 #define TAB_TOKEN MBASIC_TOK_TAB_TOKEN
 #define RND_TOKEN MBASIC_TOK_RND_TOKEN
+#define ABS_TOKEN MBASIC_TOK_ABS_TOKEN
 #define CLEAR_TOKEN MBASIC_TOK_CLEAR_TOKEN
 #define DEF_TOKEN MBASIC_TOK_DEF_TOKEN
 #define DIM_TOKEN MBASIC_TOK_DIM_TOKEN
@@ -204,6 +205,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %token STR_TOKEN
 %token TAB_TOKEN
 %token RND_TOKEN
+%token ABS_TOKEN
 
 // commands
 %token CLEAR_TOKEN
@@ -1056,7 +1058,11 @@ MULT_expression:  MULT_expression '*' NEGATE_expression
 NEGATE_expression:  '-' POWER_expression
                       {
                         $$ = new AST::Negation($2);  
-                      }  
+                      }
+                    | '+' POWER_expression
+                      {
+                        $$ = $2;
+                      }
                     | POWER_expression
                       {
                         $$ = $1;
@@ -1105,6 +1111,10 @@ numeric_value:  numeric_var_ref
                 | RND_TOKEN '(' expression ')'
                   {
                     $$ = new AST::RndFunction($3);
+                  }
+                | ABS_TOKEN '(' expression ')'
+                  {
+                    $$ = new AST::AbsFunction($3);
                   }
                 | numeric_const_expr
                   {

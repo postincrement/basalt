@@ -1,168 +1,54 @@
 #ifndef C_CODEGEN_H_
 #define C_CODEGEN_H_
 
-#include <deque>
+#include <set>
+#include <string>
+#include <vector>
 
-#include "../codegen.h"
+#include "../outputgen.h"
 
-class C_CodeGenerator : public CodeGenerator
+void BasaltWriteCRuntimeDecls(std::ostream & strm, const std::set<std::string> & funcs);
+void BasaltWriteCRuntime(std::ostream & strm, const std::set<std::string> & funcs);
+
+class C_OutputGenerator : public OutputGenerator
 {
   public:
-    C_CodeGenerator();
-
-    std::stringstream m_body;
-
-    enum {
-      eOp_NextStatement = 100,
-      eOp_NextLine,
-      eOp_EndProgram,
-      eOp_Goto,
-      eOp_Next,
-      eOp_Return
-    };
-
-    struct CVarDef {
-      VarType m_type;
-      std::string m_cname;
-    };
-
-    bool LookupGlobalVar(
-      const std::string & varName, 
-      CVarDef & cvar
-    );
-
-    struct CodeBlock
-    {
-      std::stringstream m_body;
-      std::string m_ref;
-      bool m_ended = false;
-    };
-
-    void Generate();
-    void OutputRuntimeDecls(std::ostream & strm);
-    void OutputRuntime(std::ostream & strm);
-    void OutputBlocks();
+    explicit C_OutputGenerator(CodeGenerator & codeGenerator);
 
   protected:
-    void GenerateLine(int index, const AST::SourceLine & line);
-    int GenerateStatement(int index, 
-           const std::string & basicLineNumber,
-                          bool isLastStatementOnLine, 
-        const AST::Statement & statement);
+    void OutputFilePrologue(std::ostream & strm) override;
+    void OutputFileEpilogue(std::ostream & strm) override;
 
-    const AST::SourceLine * m_nextLine;
-    bool m_lastBlockHadReturn;
-    bool m_startBlock = false;
-    std::string m_nextBlockRef;
+    int Generate(CodeGenerator::GotoTarget & node) override;
+    int Generate(CodeGenerator::Goto & node) override;
+    int Generate(CodeGenerator::Gosub & node) override;
+    int Generate(CodeGenerator::Return & node) override;
+    int Generate(CodeGenerator::End & node) override;
+    int Generate(CodeGenerator::System & node) override;
+    int Generate(CodeGenerator::If & node) override;
+    int Generate(CodeGenerator::Else & node) override;
+    int Generate(CodeGenerator::EndIf & node) override;
+    int Generate(CodeGenerator::PrintNewLine & node) override;
+    int Generate(CodeGenerator::PrintTab & node) override;
+    int Generate(CodeGenerator::PrintStringConst & node) override;
+    int Generate(CodeGenerator::PrintStringVar & node) override;
+    int Generate(CodeGenerator::PrintNumber & node) override;
+    int Generate(CodeGenerator::UnaryOperator & node) override;
+    int Generate(CodeGenerator::BinaryOperator & node) override;
+    int Generate(CodeGenerator::IndexOp & node) override;
+    int Generate(CodeGenerator::Input & node) override;
+    int Generate(CodeGenerator::OnGoto & node) override;
+    int Generate(CodeGenerator::Clear & node) override;
+    int Generate(CodeGenerator::Width & node) override;
 
-    void StartBlock(const std::string & ref, bool autoEnd = true);
-    void EndBlock();
+    std::string Operand(const std::string & name) const;
+    std::string StringPtr(const std::string & name) const;
+    std::string IndexText(const CodeGenerator::IndexOp & node) const;
+    void Line(const std::string & text);
 
-    int NumericBinaryOperator    (const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
-    int NumericComparisonOperator(const std::string & op, const AST::NumericBinaryOperation * expr, std::string & result);
-    int UnaryOperator        (const std::string & op, const AST::UnaryOperation * expr,         std::string & result);
-    int NumericExpr          (const std::string & op, const AST::NumericExpr * expr,            std::string & result);
-    int StringExpr           (const std::string & op, const AST::StringExpr * expr,             std::string & result);
-
-    void CatStrings(const std::string & tempName,
-                    const std::string & lhs, 
-                    const std::string & rhs, 
-                    const std::string & pre,
-                    bool indent = true);
-
-    typedef std::map<std::string, CVarDef> GlobalVarMap;
-    std::set<std::string> m_cnames;
-    GlobalVarMap m_globalVars;  
-
-    std::vector<CodeBlock> m_codeBlocks;
-    int m_currentBlock = -1;
-
-    struct ForBlock {
-      std::string m_index;  // name of index variable
-      std::string m_ctype;
-      bool m_isConst;
-      std::string m_ref;
-    };
-
-    std::deque<ForBlock> m_forQueue;
-    bool m_isLastStatementOnLine = false;
-    bool m_isLastStatement = false;
-
-    std::set<std::string> m_funcsUsed;
-
-  public:   
-    virtual bool Body() override;
-
-    virtual int Generate(const AST::SourceLine & expr) override;
-    //virtual int Generate(const AST::Statement & statement) override;
-
-    virtual int Generate(const AST::Print & expr) override;
-    virtual int Generate(const AST::NumericAssign & expr) override;
-    virtual int Generate(const AST::StringAssign & expr) override;
-    virtual int Generate(const AST::GotoStatement & expr) override;
-    virtual int Generate(const AST::End & expr) override;
-    virtual int Generate(const AST::System & expr) override;
-    virtual int Generate(const AST::Rem & expr) override;
-    virtual int Generate(const AST::AssignStatement & expr) override;
-    virtual int Generate(const AST::IfStatement & expr) override;
-    virtual int Generate(const AST::ForStatement & expr) override;
-    virtual int Generate(const AST::NextStatement & expr) override;
-    virtual int Generate(const AST::GosubStatement & expr) override;
-    virtual int Generate(const AST::ReturnStatement & expr) override;
-    virtual int Generate(const AST::DimStatement & expr) override;
-    virtual int Generate(const AST::InputStatement & expr) override;
-    virtual int Generate(const AST::OnGotoStatement & expr) override;
-    virtual int Generate(const AST::DefStatement & expr) override;
-    virtual int Generate(const AST::ClearStatement & expr) override;
-    virtual int Generate(const AST::WidthStatement & expr) override;
-
-    //virtual int Evaluate(const AST::StringConstant & expr, std::string & result) override;
-    virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) override;
-    virtual int Evaluate(const AST::StrFunction & expr, std::string & result) override;
-    //virtual int Evaluate(const AST::Int16Constant & expr, std::string & result) override;
-    virtual int Evaluate(const AST::Int32Constant & expr, std::string & result) override;
-    virtual int Evaluate(const AST::SingleConstant & expr, std::string & result) override;
-    virtual int Evaluate(const AST::DoubleConstant & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericVarRef & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericAddition & expr, std::string & result) override;
-    virtual int Evaluate(const AST::Subtraction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::Multiplication & expr, std::string & result) override;
-    virtual int Evaluate(const AST::Division & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericEquality & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericNotEquality & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericGreaterThan & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) override;
-    virtual int Evaluate(const AST::LogicalAnd & expr, std::string & result) override;
-    virtual int Evaluate(const AST::LogicalOr & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericSubscript & expr, std::string & result) override;
-    virtual int Evaluate(const AST::StringCompare & expr, std::string & result) override;
-    virtual int Evaluate(const AST::RndFunction & expr, std::string & result) override;
-    
-    virtual int Evaluate(const AST::Negation & expr, std::string & result) override;
-    virtual int Evaluate(const AST::Power & expr, std::string & result) override;
-    virtual int Evaluate(const AST::NumericCast & expr, std::string & result) override;
-    virtual int Evaluate(const AST::IntFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::SqrFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::LenFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::TabFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::LeftFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::MidFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::RightFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::ChrFunction & expr, std::string & result) override;
-    virtual int Evaluate(const AST::StringAddition & expr, std::string & result) override;
-
-    virtual int Print(const AST::NumericExpr & expr) override;
-    virtual int Print(const AST::StringConstant & expr) override;
-    virtual int Print(const AST::Int16Constant & expr) override;
-    virtual int Print(const AST::Int32Constant & expr) override;
-    virtual int Print(const AST::SingleConstant & expr) override;
-    virtual int Print(const AST::DoubleConstant & expr) override;
-    virtual int Print(const AST::PrintComma & expr) override;
-    virtual int Print(const AST::NumericVarRef & expr) override;
-    virtual int Print(const AST::StringVarRef & expr) override;
-    virtual int Print(const AST::NumericSubscript & expr) override;
+    std::vector<int> m_gosubs;
+    int m_gosubId = 0;
+    bool m_needStrings = false;
 };
 
-#endif // C_CODEGEN_H_
+#endif

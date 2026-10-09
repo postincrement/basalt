@@ -40,10 +40,12 @@ set(BASALT_SOURCES
   basalt.cc
   ast.cc
   codegen.cc
+  outputgen.cc
   common.cc
   c/c_codegen.cc
   c/c_runtime.cc
   z80/z80_codegen.cc
+  pretty/pretty_codegen.cc
   ${BISON_mbasic_OUTPUTS}
   ${FLEX_mbasic_OUTPUTS}
 )

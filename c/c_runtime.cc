@@ -1,62 +1,62 @@
-#include "c_codegen.h"
-
 #include <ostream>
+#include <set>
+#include <string>
 
-void C_CodeGenerator::OutputRuntimeDecls(std::ostream & strm)
+void BasaltWriteCRuntimeDecls(std::ostream & strm, const std::set<std::string> & funcs)
 {
   strm << "\n"
        << "int basalt_init();\n\n"
        ;
       
-  if (m_funcsUsed.count("print_tab")) 
+  if (funcs.count("print_tab")) 
     strm << "int print_tab();\n";
 
-  if (m_funcsUsed.count("print_newline")) 
+  if (funcs.count("print_newline")) 
     strm << "int print_newline();\n";
 
-  if (m_funcsUsed.count("print_string")) 
+  if (funcs.count("print_string")) 
     strm << "int print_string(const char *);\n";
 
-  if (m_funcsUsed.count("print_int16")) 
+  if (funcs.count("print_int16")) 
    strm << "int print_int16(int16_t);\n";
 
-  if (m_funcsUsed.count("print_int32")) 
+  if (funcs.count("print_int32")) 
    strm << "int print_int32(int32_t);\n";
 
-  if (m_funcsUsed.count("print_single")) 
+  if (funcs.count("print_single")) 
    strm << "int print_single(float);\n";
 
-  if (m_funcsUsed.count("print_double")) 
+  if (funcs.count("print_double")) 
    strm << "int print_double(double);\n";
 
-  if (m_funcsUsed.count("input")) {
+  if (funcs.count("input")) {
     strm << "double basalt_read_number(void);\n";
     strm << "void basalt_input_string(char **);\n";
     strm << "void basalt_line_input(char **);\n";
   }
-  if (m_funcsUsed.count("rnd"))
+  if (funcs.count("rnd"))
     strm << "float basalt_rnd(float);\n";
 
 #if 0
-  if (m_funcsUsed.count("print_int32")) 
+  if (funcs.count("print_int32")) 
     strm << "int print_int32(int32_t);\n";
 
-  if (m_funcsUsed.count("print_double")) 
+  if (funcs.count("print_double")) 
    strm << "int print_double(double);\n";
 
-  if (m_funcsUsed.count("strlen")) 
+  if (funcs.count("strlen")) 
    strm << "int strlen(const char *);\n";
 
-  if (m_funcsUsed.count("strdup")) 
+  if (funcs.count("strdup")) 
    strm << "char * strdup(const char *);\n";
 
-  if (m_funcsUsed.count("str_single")) 
+  if (funcs.count("str_single")) 
     strm << "char * str_single(float);\n";
 
-  if (m_funcsUsed.count("str_int16")) 
+  if (funcs.count("str_int16")) 
     strm << "char * str_int16(int16_t);\n";
 
-  if (m_funcsUsed.count("str_int32")) 
+  if (funcs.count("str_int32")) 
     strm << "char * str_int32(int32_t);\n";
 #endif
 
@@ -129,7 +129,7 @@ int print_int16(int16_t value)\n\
 }\n\n\
 ";
 
-void C_CodeGenerator::OutputRuntime(std::ostream & strm)
+void BasaltWriteCRuntime(std::ostream & strm, const std::set<std::string> & funcs)
 {
   strm << "\n/* run time functions */\n\n";
 
@@ -140,19 +140,19 @@ void C_CodeGenerator::OutputRuntime(std::ostream & strm)
        << "\n"
        ;
 
-  if (m_funcsUsed.count("print_tab")) 
+  if (funcs.count("print_tab")) 
     strm << g_printTab;
 
-  if (m_funcsUsed.count("print_newline")) 
+  if (funcs.count("print_newline")) 
     strm << g_printNewLine;
 
-  if (m_funcsUsed.count("print_string")) 
+  if (funcs.count("print_string")) 
     strm << g_printString;
 
-  if (m_funcsUsed.count("print_int16")) 
+  if (funcs.count("print_int16")) 
     strm << g_printInt16;
 
-  if (m_funcsUsed.count("print_int32")) 
+  if (funcs.count("print_int32")) 
     strm << "int print_int32(int32_t value)\n"
             "{\n"
             "  char buffer[20];\n"
@@ -162,13 +162,13 @@ void C_CodeGenerator::OutputRuntime(std::ostream & strm)
             "  return 0;\n"
             "}\n\n";
 
-  if (m_funcsUsed.count("print_single")) 
+  if (funcs.count("print_single")) 
     strm << g_printSingle;
 
-  if (m_funcsUsed.count("print_double")) 
+  if (funcs.count("print_double")) 
     strm << g_printDouble;
 
-  if (m_funcsUsed.count("input")) {
+  if (funcs.count("input")) {
     strm <<
       "static char g_inLine[512];\n"
       "static char * g_inPtr;\n"
@@ -238,7 +238,7 @@ void C_CodeGenerator::OutputRuntime(std::ostream & strm)
       "}\n";
   }
 
-  if (m_funcsUsed.count("rnd")) {
+  if (funcs.count("rnd")) {
     strm <<
       "static unsigned long g_rndSeed = 327680ul;\n"
       "float basalt_rnd(float x)\n"
