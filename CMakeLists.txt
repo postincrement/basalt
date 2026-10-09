@@ -70,7 +70,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|AppleClang")
 endif()
 
 if(BASALT_LLVM)
-  llvm_map_components_to_libnames(LLVM_LIBS core support native irreader)
+  llvm_map_components_to_libnames(LLVM_LIBS core support native irreader passes)
   target_include_directories(basalt PRIVATE ${LLVM_INCLUDE_DIRS})
   target_compile_definitions(basalt PRIVATE BASALT_WITH_LLVM ${LLVM_DEFINITIONS})
   target_link_libraries(basalt PRIVATE ${LLVM_LIBS})

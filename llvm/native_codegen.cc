@@ -5,8 +5,12 @@
 #include <string>
 #include <vector>
 
+#include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
@@ -113,7 +117,39 @@ static bool WriteDsym(const string & executable, string & error)
 #endif
 }
 
-static bool EmitObject(const string & ir, const string & objectPath, string & error, bool & debug)
+static void OptimizeModule(llvm::Module & module, bool debug)
+{
+  llvm::LoopAnalysisManager loops;
+  llvm::FunctionAnalysisManager functions;
+  llvm::CGSCCAnalysisManager cgscc;
+  llvm::ModuleAnalysisManager modules;
+  llvm::PassBuilder builder;
+  builder.registerModuleAnalyses(modules);
+  builder.registerCGSCCAnalyses(cgscc);
+  builder.registerFunctionAnalyses(functions);
+  builder.registerLoopAnalyses(loops);
+  builder.crossRegisterProxies(loops, functions, cgscc, modules);
+
+  llvm::OptimizationLevel level = debug ? llvm::OptimizationLevel::O0 : llvm::OptimizationLevel::O2;
+  llvm::ModulePassManager passes = debug
+    ? builder.buildO0DefaultPipeline(level)
+    : builder.buildPerModuleDefaultPipeline(level);
+  passes.run(module, modules);
+}
+
+static bool WriteModule(llvm::Module & module, const string & path, string & error)
+{
+  error_code openError;
+  llvm::raw_fd_ostream out(path, openError);
+  if (openError) {
+    error = openError.message();
+    return false;
+  }
+  module.print(out, nullptr);
+  return true;
+}
+
+static bool EmitObject(const string & ir, const string & objectPath, const string & outputPath, string & error, bool & debug)
 {
   static bool ready = false;
   if (!ready) {
@@ -159,6 +195,9 @@ static bool EmitObject(const string & ir, const string & objectPath, string & er
     return false;
   }
   module->setDataLayout(machine->createDataLayout());
+  OptimizeModule(*module, debug);
+  if (!WriteModule(*module, outputPath + ".ll", error))
+    return false;
 
   error_code openError;
   llvm::raw_fd_ostream object(objectPath, openError, llvm::sys::fs::OF_None);
@@ -203,7 +242,7 @@ bool Native_OutputGenerator::Run(const string & inputFilename, ostream *)
 
   string error;
   bool debug = false;
-  bool ok = EmitObject(ir.str(), objectPath.str().str(), error, debug);
+  bool ok = EmitObject(ir.str(), objectPath.str().str(), m_outputPath, error, debug);
   if (ok)
     ok = LinkExecutable(objectPath.str().str(), m_outputPath, error);
   if (ok && debug)

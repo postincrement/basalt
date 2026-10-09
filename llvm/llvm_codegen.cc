@@ -346,15 +346,15 @@ void LLVM_OutputGenerator::OutputFilePrologue(ostream & strm)
   for (auto & entry : AST::g_globalVars) {
     std::string name = "@" + Mangle(entry.first);
     if (IsArrayName(entry.first)) {
-      strm << name << " = global [" << ArrayLength(entry.first) << " x " << Ty(entry.second.m_type)
+      strm << name << " = internal global [" << ArrayLength(entry.first) << " x " << Ty(entry.second.m_type)
            << "] zeroinitializer\n";
     }
     else if (entry.second.m_type == VarType::eString)
-      strm << name << " = global ptr null\n";
+      strm << name << " = internal global ptr null\n";
     else if (IsFloatType(entry.second.m_type))
-      strm << name << " = global " << Ty(entry.second.m_type) << " 0.0\n";
+      strm << name << " = internal global " << Ty(entry.second.m_type) << " 0.0\n";
     else
-      strm << name << " = global " << Ty(entry.second.m_type) << " 0\n";
+      strm << name << " = internal global " << Ty(entry.second.m_type) << " 0\n";
   }
   strm << "\ndefine i32 @main()";
   if (g_debugInfo)

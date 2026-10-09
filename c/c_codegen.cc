@@ -64,13 +64,13 @@ void C_OutputGenerator::OutputFilePrologue(ostream & strm)
 
   for (auto & entry : AST::g_globalVars) {
     if (IsArrayName(entry.first)) {
-      strm << CTypeName(entry.second.m_type) << " " << Mangle(entry.first)
+      strm << "static " << CTypeName(entry.second.m_type) << " " << Mangle(entry.first)
            << "[" << ArrayLength(entry.first) << "] = {0};\n";
     }
     else if (entry.second.m_type == VarType::eString)
-      strm << "char * " << Mangle(entry.first) << " = 0;\n";
+      strm << "static char * " << Mangle(entry.first) << " = 0;\n";
     else
-      strm << CTypeName(entry.second.m_type) << " " << Mangle(entry.first) << " = 0;\n";
+      strm << "static " << CTypeName(entry.second.m_type) << " " << Mangle(entry.first) << " = 0;\n";
   }
   strm << "\n";
 
