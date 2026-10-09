@@ -1,5 +1,63 @@
 %define api.prefix {MBASIC_}
+%define api.token.prefix {MBASIC_TOK_}
 %define parse.error verbose
+
+%code provides {
+/* Lexer uses the historical token spellings. Bison 3 prefixes them. */
+#define EOL_TOKEN MBASIC_TOK_EOL_TOKEN
+#define EOF_TOKEN MBASIC_TOK_EOF_TOKEN
+#define GREATERTHANEQUAL MBASIC_TOK_GREATERTHANEQUAL
+#define LESSTHANEQUAL MBASIC_TOK_LESSTHANEQUAL
+#define NOT_EQUAL MBASIC_TOK_NOT_EQUAL
+#define AND_TOKEN MBASIC_TOK_AND_TOKEN
+#define CHR_TOKEN MBASIC_TOK_CHR_TOKEN
+#define INT_TOKEN MBASIC_TOK_INT_TOKEN
+#define LEFT_TOKEN MBASIC_TOK_LEFT_TOKEN
+#define LEN_TOKEN MBASIC_TOK_LEN_TOKEN
+#define MID_TOKEN MBASIC_TOK_MID_TOKEN
+#define RIGHT_TOKEN MBASIC_TOK_RIGHT_TOKEN
+#define SQR_TOKEN MBASIC_TOK_SQR_TOKEN
+#define STR_TOKEN MBASIC_TOK_STR_TOKEN
+#define TAB_TOKEN MBASIC_TOK_TAB_TOKEN
+#define RND_TOKEN MBASIC_TOK_RND_TOKEN
+#define CLEAR_TOKEN MBASIC_TOK_CLEAR_TOKEN
+#define DEF_TOKEN MBASIC_TOK_DEF_TOKEN
+#define DIM_TOKEN MBASIC_TOK_DIM_TOKEN
+#define ELSE_TOKEN MBASIC_TOK_ELSE_TOKEN
+#define END_TOKEN MBASIC_TOK_END_TOKEN
+#define FOR_TOKEN MBASIC_TOK_FOR_TOKEN
+#define IF_TOKEN MBASIC_TOK_IF_TOKEN
+#define GOSUB_TOKEN MBASIC_TOK_GOSUB_TOKEN
+#define GOTO_TOKEN MBASIC_TOK_GOTO_TOKEN
+#define INPUT_TOKEN MBASIC_TOK_INPUT_TOKEN
+#define LINE_TOKEN MBASIC_TOK_LINE_TOKEN
+#define LET_TOKEN MBASIC_TOK_LET_TOKEN
+#define NEXT_TOKEN MBASIC_TOK_NEXT_TOKEN
+#define OR_TOKEN MBASIC_TOK_OR_TOKEN
+#define ON_TOKEN MBASIC_TOK_ON_TOKEN
+#define PRINT_TOKEN MBASIC_TOK_PRINT_TOKEN
+#define REM_TOKEN MBASIC_TOK_REM_TOKEN
+#define RETURN_TOKEN MBASIC_TOK_RETURN_TOKEN
+#define RUN_TOKEN MBASIC_TOK_RUN_TOKEN
+#define STEP_TOKEN MBASIC_TOK_STEP_TOKEN
+#define SYSTEM_TOKEN MBASIC_TOK_SYSTEM_TOKEN
+#define STOP_TOKEN MBASIC_TOK_STOP_TOKEN
+#define THEN_TOKEN MBASIC_TOK_THEN_TOKEN
+#define TO_TOKEN MBASIC_TOK_TO_TOKEN
+#define USING_TOKEN MBASIC_TOK_USING_TOKEN
+#define WIDTH_TOKEN MBASIC_TOK_WIDTH_TOKEN
+#define IDENTIFIER MBASIC_TOK_IDENTIFIER
+#define QUOTED_STRING MBASIC_TOK_QUOTED_STRING
+#define DEF_INTEGER MBASIC_TOK_DEF_INTEGER
+#define INTEGER_VARNAME MBASIC_TOK_INTEGER_VARNAME
+#define STRING_VARNAME MBASIC_TOK_STRING_VARNAME
+#define SINGLE_VARNAME MBASIC_TOK_SINGLE_VARNAME
+#define DOUBLE_VARNAME MBASIC_TOK_DOUBLE_VARNAME
+#define COMMENT MBASIC_TOK_COMMENT
+#define INTEGER MBASIC_TOK_INTEGER
+#define DOUBLE MBASIC_TOK_DOUBLE
+#define SINGLE MBASIC_TOK_SINGLE
+}
 
 %{
 
@@ -123,6 +181,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 
   SingleFloat * sfloat;
   DoubleFloat * dfloat;
+  std::vector<std::string> * strvec;
 }
 
 %token EOL_TOKEN
@@ -144,6 +203,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %token SQR_TOKEN
 %token STR_TOKEN
 %token TAB_TOKEN
+%token RND_TOKEN
 
 // commands
 %token CLEAR_TOKEN
@@ -190,12 +250,13 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <statement>    LET_statement FOR_statement GOTO_statement
 %type <statement>    IF_statement REM_statement NEXT_statement
 %type <statement>    GOSUB_statement RETURN_statement
+%type <statement>    DEF_statement INPUT_statement LINE_statement ON_statement
 %type <exprList>     dim_var_list
 %type <expr>         assign_expression 
 %type <ifcond>       conditional_clause 
 
-%type <exprList> print_expression_list 
-%type <expr>     print_expression
+%type <exprList> print_expression_list input_var_list array_or_func_args
+%type <expr>     print_expression input_var
 
 %type <sval>        opt_line_number line_number  opt_COMMENT
 %type <ival>        integer
@@ -206,6 +267,7 @@ static void UseStringGlobalVar(AST::StringVarRef & var, bool left, bool right)
 %type <numexpr>    AND_expression NOT_expression numeric_compare_expression ADD_expression
 %type <numexpr>    MULT_expression NEGATE_expression POWER_expression string_compare_expression 
 %type <numexpr>    if_expression opt_STEP_statement
+%type <strvec>     opt_def_args def_arg_list opt_on_list
 
 %type <strvarref>  string_var_ref string_var_name
 %type <strexpr>    string_value string_expression string_const_expr 
@@ -299,9 +361,11 @@ opt_statement_list : /* empty */
 statement_list : statement2
                   {
                     $$ = new AST::StatementList();
-                    if (($1 != nullptr) && $1->m_text.empty())
-                      $1->m_text = g_application.GetStatement();
-                    $$->Append($1);
+                    if ($1 != nullptr) {
+                      if ($1->m_text.empty())
+                        $1->m_text = g_application.GetStatement();
+                      $$->Append($1);
+                    }
                   }   
                | statement_list ':'
                   {
@@ -309,8 +373,10 @@ statement_list : statement2
                   } 
                  statement2
                   {
-                    $4->m_text = g_application.GetStatement();
-                    $1->Append($4);
+                    if ($4 != nullptr) {
+                      $4->m_text = g_application.GetStatement();
+                      $1->Append($4);
+                    }
                     $$ = $1;
                   }   
                ;
@@ -327,11 +393,11 @@ statement2:   {
 
 statement:     CLEAR_statement
                   {
-                    $$ = nullptr;
+                    $$ = new AST::ClearStatement(g_lexLineNumber);
                   }
                | DEF_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }   
                | DIM_statement
                   {
@@ -359,7 +425,7 @@ statement:     CLEAR_statement
                   }
                | INPUT_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | LET_statement
                   {
@@ -367,7 +433,7 @@ statement:     CLEAR_statement
                   }
                | LINE_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | NEXT_statement
                   {
@@ -375,7 +441,7 @@ statement:     CLEAR_statement
                   }
                | ON_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }   
                | PRINT_statement 
                   {
@@ -387,7 +453,8 @@ statement:     CLEAR_statement
                   }
                | RUN_statement
                   {
-                    $$ = nullptr;
+                    ParserError(eError_Parser, "RUN is not supported");
+                    $$ = new AST::Rem(g_lexLineNumber, "run");
                   }
                | RETURN_statement
                   {
@@ -395,7 +462,7 @@ statement:     CLEAR_statement
                   }
                | STOP_statement
                   {
-                    $$ = nullptr;
+                    $$ = new AST::End(g_lexLineNumber);
                   }
                | SYSTEM_statement
                   {
@@ -403,7 +470,7 @@ statement:     CLEAR_statement
                   }
                | WIDTH_statement
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                | error /* bison error handler */   
                   {
@@ -422,7 +489,7 @@ eol:    EOL_TOKEN
 
  *********************************************************/ 
 
-CLEAR_statement: CLEAR_TOKEN expression
+CLEAR_statement: CLEAR_TOKEN
                  ;
 
 /********************************************************* 
@@ -431,15 +498,37 @@ CLEAR_statement: CLEAR_TOKEN expression
 
  *********************************************************/ 
 
-DEF_statement:  DEF_TOKEN IDENTIFIER opt_def_args '=' expression 
+DEF_statement:  DEF_TOKEN IDENTIFIER opt_def_args '=' expression
+                {
+                  $$ = new AST::DefStatement(g_lexLineNumber, *$2, $3, $5);
+                  delete $2;
+                }
                 ;
 
 opt_def_args: /* empty */
+              {
+                $$ = new std::vector<std::string>();
+              }
               | '(' def_arg_list ')'
+              {
+                $$ = $2;
+              }
               ;
 
-def_arg_list: IDENTIFIER 
+def_arg_list: IDENTIFIER
+              {
+                AST::NumericVarRef probe(g_languageProfile->GetDefaultNumericType(), *$1);
+                $$ = new std::vector<std::string>();
+                $$->push_back(probe.GetName());
+                delete $1;
+              }
               | def_arg_list ',' IDENTIFIER
+              {
+                AST::NumericVarRef probe(g_languageProfile->GetDefaultNumericType(), *$3);
+                $1->push_back(probe.GetName());
+                delete $3;
+                $$ = $1;
+              }
               ;              
 
 /********************************************************* 
@@ -450,19 +539,21 @@ def_arg_list: IDENTIFIER
 
 DIM_statement:  DIM_TOKEN dim_var_list
                   {
-                    $$ = new AST::Statement(g_lexLineNumber);
-                    //if ($2 != nullptr)
-                    //  $$->Append($2);
+                    $$ = new AST::DimStatement(g_lexLineNumber, $2);
                   }
                 ;
 
 dim_var_list: numeric_var_ref
                 {
-                  $$ = nullptr;
+                  UseNumericGlobalVar(*$1, true, false);
+                  $$ = new AST::ExprList();
+                  $$->Append($1);
                 }
               | dim_var_list ',' numeric_var_ref 
                 {
-                  $$ = nullptr;
+                  UseNumericGlobalVar(*$3, true, false);
+                  $1->Append($3);
+                  $$ = $1;
                 }
               ;
 
@@ -612,20 +703,57 @@ conditional_clause:   line_number
 
  *********************************************************/ 
 
- LINE_statement:  LINE_TOKEN INPUT_statement;
-                  ;
+ LINE_statement:  LINE_TOKEN INPUT_TOKEN QUOTED_STRING ';' string_var_ref
+                  {
+                    UseStringGlobalVar(*$5, true, false);
+                    AST::ExprList * vars = new AST::ExprList();
+                    vars->Append($5);
+                    $$ = new AST::InputStatement(g_lexLineNumber, *$3, true, vars);
+                    delete $3;
+                  }
+                | LINE_TOKEN INPUT_TOKEN string_var_ref
+                  {
+                    UseStringGlobalVar(*$3, true, false);
+                    AST::ExprList * vars = new AST::ExprList();
+                    vars->Append($3);
+                    $$ = new AST::InputStatement(g_lexLineNumber, "", true, vars);
+                  }
+                ;
 
  INPUT_statement: INPUT_TOKEN QUOTED_STRING ';' input_var_list
-                  | INPUT_TOKEN input_var_list
-                  ;
+                  {
+                    $$ = new AST::InputStatement(g_lexLineNumber, *$2, false, $4);
+                    delete $2;
+                  }
+                | INPUT_TOKEN input_var_list
+                  {
+                    $$ = new AST::InputStatement(g_lexLineNumber, "", false, $2);
+                  }
+                ;
 
  input_var_list:  input_var
-                  | input_var_list ',' input_var
-                  ;
+                  {
+                    $$ = new AST::ExprList();
+                    $$->Append($1);
+                  }
+                | input_var_list ',' input_var
+                  {
+                    $1->Append($3);
+                    $$ = $1;
+                  }
+                ;
 
  input_var:       numeric_var_ref
-                  | string_var_ref
-                  ;       
+                  {
+                    UseNumericGlobalVar(*$1, true, false);
+                    $$ = $1;
+                  }
+                | string_var_ref
+                  {
+                    UseStringGlobalVar(*$1, true, false);
+                    $$ = $1;
+                  }
+                ;       
 
 /********************************************************* 
 
@@ -667,11 +795,26 @@ assign_expression:  numeric_var_ref '=' expression
  *********************************************************/ 
 
 ON_statement:    ON_TOKEN expression GOTO_TOKEN line_number opt_on_list
+                  {
+                    if ($5 == nullptr)
+                      $5 = new std::vector<std::string>();
+                    $5->insert($5->begin(), *$4);
+                    delete $4;
+                    $$ = new AST::OnGotoStatement(g_lexLineNumber, $2, $5);
+                  }
                   ;
 
 opt_on_list:     /* empty */
-                  | ',' line_number opt_on_list
-                  ;                 
+                  {
+                    $$ = new std::vector<std::string>();
+                  }
+                | opt_on_list ',' line_number
+                  {
+                    $1->push_back(*$3);
+                    delete $3;
+                    $$ = $1;
+                  }
+                ;                 
 
 /********************************************************* 
 
@@ -800,7 +943,7 @@ SYSTEM_statement: SYSTEM_TOKEN
 
 WIDTH_statement: WIDTH_TOKEN integer
                   {
-                    $$ = nullptr;
+                    $$ = new AST::WidthStatement(g_lexLineNumber, $2);
                   }
                   ;
 
@@ -812,7 +955,7 @@ WIDTH_statement: WIDTH_TOKEN integer
 
 expression: AND_expression OR_TOKEN expression
               {
-                $$ = nullptr;
+                $$ = new AST::LogicalOr($1, $3);
               }
             | AND_expression
               {
@@ -822,7 +965,7 @@ expression: AND_expression OR_TOKEN expression
 
 AND_expression: NOT_expression AND_TOKEN AND_expression
                   {
-                    $$ = nullptr;
+                    $$ = new AST::LogicalAnd($1, $3);
                   }
                 | NOT_expression
                   {
@@ -832,7 +975,7 @@ AND_expression: NOT_expression AND_TOKEN AND_expression
 
 NOT_expression: '-' numeric_compare_expression
                   {
-                    $$ = nullptr;
+                    $$ = new AST::Negation($2);
                   }
                 | numeric_compare_expression
                   {
@@ -840,7 +983,7 @@ NOT_expression: '-' numeric_compare_expression
                   }
                 | string_compare_expression  
                   {
-                    $$ = nullptr;
+                    $$ = $1;
                   }
                 ;
 
@@ -922,7 +1065,9 @@ NEGATE_expression:  '-' POWER_expression
 
 POWER_expression: POWER_expression '^' subexpression
                     {
-                      $$ = new AST::Power($3);
+                      AST::Power * op = new AST::Power($1, $3);
+                      op->Validate();
+                      $$ = op;
                     }
                   | subexpression
                       {
@@ -957,6 +1102,10 @@ numeric_value:  numeric_var_ref
                   {
                     $$ = new AST::LenFunction($3);
                   }
+                | RND_TOKEN '(' expression ')'
+                  {
+                    $$ = new AST::RndFunction($3);
+                  }
                 | numeric_const_expr
                   {
                     $$ = $1;
@@ -971,11 +1120,11 @@ numeric_value:  numeric_var_ref
 
 string_compare_expression: string_expression '=' string_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::StringCompare($1, $3, true);
                       }
                     | string_expression NOT_EQUAL string_expression
                       {
-                        $$ = nullptr;
+                        $$ = new AST::StringCompare($1, $3, false);
                       }
                     ;  
                       
@@ -1043,8 +1192,9 @@ numeric_var_ref : numeric_var_name
             {
               $$ = $1;
             }
-          | numeric_var_name array_or_func_spec
+          | numeric_var_name '(' array_or_func_args ')'
             {
+              $$ = new AST::NumericSubscript($1, $3);
             }
           ;
 
@@ -1074,8 +1224,10 @@ string_var_ref : string_var_name
                   {
                     $$ = $1;
                   }
-                | string_var_name array_or_func_spec
+                | string_var_name '(' array_or_func_args ')'
                   {
+                    $$ = $1;
+                    delete $3;
                   }
                 ;
 
@@ -1093,9 +1245,13 @@ array_or_func_spec: '(' array_or_func_args ')'
 
 array_or_func_args: array_or_func_arg 
                       {
+                        $$ = new AST::ExprList();
+                        $$->Append($1);
                       }
                     | array_or_func_args ',' array_or_func_arg   
                       {
+                        $1->Append($3);
+                        $$ = $1;
                       }
                     ;
 

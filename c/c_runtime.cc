@@ -20,11 +20,22 @@ void C_CodeGenerator::OutputRuntimeDecls(std::ostream & strm)
   if (m_funcsUsed.count("print_int16")) 
    strm << "int print_int16(int16_t);\n";
 
+  if (m_funcsUsed.count("print_int32")) 
+   strm << "int print_int32(int32_t);\n";
+
   if (m_funcsUsed.count("print_single")) 
    strm << "int print_single(float);\n";
 
   if (m_funcsUsed.count("print_double")) 
    strm << "int print_double(double);\n";
+
+  if (m_funcsUsed.count("input")) {
+    strm << "double basalt_read_number(void);\n";
+    strm << "void basalt_input_string(char **);\n";
+    strm << "void basalt_line_input(char **);\n";
+  }
+  if (m_funcsUsed.count("rnd"))
+    strm << "float basalt_rnd(float);\n";
 
 #if 0
   if (m_funcsUsed.count("print_int32")) 
@@ -120,24 +131,12 @@ int print_int16(int16_t value)\n\
 
 void C_CodeGenerator::OutputRuntime(std::ostream & strm)
 {
-  strm << "\n/* run time functions */\n\n"
-       ;
-
-  if (
-      m_funcsUsed.count("print_tab") 
-      || m_funcsUsed.count("print_newline") 
-      || m_funcsUsed.count("print_string") 
-      || m_funcsUsed.count("print_int16") 
-      || m_funcsUsed.count("print_single") 
-      || m_funcsUsed.count("print_double") 
-     ) {
-    strm << "static int g_tabLen       = 14;\n"
-        << "static int g_outputColumn = 0;\n\n"
-        ;
-  } 
+  strm << "\n/* run time functions */\n\n";
 
   strm << "int basalt_init()\n"
-       << "{}\n"
+       << "{\n"
+       << "  return 0;\n"
+       << "}\n"
        << "\n"
        ;
 
@@ -153,11 +152,104 @@ void C_CodeGenerator::OutputRuntime(std::ostream & strm)
   if (m_funcsUsed.count("print_int16")) 
     strm << g_printInt16;
 
+  if (m_funcsUsed.count("print_int32")) 
+    strm << "int print_int32(int32_t value)\n"
+            "{\n"
+            "  char buffer[20];\n"
+            "  int len = sprintf(buffer, \"% d \", value);\n"
+            "  write(STDOUT_FILENO, buffer, len);\n"
+            "  g_outputColumn += len;\n"
+            "  return 0;\n"
+            "}\n\n";
+
   if (m_funcsUsed.count("print_single")) 
     strm << g_printSingle;
 
   if (m_funcsUsed.count("print_double")) 
     strm << g_printDouble;
+
+  if (m_funcsUsed.count("input")) {
+    strm <<
+      "static char g_inLine[512];\n"
+      "static char * g_inPtr;\n"
+      "static void basalt_pull_line(void)\n"
+      "{\n"
+      "  if (g_inPtr && *g_inPtr && *g_inPtr != '\\n' && *g_inPtr != '\\r')\n"
+      "    return;\n"
+      "  if (!fgets(g_inLine, (int)sizeof g_inLine, stdin)) {\n"
+      "    g_inLine[0] = 0;\n"
+      "    g_inPtr = g_inLine;\n"
+      "    return;\n"
+      "  }\n"
+      "  g_inPtr = g_inLine;\n"
+      "}\n"
+      "double basalt_read_number(void)\n"
+      "{\n"
+      "  char * end = 0;\n"
+      "  basalt_pull_line();\n"
+      "  double value = strtod(g_inPtr, &end);\n"
+      "  if (end == g_inPtr) {\n"
+      "    value = 0;\n"
+      "    while (*g_inPtr && *g_inPtr != ',' && *g_inPtr != '\\n' && *g_inPtr != '\\r')\n"
+      "      g_inPtr++;\n"
+      "  } else\n"
+      "    g_inPtr = end;\n"
+      "  while (*g_inPtr == ' ' || *g_inPtr == '\\t')\n"
+      "    g_inPtr++;\n"
+      "  if (*g_inPtr == ',')\n"
+      "    g_inPtr++;\n"
+      "  return value;\n"
+      "}\n"
+      "static void basalt_store_string(char ** out, const char * start, int length)\n"
+      "{\n"
+      "  char * copy = (char *)malloc((size_t)length + 1);\n"
+      "  if (length > 0)\n"
+      "    memcpy(copy, start, (size_t)length);\n"
+      "  copy[length] = 0;\n"
+      "  if (*out)\n"
+      "    free(*out);\n"
+      "  *out = copy;\n"
+      "}\n"
+      "void basalt_input_string(char ** out)\n"
+      "{\n"
+      "  basalt_pull_line();\n"
+      "  char * start = g_inPtr;\n"
+      "  int length = 0;\n"
+      "  while (start[length] && start[length] != ',' && start[length] != '\\n' && start[length] != '\\r')\n"
+      "    length++;\n"
+      "  basalt_store_string(out, start, length);\n"
+      "  g_inPtr = start + length;\n"
+      "  while (*g_inPtr == ' ' || *g_inPtr == '\\t')\n"
+      "    g_inPtr++;\n"
+      "  if (*g_inPtr == ',')\n"
+      "    g_inPtr++;\n"
+      "}\n"
+      "void basalt_line_input(char ** out)\n"
+      "{\n"
+      "  basalt_pull_line();\n"
+      "  char * start = g_inPtr;\n"
+      "  int length = 0;\n"
+      "  while (start[length] && start[length] != '\\n' && start[length] != '\\r')\n"
+      "    length++;\n"
+      "  basalt_store_string(out, start, length);\n"
+      "  g_inPtr = start + length;\n"
+      "  if (*g_inPtr == '\\r') g_inPtr++;\n"
+      "  if (*g_inPtr == '\\n') g_inPtr++;\n"
+      "}\n";
+  }
+
+  if (m_funcsUsed.count("rnd")) {
+    strm <<
+      "static unsigned long g_rndSeed = 327680ul;\n"
+      "float basalt_rnd(float x)\n"
+      "{\n"
+      "  if (x < 0)\n"
+      "    g_rndSeed = (unsigned long)(-x * 1000.0f) | 1ul;\n"
+      "  if (x != 0.0f)\n"
+      "    g_rndSeed = g_rndSeed * 214013ul + 2531011ul;\n"
+      "  return (float)((g_rndSeed >> 16) & 32767ul) / 32768.0f;\n"
+      "}\n";
+  }
 }
 
 #if 0

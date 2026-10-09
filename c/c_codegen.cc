@@ -79,6 +79,13 @@ static bool CreateCVar(const std::string & name,
 
 bool C_CodeGenerator::Body()
 {
+  for (auto & entry : AST::g_subscriptArity) {
+    if (AST::g_userFunctions.count(entry.first) != 0)
+      continue;
+    if (AST::g_arrayBounds.count(entry.first) == 0)
+      AST::g_arrayBounds[entry.first] = std::vector<int>(entry.second, 10);
+  }
+
   // map names of all variables to C
   for (auto & r : AST::g_globalVars) {
     AST::VarInfo & info = r.second;
@@ -113,15 +120,31 @@ bool C_CodeGenerator::Body()
   OutputRuntimeDecls(*m_outputStream);
 
   *m_outputStream << "/* Vars */\n";
+  if (m_funcsUsed.count("width") || m_funcsUsed.count("print_tab") || m_funcsUsed.count("print_newline")
+      || m_funcsUsed.count("print_string") || m_funcsUsed.count("print_int16")
+      || m_funcsUsed.count("print_int32") || m_funcsUsed.count("print_single")
+      || m_funcsUsed.count("print_double")) {
+    *m_outputStream << "static int g_tabLen = " << g_languageProfile->GetTabWidth() << ";\n"
+                    << "static int g_outputColumn = 0;\n";
+  }
   for (auto & r : m_globalVars) {
     CTypeInfoRec & info = g_varTypeInfo[(int)r.second.m_type];
-    *m_outputStream << info.m_ctype
-        << " "
-        << r.second.m_cname
-        << " = "
-        << info.m_initializer
-        << "; /* " << r.first << " */\n"
-        ;
+    auto bounds = AST::g_arrayBounds.find(r.first);
+    if (bounds != AST::g_arrayBounds.end() && AST::g_userFunctions.count(r.first) == 0) {
+      *m_outputStream << info.m_ctype << " " << r.second.m_cname;
+      for (int upper : bounds->second)
+        *m_outputStream << "[" << (upper + 1) << "]";
+      *m_outputStream << " = {0}; /* " << r.first << " */\n";
+    }
+    else {
+      *m_outputStream << info.m_ctype
+          << " "
+          << r.second.m_cname
+          << " = "
+          << info.m_initializer
+          << "; /* " << r.first << " */\n"
+          ;
+    }
   }
   *m_outputStream << "\n";
 
@@ -340,6 +363,26 @@ void C_CodeGenerator::OutputBlocks()
   }
 #endif
 
+  if (m_funcsUsed.count("gosub")) {
+    *m_outputStream
+      << "static struct BlockFunction g_gosubStack[64];\n"
+      << "static int g_gosubSp = 0;\n"
+      << "static void Gosub(struct BlockFunction ret)\n"
+      << "{\n"
+      << "  if (g_gosubSp < 64)\n"
+      << "    g_gosubStack[g_gosubSp++] = ret;\n"
+      << "}\n"
+      << "static struct BlockFunction ReturnBlock(void)\n"
+      << "{\n"
+      << "  struct BlockFunction none;\n"
+      << "  none.m_func = 0;\n"
+      << "  if (g_gosubSp <= 0)\n"
+      << "    return none;\n"
+      << "  return g_gosubStack[--g_gosubSp];\n"
+      << "}\n"
+      << "\n";
+  }
+
   // output forward declarations of each block
   *m_outputStream << "/* forward declare each block of code */\n";
   for (auto & r : m_codeBlocks) {
@@ -391,7 +434,7 @@ void C_CodeGenerator::OutputBlocks()
     << "{\n"
     << "  basalt_init();\n"
     << "  struct BlockFunction block;\n"
-    << "  block.m_func = &" BLOCKFN_PREFIX << 1 << ";\n"
+    << "  block.m_func = &" BLOCKFN_PREFIX << m_codeBlocks.front().m_ref << ";\n"
     << "  execute(&block);\n"
     << "  exit(0);\n"
     << "}\n"
@@ -421,11 +464,12 @@ void C_CodeGenerator::StartBlock(const std::string & ref, bool autoEnd)
 
 void C_CodeGenerator::EndBlock()
 {
-  if (m_codeBlocks.size() == 0)
+  if (m_codeBlocks.size() == 0 || m_currentBlock < 0)
     return;
 
   CodeBlock & block = m_codeBlocks[m_currentBlock];
   block.m_body << Pop();
+  block.m_body << "  return 0;\n";
   block.m_ended = true;
 }
 
@@ -560,27 +604,29 @@ int C_CodeGenerator::Generate(const AST::GotoStatement & expr)
 
 int C_CodeGenerator::Generate(const AST::GosubStatement & expr)
 {
-  // create symbol for return entry
-  std::string returnRef;
-  
-  returnRef = m_nextBlockRef;
+  // Statements after GOSUB on this line, and following lines that stay in
+  // this block, continue in a fresh block that RETURN jumps back to.
+  std::string cont = GetGlobalTempName();
 
-  // create a new entry for the block queue
-  TopOutput() << "struct BlockFunction target;\n";
-  TopOutput() << "target.m_func = &" BLOCKFN_PREFIX << returnRef << ";\n";
-  TopOutput() << "Gosub(target);\n";
-
-  // set "gosub" to routine
-  TopOutput() << "nextBlock.m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";
+  TopOutput() << "{\n";
+  TopOutput() << "  struct BlockFunction target;\n";
+  TopOutput() << "  target.m_func = &" BLOCKFN_PREFIX << cont << ";\n";
+  TopOutput() << "  Gosub(target);\n";
+  TopOutput() << "}\n";
+  TopOutput() << "block->m_func = &" BLOCKFN_PREFIX << expr.GetRef() << ";\n";
+  TopOutput() << "return 0;\n";
 
   m_funcsUsed.insert("gosub");
+  StartBlock(cont, true);
 
   return eOp_NextStatement;
 }
 
 int C_CodeGenerator::Generate(const AST::ReturnStatement & expr)
 {
-  TopOutput() << "return Return();\n";
+  TopOutput() << "*block = ReturnBlock();\n";
+  TopOutput() << "return 0;\n";
+  m_funcsUsed.insert("gosub");
 
   return eOp_Return;
 }
@@ -760,17 +806,25 @@ int C_CodeGenerator::Generate(const AST::NumericAssign & expr)
 {
   Closure & us = Top();
 
-  CVarDef cvar;
-  if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
-    return eOp_NextLine;
-
   if (expr.m_rhs == nullptr) {
     InternalError("expression missing rhs");
     return eOp_NextLine;
   }
 
+  auto * subscript = dynamic_cast<const AST::NumericSubscript *>(expr.m_lhs);
   std::string rhs;
   expr.m_rhs->Evaluate(*this, rhs);
+  if (subscript != nullptr && AST::g_userFunctions.count(subscript->GetName()) == 0) {
+    std::string loc;
+    subscript->Evaluate(*this, loc);
+    us.Output() << "  " << loc << " = " << rhs << ";" << endl;
+    return eOp_NextStatement;
+  }
+
+  CVarDef cvar;
+  if (!LookupGlobalVar(expr.m_lhs->GetName(), cvar))
+    return eOp_NextLine;
+
   us.Output() << "  " << cvar.m_cname << " = " << rhs << ";" << endl;
 
   return eOp_NextStatement;
@@ -952,7 +1006,18 @@ int C_CodeGenerator::Evaluate(const AST::Negation & expr, std::string & result)
 
 int C_CodeGenerator::Evaluate(const AST::Power & expr, std::string & result)
 {
-    return UnaryOperator("^", &expr, result);
+    if ((expr.m_lhs == nullptr) || (expr.m_rhs == nullptr))
+        return -1;
+    std::string lhs, rhs;
+    expr.m_lhs->Evaluate(*this, lhs);
+    expr.m_rhs->Evaluate(*this, rhs);
+    CTypeInfoRec & info = g_varTypeInfo[(int)expr.GetType()];
+    std::string temp = Top().GetTempName();
+    const char * ctype = (info.m_ctype != nullptr) ? info.m_ctype : "double";
+    TopOutput() << ctype << " " << temp << " = (" << ctype << ")pow((double)(" << lhs
+                << "), (double)(" << rhs << "));\n";
+    result = temp;
+    return 0;
 }
 
 int C_CodeGenerator::Evaluate(const AST::NumericEquality & expr, std::string & result)
@@ -1118,109 +1183,264 @@ int C_CodeGenerator::Generate(const AST::ForStatement & expr)
 {
   std::string forRef = GetGlobalTempName();
 
-  // get index variable
   CVarDef cvar;
   if (!LookupGlobalVar(expr.m_var->GetName(), cvar))
     return eOp_NextLine;
 
   VarType forType = cvar.m_type;
+  std::string forCType = g_varTypeInfo[(int)forType].m_ctype;
 
-  // create FOR queue entry
-//  ForBlock forBlock;
-//  forBlock.m_isConst = false;
-//  
-//  forBlock.m_ref     = forRef;
-//  forBlock.m_index   = cvar.m_cname;
-
-  std::string forCType   = g_varTypeInfo[(int)forType].m_ctype;
-
-  // get initial value
   std::string fromValue;
   expr.m_fromVal->Evaluate(*this, fromValue);
 
-  // get TO value
   std::string toValue;
   expr.m_toVal->Evaluate(*this, toValue);
 
-  // get STEP value
   std::string stepValue;
   if (expr.m_stepVal)
     expr.m_stepVal->Evaluate(*this, stepValue);
 
-  // compare initial and final values
-  bool fromIsConst = expr.m_fromVal->IsConstant();
-  bool toIsConst   = expr.m_toVal->IsConstant();
-  bool stepIsConst = stepValue.empty() || expr.m_stepVal->IsConstant();
+  ForBlock forBlock;
+  forBlock.m_isConst = false;
+  forBlock.m_ref = forRef;
+  forBlock.m_index = cvar.m_cname;
+  forBlock.m_ctype = forCType;
+  m_forQueue.push_back(forBlock);
 
-  // determine type of loop
-  bool isConst = fromIsConst && toIsConst && stepIsConst;
-  if (isConst) {
-    int dir;
-    switch (forType) {
-      case VarType::eInt16:
-      case VarType::eInt32:
-        {
-          unsigned long from = strtoul(fromValue.c_str(), NULL, 10);
-          unsigned long to   = strtoul(toValue.c_str(), NULL, 10);
-          dir = (from <= to) ? 1 : -1;
-        }
-        break;
-      case VarType::eSingle:
-        {
-          float from = strtof(fromValue.c_str(), NULL);
-          float to   = strtof(toValue.c_str(), NULL);
-          dir = (from <= to) ? 1 : -1;
-        }
-        break;
-      case VarType::eDouble:
-        {
-          double from = strtod(fromValue.c_str(), NULL);
-          double to   = strtod(toValue.c_str(), NULL);
-          dir = (from <= to) ? 1 : -1;
-        }
-        break;
-    }
-    if (stepValue.empty()) {
-      stepValue = (dir < 0) ? "-1" : "1";
-    }
-  }
-
-  // set initial value of index variable
-  TopOutput() << cvar.m_cname << " = " << fromValue.c_str() << ";\n";
-
-  // set TO value
+  TopOutput() << cvar.m_cname << " = " << fromValue << ";\n";
   TopOutput() << forCType << " " << forRef << "_to = " << toValue << ";\n";
-
-  // set STEP value
   TopOutput() << forCType << " " << forRef << "_step = ";
-  if (stepValue.empty()) {
-    TopOutput(false) << "(" << fromValue << " < " << toValue << ") ? 1 : -1";
-  }
-  else {
+  if (stepValue.empty())
+    TopOutput(false) << "((" << fromValue << " <= " << toValue << ") ? 1 : -1)";
+  else
     TopOutput(false) << Trim(stepValue);
-  }
   TopOutput(false) << ";\n";
-
-  // output start of FOR
-  TopOutput(true) << "do\n";
-
-  // body of FOR
-  StartBlock("for", false);
-
+  TopOutput() << "while (((" << forRef << "_step >= 0) ? ("
+              << cvar.m_cname << " <= " << forRef << "_to) : ("
+              << cvar.m_cname << " >= " << forRef << "_to))) {\n";
 
   return eOp_NextStatement;
 }
 
 int C_CodeGenerator::Generate(const AST::NextStatement & expr)
 {
-  TopOutput() << "return " << (int)eOp_Next << ";\n";
+  if (m_forQueue.empty()) {
+    CompilerError(Error_MismatchedNext, expr.m_lineNumber, "NEXT without FOR");
+    return eOp_NextLine;
+  }
 
-  EndBlock();
-  
-  // do STEP
-  TopOutput() << cvar.m_cname << " += " << forRef << "_step;\n";
+  ForBlock forBlock = m_forQueue.back();
+  m_forQueue.pop_back();
 
-  // loop
-  TopOutput(true) << "while (" << cvar.m_cname << " <= " << forRef << "_to);\n";
-  return eOp_Next;
+  TopOutput() << forBlock.m_index << " += " << forBlock.m_ref << "_step;\n";
+  TopOutput() << "}\n";
+  return eOp_NextStatement;
+}
+
+static std::string QuotedIfConstant(const AST::Expr * expr, const std::string & text)
+{
+  if (expr != nullptr && expr->IsConstant())
+    return std::string("\"") + text + "\"";
+  return text;
+}
+
+int C_CodeGenerator::Evaluate(const AST::LogicalAnd & expr, std::string & result)
+{
+  std::string lhs, rhs;
+  expr.m_lhs->Evaluate(*this, lhs);
+  expr.m_rhs->Evaluate(*this, rhs);
+  result = Top().GetTempName();
+  TopOutput() << "int16_t " << result << " = (int16_t)(" << lhs << ") & (int16_t)(" << rhs << ");\n";
+  return 0;
+}
+
+int C_CodeGenerator::Evaluate(const AST::LogicalOr & expr, std::string & result)
+{
+  std::string lhs, rhs;
+  expr.m_lhs->Evaluate(*this, lhs);
+  expr.m_rhs->Evaluate(*this, rhs);
+  result = Top().GetTempName();
+  TopOutput() << "int16_t " << result << " = (int16_t)(" << lhs << ") | (int16_t)(" << rhs << ");\n";
+  return 0;
+}
+
+int C_CodeGenerator::Evaluate(const AST::StringCompare & expr, std::string & result)
+{
+  std::string lhs, rhs;
+  expr.m_lhs->Evaluate(*this, lhs);
+  expr.m_rhs->Evaluate(*this, rhs);
+  lhs = QuotedIfConstant(expr.m_lhs, lhs);
+  rhs = QuotedIfConstant(expr.m_rhs, rhs);
+  result = Top().GetTempName();
+  const char * op = expr.m_equal ? "==" : "!=";
+  TopOutput() << "int16_t " << result << " = (strcmp("
+              << lhs << " ? " << lhs << " : \"\", "
+              << rhs << " ? " << rhs << " : \"\") " << op << " 0) ? -1 : 0;\n";
+  return 0;
+}
+
+int C_CodeGenerator::Evaluate(const AST::RndFunction & expr, std::string & result)
+{
+  std::string arg = "1";
+  if (expr.m_arg != nullptr)
+    expr.m_arg->Evaluate(*this, arg);
+  result = Top().GetTempName();
+  TopOutput() << "float " << result << " = basalt_rnd(" << arg << ");\n";
+  m_funcsUsed.insert("rnd");
+  return 0;
+}
+
+int C_CodeGenerator::Evaluate(const AST::NumericSubscript & expr, std::string & result)
+{
+  auto function = AST::g_userFunctions.find(expr.GetName());
+  if (function != AST::g_userFunctions.end()) {
+    const AST::UserFunction & fn = function->second;
+    if (fn.m_params.size() != expr.m_indexes.size()) {
+      CompilerError(eError_Parser, m_currentStatementLine,
+                    "wrong number of arguments for FN " << expr.GetName());
+      result = "0";
+      return -1;
+    }
+    std::vector<std::string> args;
+    for (auto * index : expr.m_indexes) {
+      std::string arg;
+      index->Evaluate(*this, arg);
+      args.push_back(arg);
+    }
+    std::vector<std::pair<std::string, std::string>> saved;
+    for (size_t i = 0; i < fn.m_params.size(); ++i) {
+      CVarDef cvar;
+      if (!LookupGlobalVar(fn.m_params[i], cvar)) {
+        result = "0";
+        return -1;
+      }
+      std::string slot = Top().GetTempName();
+      TopOutput() << g_varTypeInfo[(int)cvar.m_type].m_ctype << " " << slot
+                  << " = " << cvar.m_cname << ";\n";
+      TopOutput() << cvar.m_cname << " = " << args[i] << ";\n";
+      saved.push_back(std::make_pair(cvar.m_cname, slot));
+    }
+    if (fn.m_body == nullptr) {
+      result = "0";
+      return -1;
+    }
+    fn.m_body->Evaluate(*this, result);
+    for (auto it = saved.rbegin(); it != saved.rend(); ++it)
+      TopOutput() << it->first << " = " << it->second << ";\n";
+    return 0;
+  }
+
+  CVarDef cvar;
+  if (!LookupGlobalVar(expr.GetName(), cvar))
+    return -1;
+  result = cvar.m_cname;
+  for (auto * index : expr.m_indexes) {
+    std::string idx;
+    index->Evaluate(*this, idx);
+    result += "[(int)(" + idx + ")]";
+  }
+  return 0;
+}
+
+int C_CodeGenerator::Print(const AST::NumericSubscript & expr)
+{
+  std::string value;
+  if (Evaluate(expr, value) != 0)
+    return -1;
+  std::string funcName = g_varTypeInfo[(int)expr.GetType()].m_printFn;
+  if (AST::g_userFunctions.count(expr.GetName()) != 0) {
+    auto & fn = AST::g_userFunctions[expr.GetName()];
+    if (fn.m_body != nullptr)
+      funcName = g_varTypeInfo[(int)fn.m_body->GetType()].m_printFn;
+  }
+  m_funcsUsed.insert(funcName);
+  TopOutput() << funcName << "(" << value << ");\n";
+  return 0;
+}
+
+int C_CodeGenerator::Generate(const AST::DimStatement & expr)
+{
+  return eOp_NextStatement;
+}
+
+int C_CodeGenerator::Generate(const AST::DefStatement & expr)
+{
+  return eOp_NextStatement;
+}
+
+int C_CodeGenerator::Generate(const AST::InputStatement & expr)
+{
+  m_funcsUsed.insert("input");
+  m_funcsUsed.insert("print_string");
+  if (!expr.m_prompt.empty())
+    TopOutput() << "print_string(" << QuoteLiteral(expr.m_prompt) << ");\n";
+  if (expr.m_vars == nullptr)
+    return eOp_NextStatement;
+  for (auto & item : expr.m_vars->m_list) {
+    auto * numeric = dynamic_cast<AST::NumericVarRef *>(item.get());
+    auto * str = dynamic_cast<AST::StringVarRef *>(item.get());
+    if (expr.m_lineInput && str != nullptr) {
+      CVarDef cvar;
+      if (!LookupGlobalVar(str->GetName(), cvar))
+        return eOp_NextLine;
+      TopOutput() << "basalt_line_input(&" << cvar.m_cname << ");\n";
+      continue;
+    }
+    if (str != nullptr) {
+      CVarDef cvar;
+      if (!LookupGlobalVar(str->GetName(), cvar))
+        return eOp_NextLine;
+      TopOutput() << "basalt_input_string(&" << cvar.m_cname << ");\n";
+      continue;
+    }
+    if (numeric != nullptr) {
+      std::string loc;
+      numeric->Evaluate(*this, loc);
+      const char * ctype = g_varTypeInfo[(int)numeric->GetType()].m_ctype;
+      TopOutput() << loc << " = (" << ctype << ")basalt_read_number();\n";
+    }
+  }
+  return eOp_NextStatement;
+}
+
+int C_CodeGenerator::Generate(const AST::OnGotoStatement & expr)
+{
+  std::string index;
+  if (expr.m_index != nullptr)
+    expr.m_index->Evaluate(*this, index);
+  else
+    index = "0";
+  TopOutput() << "switch ((int)(" << index << ")) {\n";
+  for (size_t i = 0; i < expr.m_lines.size(); ++i) {
+    TopOutput() << "case " << (i + 1) << ": block->m_func = &" BLOCKFN_PREFIX
+                << expr.m_lines[i] << "; return 0;\n";
+  }
+  TopOutput() << "default: break;\n}\n";
+  return eOp_NextStatement;
+}
+
+int C_CodeGenerator::Generate(const AST::ClearStatement & expr)
+{
+  for (auto & entry : m_globalVars) {
+    if (AST::g_userFunctions.count(entry.first) != 0)
+      continue;
+    if (entry.second.m_type == VarType::eString) {
+      TopOutput() << "if (" << entry.second.m_cname << ") free(" << entry.second.m_cname << ");\n";
+      TopOutput() << entry.second.m_cname << " = 0;\n";
+    }
+    else if (AST::g_arrayBounds.count(entry.first) != 0) {
+      TopOutput() << "memset(" << entry.second.m_cname << ", 0, sizeof " << entry.second.m_cname << ");\n";
+    }
+    else {
+      TopOutput() << entry.second.m_cname << " = 0;\n";
+    }
+  }
+  return eOp_NextStatement;
+}
+
+int C_CodeGenerator::Generate(const AST::WidthStatement & expr)
+{
+  m_funcsUsed.insert("width");
+  TopOutput() << "g_tabLen = " << expr.m_width << ";\n";
+  return eOp_NextStatement;
 }

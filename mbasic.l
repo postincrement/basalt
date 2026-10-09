@@ -136,6 +136,10 @@
           return REM_TOKEN;
         }
 
+[Rr][Nn][Dd] {
+          return RND_TOKEN;
+        }
+
 [Rr][Uu][Nn]  {
           return RUN_TOKEN;
         }

@@ -10,6 +10,9 @@ using namespace std;
 
 #include "c/c_codegen.h"
 #include "z80/z80_codegen.h"
+#ifdef BASALT_WITH_LLVM
+#include "llvm/llvm_codegen.h"
+#endif
 
 // declared as extern in basalt.h
 Basalt g_application;
@@ -37,9 +40,9 @@ static LanguageProfileDef g_basicVariants[] = {
 
 static LanguageProfileDef g_basicZ80Variants[] = { 
 // name      varlen tab defnum              defint
-{ "BasicEx",   40,  14, VarType::eInt16,  VarType::eInt16  },
-{ "Basic8k",    2,  14, VarType::eInt16,  VarType::eInt16  },
-{ "DiskBasic", 40,  14, VarType::eInt16,  VarType::eInt16  },
+{ "BasicEx",   40,  14, VarType::eSingle, VarType::eInt16  },
+{ "Basic8k",    2,  14, VarType::eSingle, VarType::eInt16  },
+{ "DiskBasic", 40,  14, VarType::eSingle, VarType::eInt16  },
 { 0 }
 };
 
@@ -219,6 +222,9 @@ int Basalt::Main(int argc, char const *argv[])
   // register language profiles
   g_codeGenerators.Register<C_CodeGenerator>  ("ansi-c");
   g_codeGenerators.Register<Z80_CodeGenerator>("z80");
+#ifdef BASALT_WITH_LLVM
+  g_codeGenerators.Register<LLVM_CodeGenerator>("llvm");
+#endif
 
   m_arch           = "ansi-c";
   g_disableWarnings = false;
@@ -345,7 +351,11 @@ int Basalt::Main(int argc, char const *argv[])
 
   if (!codeGen->Run(g_printableInputFilename, outputStream, AST::g_program)) {
     cerr << "error: code generation failed" << endl;
+    return -1;
   }
+
+  if (g_errorCount > 0)
+    return -1;
 
   return 0;
 }
@@ -394,6 +404,7 @@ std::string Basalt::FormatError(ErrorCode code,
   std::string type;
   if (code < ErrorCode::eWarning_First) {
     m_errorCount++;
+    g_errorCount++;
     type = "internal error";
   }
   else if (code <= ErrorCode::eError_First) {
@@ -402,6 +413,7 @@ std::string Basalt::FormatError(ErrorCode code,
   }
   else {
     m_errorCount++;
+    g_errorCount++;
     type = "error";
   }
 
@@ -435,7 +447,7 @@ void Basalt::ParserErrorInternal(ErrorCode code, const std::string & msg)
   cout << "^" << endl;
 }
 
-void MBASIC_yyinput(char * buf, int * result, int maxSize)
+void MBASIC_yyinput(char * buf, size_t * result, size_t maxSize)
 {
   char ch = g_application.ReadNextChar();
 

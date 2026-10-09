@@ -2,6 +2,7 @@
 #ifndef BASALT_H_
 #define BASALT_H_
 
+#include <cstddef>
 #include <string>
 #include <fstream>
 
@@ -68,7 +69,7 @@ class Basalt
 extern int MBASIC_lex();
 extern int MBASIC_parse();
 extern int MBASIC_debug;
-extern void MBASIC_yyinput(char * buf, int * result, int maxSize);
+extern void MBASIC_yyinput(char * buf, size_t * result, size_t maxSize);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

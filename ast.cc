@@ -13,6 +13,9 @@ LineNumberInfo AST::g_lineNumberInfo;
 JumpDestinationList AST::g_jumpDestinationInfo;
 StringConstantList AST::g_stringConstants;
 unsigned AST::g_stringConstantIndex = 0;
+std::map<std::string, std::vector<int>> AST::g_arrayBounds;
+std::map<std::string, int> AST::g_subscriptArity;
+std::map<std::string, UserFunction> AST::g_userFunctions;
 
 #define BASIC_STRING_SUFFIX  "$"
 #define BASIC_INT_SUFFIX     "%"
@@ -597,4 +600,128 @@ int NextStatement::Generate(CodeGenerator & gen) const
 {
   return gen.Generate(*this);
 }
+
+static int ConstantBound(const NumericExpr * expr, int fallback)
+{
+  auto * constant = dynamic_cast<const NumericConstant *>(expr);
+  if (constant == nullptr)
+    return fallback;
+  return constant->AsInt32();
+}
+
+NumericSubscript::NumericSubscript(NumericVarRef * base, ExprList * indexes)
+  : NumericVarRef(*base)
+{
+  if (indexes != nullptr) {
+    for (auto & item : indexes->m_list)
+      m_indexes.push_back(static_cast<const NumericExpr *>(item.release()));
+    delete indexes;
+  }
+  delete base;
+  int arity = (int)m_indexes.size();
+  auto found = g_subscriptArity.find(GetName());
+  if (found == g_subscriptArity.end() || found->second < arity)
+    g_subscriptArity[GetName()] = arity;
+}
+
+int NumericSubscript::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
+
+int NumericSubscript::Print(CodeGenerator & gen) const
+{ return gen.Print(*this); }
+
+int StringCompare::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
+
+int RndFunction::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
+
+int LogicalAnd::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
+
+int LogicalOr::Evaluate(CodeGenerator & gen, std::string & result) const
+{ return gen.Evaluate(*this, result); }
+
+DimStatement::DimStatement(unsigned lineNumber, ExprList * vars)
+  : Statement(lineNumber)
+  , m_vars(vars)
+{
+  if (m_vars == nullptr)
+    return;
+  for (auto & item : m_vars->m_list) {
+    auto * sub = dynamic_cast<NumericSubscript *>(item.get());
+    if (sub == nullptr)
+      continue;
+    std::vector<int> bounds;
+    for (auto * index : sub->m_indexes)
+      bounds.push_back(std::max(0, ConstantBound(index, 10)));
+    g_arrayBounds[sub->GetName()] = bounds;
+  }
+}
+
+int DimStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+InputStatement::InputStatement(unsigned lineNumber, const std::string & prompt, bool lineInput, ExprList * vars)
+  : Statement(lineNumber)
+  , m_prompt(prompt)
+  , m_lineInput(lineInput)
+  , m_vars(vars)
+{ }
+
+int InputStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+OnGotoStatement::OnGotoStatement(unsigned lineNumber, const NumericExpr * index, std::vector<std::string> * lines)
+  : Statement(lineNumber)
+  , m_index(index)
+{
+  if (lines != nullptr) {
+    m_lines = *lines;
+    delete lines;
+  }
+  for (auto & ref : m_lines) {
+    auto & info = g_jumpDestinationInfo[ref];
+    info.m_count++;
+    info.m_usedLine.insert(lineNumber);
+  }
+}
+
+int OnGotoStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+DefStatement::DefStatement(unsigned lineNumber, const std::string & name,
+                           std::vector<std::string> * params, const NumericExpr * body)
+  : Statement(lineNumber)
+  , m_name(name)
+{
+  UserFunction fn;
+  fn.m_body = body;
+  if (params != nullptr) {
+    fn.m_params = *params;
+    delete params;
+  }
+  for (auto & param : fn.m_params) {
+    if (g_globalVars.count(param) == 0) {
+      VarInfo info;
+      info.m_type = g_languageProfile->GetDefaultNumericType();
+      info.m_originalName = param;
+      info.m_lhsLine = lineNumber;
+      info.m_rhsLine = lineNumber;
+      g_globalVars[param] = info;
+    }
+  }
+  NumericVarRef probe(g_languageProfile->GetDefaultNumericType(), name);
+  g_userFunctions[probe.GetName()] = fn;
+  m_name = probe.GetName();
+}
+
+int DefStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+int ClearStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
+
+int WidthStatement::Generate(CodeGenerator & gen) const
+{ return gen.Generate(*this); }
 

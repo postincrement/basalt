@@ -27,6 +27,7 @@ verify/cpm_*
 bdos_debug.txt
 verify/z80_*
 .deps/*
+build/
 mbasic.lex.cc
 mbasic.tab.cc
 mbasic.tab.hh

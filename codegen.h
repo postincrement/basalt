@@ -64,6 +64,12 @@ class CodeGenerator
     virtual int Generate(const AST::NextStatement & expr) { return 0; }
     virtual int Generate(const AST::GosubStatement & expr) { return 0; }
     virtual int Generate(const AST::ReturnStatement & expr) { return 0; }
+    virtual int Generate(const AST::DimStatement & expr) { return 0; }
+    virtual int Generate(const AST::InputStatement & expr) { return 0; }
+    virtual int Generate(const AST::OnGotoStatement & expr) { return 0; }
+    virtual int Generate(const AST::DefStatement & expr) { return 0; }
+    virtual int Generate(const AST::ClearStatement & expr) { return 0; }
+    virtual int Generate(const AST::WidthStatement & expr) { return 0; }
 
     virtual int Evaluate(const AST::StringConstant & expr, std::string & result);
     virtual int Evaluate(const AST::StringVarRef & expr, std::string & result) { return 0; }
@@ -83,6 +89,11 @@ class CodeGenerator
     virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::LogicalAnd & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::LogicalOr & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::NumericSubscript & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::StringCompare & expr, std::string & result) { return 0; }
+    virtual int Evaluate(const AST::RndFunction & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Negation & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::Power & expr, std::string & result) { return 0; }
     virtual int Evaluate(const AST::NumericCast & expr, std::string & result) { return 0; }
@@ -106,6 +117,7 @@ class CodeGenerator
     virtual int Print(const AST::PrintSemiColon & expr);
     virtual int Print(const AST::NumericVarRef & expr) { return 0; }
     virtual int Print(const AST::StringVarRef & expr) { return 0; }
+    virtual int Print(const AST::NumericSubscript & expr) { return 0; }
 
     class Closure {
       public:

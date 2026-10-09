@@ -2,6 +2,9 @@
 #define Z80_CODEGEN_H_
 
 #include "../codegen.h"
+#include <cstdint>
+#include <map>
+#include <vector>
 
 class Z80_CodeGenerator : public CodeGenerator
 {
@@ -66,13 +69,26 @@ class Z80_CodeGenerator : public CodeGenerator
 
     struct ForBlock {
       std::string m_ref;
+      std::string m_check;
+      std::string m_toSlot;
+      std::string m_stepSlot;
       VarType m_type;
       std::string m_index;
       const AST::Expr * m_to;
       const AST::Expr * m_step;
     };
 
-    std::deque<ForBlock> m_forQueue;    
+    std::deque<ForBlock> m_forQueue;
+    bool m_useFloat = false;
+    int m_floatSlotId = 0;
+    std::map<uint32_t, std::string> m_floatConsts;
+    std::vector<std::string> m_floatSlots;
+
+    std::string FloatConst(float value);
+    void LoadFacc(const AST::Expr & expr);
+    void EmitElementAddress(const AST::NumericSubscript & expr);
+    void EmitFloatRelation(const AST::NumericBinaryOperation & expr, const std::string & kind);
+    void EmitUserFunction(const AST::NumericSubscript & expr, bool wantFloat);    
 
   public:
     virtual bool Body() override;
@@ -87,6 +103,9 @@ class Z80_CodeGenerator : public CodeGenerator
     virtual int Generate(const AST::NumericAssign & expr) override;
     //virtual int Generate(const AST::StringAssign & expr) override;    
     virtual int Generate(const AST::GotoStatement & expr) override;
+    virtual int Generate(const AST::GosubStatement & expr) override;
+    virtual int Generate(const AST::ReturnStatement & expr) override;
+    virtual int Generate(const AST::System & expr) override;
     virtual int Generate(const AST::IfStatement & expr) override;
     virtual int Generate(const AST::ForStatement & expr) override;
     virtual int Generate(const AST::NextStatement & expr) override;
@@ -110,6 +129,25 @@ class Z80_CodeGenerator : public CodeGenerator
     virtual int Evaluate(const AST::NumericGreaterThanEqual & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericLessThan & expr, std::string & result) override;
     virtual int Evaluate(const AST::NumericLessThanEqual & expr, std::string & result) override;
+    virtual int Evaluate(const AST::Negation & expr, std::string & result) override;
+    virtual int Evaluate(const AST::Multiplication & expr, std::string & result) override;
+    virtual int Evaluate(const AST::LogicalAnd & expr, std::string & result) override;
+    virtual int Evaluate(const AST::LogicalOr & expr, std::string & result) override;
+    virtual int Evaluate(const AST::StringCompare & expr, std::string & result) override;
+    virtual int Generate(const AST::StringAssign & expr) override;
+    virtual int Generate(const AST::OnGotoStatement & expr) override;
+    virtual int Generate(const AST::ClearStatement & expr) override;
+    virtual int Generate(const AST::WidthStatement & expr) override;
+    virtual int Generate(const AST::InputStatement & expr) override;
+    virtual int Generate(const AST::DimStatement & expr) override;
+    virtual int Generate(const AST::DefStatement & expr) override;
+    virtual int Evaluate(const AST::Division & expr, std::string & result) override;
+    virtual int Evaluate(const AST::Power & expr, std::string & result) override;
+    virtual int Evaluate(const AST::IntFunction & expr, std::string & result) override;
+    virtual int Evaluate(const AST::RndFunction & expr, std::string & result) override;
+    virtual int Evaluate(const AST::NumericSubscript & expr, std::string & result) override;
+    virtual int Print(const AST::NumericSubscript & expr) override;
+    virtual int Print(const AST::StringVarRef & expr) override;
 /*
     virtual int Evaluate(const AST::Negation & expr, std::string & result) override;
     virtual int Evaluate(const AST::Power & expr, std::string & result) override;
@@ -127,6 +165,8 @@ class Z80_CodeGenerator : public CodeGenerator
     virtual int Print(const AST::NumericExpr & expr) override;
     virtual int Print(const AST::StringConstant & expr) override;
     virtual int Print(const AST::Int16Constant & expr) override;
+    virtual int Print(const AST::SingleConstant & expr) override;
+    virtual int Print(const AST::DoubleConstant & expr) override;
     //virtual int Print(const AST::Int32Constant & expr) override;
     //virtual int Print(const AST::SingleConstant & expr) override;
     //virtual int Print(const AST::DoubleConstant & expr) override;

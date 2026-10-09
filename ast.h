@@ -243,6 +243,46 @@ class NumericVarRef : public NumericExpr
     std::string m_originalName;
 };
 
+class NumericSubscript : public NumericVarRef
+{
+  public:
+    NumericSubscript(NumericVarRef * base, ExprList * indexes);
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+    virtual int Print(CodeGenerator & gen) const override;
+
+    std::vector<const NumericExpr *> m_indexes;
+};
+
+class StringCompare : public NumericExpr
+{
+  public:
+    StringCompare(const StringExpr * lhs, const StringExpr * rhs, bool equal)
+      : NumericExpr(VarType::eInt16)
+      , m_lhs(lhs)
+      , m_rhs(rhs)
+      , m_equal(equal)
+    { }
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+
+    const StringExpr * m_lhs;
+    const StringExpr * m_rhs;
+    bool m_equal;
+};
+
+class RndFunction : public NumericExpr
+{
+  public:
+    explicit RndFunction(const NumericExpr * arg)
+      : NumericExpr(VarType::eSingle)
+      , m_arg(arg)
+    { }
+
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+
+    const NumericExpr * m_arg;
+};
+
 class StringVarRef : public StringExpr
 {
   public:
@@ -392,6 +432,24 @@ DEFINE_NUMERICCOMPARISONOP(NumericGreaterThanEqual)
 DEFINE_NUMERICCOMPARISONOP(NumericLessThan)
 DEFINE_NUMERICCOMPARISONOP(NumericLessThanEqual)
 
+class LogicalAnd : public NumericBinaryOperation
+{
+  public:
+    LogicalAnd(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(VarType::eInt16, lhs, rhs)
+    { }
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+};
+
+class LogicalOr : public NumericBinaryOperation
+{
+  public:
+    LogicalOr(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(VarType::eInt16, lhs, rhs)
+    { }
+    virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
+};
+
 ////////////////////////////////////////////////////////////////////////////
 
 class UnaryOperation : public NumericOperator
@@ -417,11 +475,11 @@ class Negation : public UnaryOperation
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
 };
 
-class Power : public UnaryOperation
+class Power : public NumericBinaryOperation
 {
   public:
-    Power(NumericExpr * expr)
-      : UnaryOperation(expr)
+    Power(const NumericExpr * lhs, const NumericExpr * rhs)
+      : NumericBinaryOperation(lhs, rhs)
     { }
 
     virtual int Evaluate(CodeGenerator & gen, std::string & result) const override;
@@ -903,6 +961,75 @@ class NextStatement : public Statement
 
     const NumericVarRef * m_var;
 };
+
+class DimStatement : public Statement
+{
+  public:
+    DimStatement(unsigned lineNumber, ExprList * vars);
+    virtual int Generate(CodeGenerator & gen) const override;
+    ExprList * m_vars;
+};
+
+class InputStatement : public Statement
+{
+  public:
+    InputStatement(unsigned lineNumber, const std::string & prompt, bool lineInput, ExprList * vars);
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    std::string m_prompt;
+    bool m_lineInput;
+    ExprList * m_vars;
+};
+
+class OnGotoStatement : public Statement
+{
+  public:
+    OnGotoStatement(unsigned lineNumber, const NumericExpr * index, std::vector<std::string> * lines);
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    const NumericExpr * m_index;
+    std::vector<std::string> m_lines;
+};
+
+struct UserFunction
+{
+  std::vector<std::string> m_params;
+  const NumericExpr * m_body = nullptr;
+};
+
+class DefStatement : public Statement
+{
+  public:
+    DefStatement(unsigned lineNumber, const std::string & name,
+                 std::vector<std::string> * params, const NumericExpr * body);
+    virtual int Generate(CodeGenerator & gen) const override;
+
+    std::string m_name;
+};
+
+class ClearStatement : public Statement
+{
+  public:
+    explicit ClearStatement(unsigned lineNumber)
+      : Statement(lineNumber)
+    { }
+    virtual int Generate(CodeGenerator & gen) const override;
+};
+
+class WidthStatement : public Statement
+{
+  public:
+    WidthStatement(unsigned lineNumber, int width)
+      : Statement(lineNumber)
+      , m_width(width)
+    { }
+    virtual int Generate(CodeGenerator & gen) const override;
+    int m_width;
+};
+
+extern std::map<std::string, std::vector<int>> g_arrayBounds;
+extern std::map<std::string, int> g_subscriptArity;
+extern std::map<std::string, UserFunction> g_userFunctions;
 
 ////////////////////////////////////////////////////////////////////////////
 
