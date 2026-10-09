@@ -2,6 +2,7 @@
 #define LLVM_CODEGEN_H_
 
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,7 @@ class LLVM_OutputGenerator : public OutputGenerator
     explicit LLVM_OutputGenerator(CodeGenerator & codeGenerator);
 
   protected:
+    void BeginNode(const CodeGenerator::Node & node) override;
     void OutputFilePrologue(std::ostream & strm) override;
     void OutputFileEpilogue(std::ostream & strm) override;
 
@@ -41,6 +43,11 @@ class LLVM_OutputGenerator : public OutputGenerator
 
     void Prepare();
     void Emit(const std::string & text);
+    void NoteStatement();
+    int DebugLoc(unsigned line);
+    void WriteInstr(std::ostream & strm, const std::string & text, unsigned line);
+    std::string MetaQuoted(const std::string & text) const;
+    void WriteDebugMetadata(std::ostream & strm);
     void EnsureOpen();
     void Close(const std::string & next);
     std::string Tmp();
@@ -70,6 +77,18 @@ class LLVM_OutputGenerator : public OutputGenerator
       bool m_sawElse = false;
     };
     std::vector<IfFrame> m_ifStack;
+
+    unsigned m_debugLine = 0;
+    std::string m_debugText;
+    int m_nextDebug = 10;
+    std::map<unsigned, int> m_debugLocs;
+    std::set<unsigned> m_labeledLines;
+    struct DebugLabel {
+      unsigned m_line;
+      std::string m_text;
+      int m_id;
+    };
+    std::vector<DebugLabel> m_debugLabels;
 };
 
 #endif

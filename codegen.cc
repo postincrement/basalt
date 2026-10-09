@@ -196,6 +196,8 @@ int CodeGenerator::Print(const AST::Node & node)
 
 int CodeGenerator::Generate(const AST::SourceLine & line)
 {
+  m_debugLine = line.GetSourceLineNumber();
+  m_debugText = line.GetLine();
   if (!line.GetBasicLineNumber().empty() &&
       AST::g_jumpDestinationInfo.count(line.GetBasicLineNumber()) != 0)
     Add<GotoTarget>("line_" + line.GetBasicLineNumber());

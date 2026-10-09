@@ -1,8 +1,12 @@
 #include "llvm_codegen.h"
+#include "../basalt.h"
 #include "../irutil.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 
@@ -22,9 +26,126 @@ void LLVM_OutputGenerator::Prepare()
   m_ready = true;
 }
 
+void LLVM_OutputGenerator::BeginNode(const CodeGenerator::Node & node)
+{
+  m_debugLine = node.m_debugLine;
+  m_debugText = node.m_debugText;
+}
+
+int LLVM_OutputGenerator::DebugLoc(unsigned line)
+{
+  auto found = m_debugLocs.find(line);
+  if (found != m_debugLocs.end())
+    return found->second;
+  int id = m_nextDebug++;
+  m_debugLocs[line] = id;
+  return id;
+}
+
+void LLVM_OutputGenerator::WriteInstr(std::ostream & strm, const std::string & text, unsigned line)
+{
+  strm << "  " << text;
+  if (g_debugInfo)
+    strm << ", !dbg !" << DebugLoc(line);
+  strm << "\n";
+}
+
+void LLVM_OutputGenerator::NoteStatement()
+{
+  if (!g_debugInfo || m_debugLine == 0 || m_debugText.empty())
+    return;
+  if (!m_labeledLines.insert(m_debugLine).second)
+    return;
+  int id = m_nextDebug++;
+  m_debugLabels.push_back({ m_debugLine, m_debugText, id });
+  *m_outputStream << "  call void @llvm.dbg.label(metadata !" << id
+                  << "), !dbg !" << DebugLoc(m_debugLine) << "\n";
+}
+
 void LLVM_OutputGenerator::Emit(const std::string & text)
 {
-  *m_outputStream << "  " << text << "\n";
+  NoteStatement();
+  WriteInstr(*m_outputStream, text, m_debugLine);
+}
+
+std::string LLVM_OutputGenerator::MetaQuoted(const std::string & text) const
+{
+  std::string out = "\"";
+  for (unsigned char ch : text) {
+    if (ch == '"' || ch == '\\' || ch < 32 || ch >= 127) {
+      char buf[8];
+      snprintf(buf, sizeof buf, "\\%02X", ch);
+      out += buf;
+    }
+    else
+      out += static_cast<char>(ch);
+  }
+  out += "\"";
+  return out;
+}
+
+void LLVM_OutputGenerator::WriteDebugMetadata(std::ostream & strm)
+{
+  std::string path = m_inputFilename.empty() ? "stdin.bas" : m_inputFilename;
+  std::string directory = ".";
+  std::string filename = path;
+  auto slash = path.find_last_of('/');
+  if (slash != std::string::npos) {
+    directory = path.substr(0, slash);
+    filename = path.substr(slash + 1);
+    if (directory.empty())
+      directory = "/";
+  }
+
+  std::string source;
+  {
+    std::ifstream input(path);
+    if (input)
+      source.assign(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+  }
+  if (source.empty()) {
+    unsigned last = 0;
+    for (auto & line : AST::g_program.m_list)
+      last = std::max(last, line->GetSourceLineNumber());
+    std::vector<std::string> lines(last);
+    for (auto & line : AST::g_program.m_list) {
+      unsigned number = line->GetSourceLineNumber();
+      if (number > 0 && number <= lines.size())
+        lines[number - 1] = line->GetLine();
+    }
+    for (size_t i = 0; i < lines.size(); ++i) {
+      if (i != 0)
+        source += '\n';
+      source += lines[i];
+    }
+    if (!source.empty())
+      source += '\n';
+  }
+
+  strm << "\ndeclare void @llvm.dbg.label(metadata)\n";
+  strm << "!llvm.dbg.cu = !{!0}\n";
+  strm << "!llvm.module.flags = !{!6, !7, !8}\n";
+  strm << "!llvm.ident = !{!9}\n";
+  strm << "!0 = distinct !DICompileUnit(language: DW_LANG_C, file: !1, producer: \"basalt\", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug)\n";
+  strm << "!1 = !DIFile(filename: " << MetaQuoted(filename)
+       << ", directory: " << MetaQuoted(directory)
+       << ", source: " << MetaQuoted(source) << ")\n";
+  strm << "!2 = distinct !DISubprogram(name: \"main\", scope: !1, file: !1, line: 1, type: !3, scopeLine: 1, spFlags: DISPFlagDefinition, unit: !0)\n";
+  strm << "!3 = !DISubroutineType(types: !4)\n";
+  strm << "!4 = !{!5}\n";
+  strm << "!5 = !DIBasicType(name: \"int\", size: 32, encoding: DW_ATE_signed)\n";
+  strm << "!6 = !{i32 7, !\"Dwarf Version\", i32 5}\n";
+  strm << "!7 = !{i32 2, !\"Debug Info Version\", i32 3}\n";
+  strm << "!8 = !{i32 2, !\"PIC Level\", i32 2}\n";
+  strm << "!9 = !{!\"basalt\"}\n";
+  for (auto & entry : m_debugLocs) {
+    strm << "!" << entry.second << " = !DILocation(line: " << entry.first
+         << ", column: 1, scope: !2)\n";
+  }
+  for (auto & label : m_debugLabels) {
+    strm << "!" << label.m_id << " = !DILabel(scope: !2, name: " << MetaQuoted(label.m_text)
+         << ", file: !1, line: " << label.m_line << ")\n";
+  }
 }
 
 void LLVM_OutputGenerator::EnsureOpen()
@@ -192,8 +313,10 @@ std::string LLVM_OutputGenerator::LlvmString(const std::string & text) const
 void LLVM_OutputGenerator::OutputFilePrologue(ostream & strm)
 {
   strm << "; Generated from " << m_inputFilename << "\n";
+  if (g_debugInfo)
+    strm << "source_filename = " << MetaQuoted(m_inputFilename) << "\n";
   strm << "declare i32 @basalt_print_string(ptr)\n";
-  strm << "declare i32 @basalt_print_int16(i16)\n";
+  strm << "declare i32 @basalt_print_int16(i16 signext)\n";
   strm << "declare i32 @basalt_print_int32(i32)\n";
   strm << "declare i32 @basalt_print_single(float)\n";
   strm << "declare i32 @basalt_print_double(double)\n";
@@ -233,7 +356,10 @@ void LLVM_OutputGenerator::OutputFilePrologue(ostream & strm)
     else
       strm << name << " = global " << Ty(entry.second.m_type) << " 0\n";
   }
-  strm << "\ndefine i32 @main() {\nentry:\n";
+  strm << "\ndefine i32 @main()";
+  if (g_debugInfo)
+    strm << " !dbg !2";
+  strm << " {\nentry:\n";
   for (auto & code : m_codeGenerator.m_code) {
     auto * temp = dynamic_cast<CodeGenerator::CreateTempVar *>(code.get());
     if (temp == nullptr)
@@ -243,30 +369,38 @@ void LLVM_OutputGenerator::OutputFilePrologue(ostream & strm)
       init = "null";
     else if (IsFloatType(temp->m_type))
       init = "0.0";
-    strm << "  %" << temp->m_value << " = alloca " << Ty(temp->m_type) << "\n";
-    strm << "  store " << Ty(temp->m_type) << " " << init << ", ptr %" << temp->m_value << "\n";
+    WriteInstr(strm, std::string("%") + temp->m_value + " = alloca " + Ty(temp->m_type), 0);
+    WriteInstr(strm, std::string("store ") + Ty(temp->m_type) + " " + init + ", ptr %" + temp->m_value, 0);
   }
-  strm << "  br label %body\nbody:\n";
+  WriteInstr(strm, "br label %body", 0);
+  strm << "body:\n";
   m_terminated = false;
 }
 
 void LLVM_OutputGenerator::OutputFileEpilogue(ostream & strm)
 {
   if (!m_terminated)
-    strm << "  br label %exit_ok\n";
+    WriteInstr(strm, "br label %exit_ok", 0);
   if (!m_gosubs.empty()) {
     strm << "gs_return:\n";
-    strm << "  %gsp = load i32, ptr @gs_sp\n";
-    strm << "  %gsp1 = add i32 %gsp, -1\n";
-    strm << "  store i32 %gsp1, ptr @gs_sp\n";
-    strm << "  %gslot = getelementptr [64 x i32], ptr @gs_stk, i32 0, i32 %gsp1\n";
-    strm << "  %gid = load i32, ptr %gslot\n";
+    WriteInstr(strm, "%gsp = load i32, ptr @gs_sp", 0);
+    WriteInstr(strm, "%gsp1 = add i32 %gsp, -1", 0);
+    WriteInstr(strm, "store i32 %gsp1, ptr @gs_sp", 0);
+    WriteInstr(strm, "%gslot = getelementptr [64 x i32], ptr @gs_stk, i32 0, i32 %gsp1", 0);
+    WriteInstr(strm, "%gid = load i32, ptr %gslot", 0);
     strm << "  switch i32 %gid, label %exit_ok [\n";
     for (int id : m_gosubs)
       strm << "    i32 " << id << ", label %gs_" << id << "\n";
-    strm << "  ]\n";
+    strm << "  ]";
+    if (g_debugInfo)
+      strm << ", !dbg !" << DebugLoc(0);
+    strm << "\n";
   }
-  strm << "exit_ok:\n  ret i32 0\n}\n";
+  strm << "exit_ok:\n";
+  WriteInstr(strm, "ret i32 0", 0);
+  strm << "}\n";
+  if (g_debugInfo)
+    WriteDebugMetadata(strm);
 }
 
 int LLVM_OutputGenerator::Generate(CodeGenerator::CreateTempVar & node)
@@ -431,7 +565,8 @@ int LLVM_OutputGenerator::Generate(CodeGenerator::PrintNumber & node)
   if (node.m_type == VarType::eInt32) func = "basalt_print_int32";
   else if (node.m_type == VarType::eSingle) func = "basalt_print_single";
   else if (node.m_type == VarType::eDouble) func = "basalt_print_double";
-  Emit("call i32 @" + func + "(" + Ty(node.m_type) + " " + value + ")");
+  std::string extend = node.m_type == VarType::eInt16 ? " signext" : "";
+  Emit("call i32 @" + func + "(" + Ty(node.m_type) + extend + " " + value + ")");
   return 0;
 }
 

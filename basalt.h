@@ -78,6 +78,7 @@ extern void MBASIC_yyinput(char * buf, size_t * result, size_t maxSize);
 extern Basalt g_application;
 
 // declared in mbasic.ypp
+extern bool g_debugInfo;
 extern unsigned g_lexLineNumber;
 extern std::string g_basicLineNumber;
 

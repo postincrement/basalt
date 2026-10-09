@@ -26,7 +26,11 @@ class OutputGenerator
 
     const Config & GetConfig() const { return m_config; }
 
-    bool Run(const std::string & inputFilename, std::ostream * outputStream);
+    virtual bool EmitsBinary() const { return false; }
+    void SetOutputPath(const std::string & path) { m_outputPath = path; }
+
+    virtual bool Run(const std::string & inputFilename, std::ostream * outputStream);
+    virtual void BeginNode(const CodeGenerator::Node &) {}
 
     virtual int Generate(CodeGenerator::Node & node);
     virtual int Generate(CodeGenerator::BlockStart & node);
@@ -62,6 +66,7 @@ class OutputGenerator
     Config m_config;
     CodeGenerator & m_codeGenerator;
     std::string m_inputFilename;
+    std::string m_outputPath;
     std::ostringstream * m_outputStream = nullptr;
     int m_indent = 0;
 };

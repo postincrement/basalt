@@ -8,8 +8,10 @@ bool OutputGenerator::Run(const std::string & inputFilename, std::ostream * outp
   m_outputStream = new std::ostringstream(std::ios_base::ate);
   m_indent = m_config.m_indent;
 
-  for (auto & code : m_codeGenerator.m_code)
+  for (auto & code : m_codeGenerator.m_code) {
+    BeginNode(*code);
     code->Generate(*this);
+  }
 
   OutputFilePrologue(*outputStream);
   *outputStream << m_outputStream->str();

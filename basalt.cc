@@ -13,6 +13,7 @@ using namespace std;
 #include "pretty/pretty_codegen.h"
 #ifdef BASALT_WITH_LLVM
 #include "llvm/llvm_codegen.h"
+#include "llvm/native_codegen.h"
 #endif
 
 // declared as extern in basalt.h
@@ -20,6 +21,7 @@ Basalt g_application;
 int  g_errorCount        = 0;
 bool g_disableWarnings   = false;
 bool g_enableLineNumbers = false;
+bool g_debugInfo = false;
 std::string g_printableInputFilename;
 
 // declared as extern in ast.h
@@ -101,13 +103,20 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
   if (pos != string::npos)
     m_progname = m_progname.substr(pos+1);
 
-  // parse the arguments
+  // Options may appear before or after the source file.
+  int inputIndex = argc;
   while (index < argc) {
     const char * ptr = argv[index];
 
-    // if not an option, move on to parsing arguments
-    if (*ptr++ != '-')
-      break;
+    if (*ptr++ != '-') {
+      if (inputIndex != argc) {
+        cerr << "error: unexpected argument '" << argv[index] << "'\n";
+        return -1;
+      }
+      inputIndex = index;
+      ++index;
+      continue;
+    }
 
     // parse long options
     if (*ptr == '-') {
@@ -147,7 +156,7 @@ int Basalt::ParseArguments(ArgDef * defs, int argc, char const *argv[], int inde
     ++index;
   }
 
-  return index;
+  return inputIndex;
 }
 
 void Basalt::Usage(bool showKeys)
@@ -226,11 +235,19 @@ int Basalt::Main(int argc, char const *argv[])
   g_outputGenerators.Register<Pretty_OutputGenerator>("pretty");
 #ifdef BASALT_WITH_LLVM
   g_outputGenerators.Register<LLVM_OutputGenerator>("llvm");
+  g_outputGenerators.Register<Native_OutputGenerator>("native");
 #endif
 
-  m_arch           = "ansi-c";
+#ifdef BASALT_WITH_LLVM
+  m_arch = "native";
+  const char * archHelp = "set output architecture (default: native)";
+#else
+  m_arch = "ansi-c";
+  const char * archHelp = "set output architecture (default: ansi-c)";
+#endif
   g_disableWarnings = false;
   g_enableLineNumbers = false;
+  g_debugInfo = false;
   
   std::vector<ArgDef> argDefs = {
     { 'v',   "verbose",   "",   &m_verbose,             "enable verbosity" },
@@ -241,11 +258,14 @@ int Basalt::Main(int argc, char const *argv[])
     { 'h',   "help",      "",   &m_displayHelp,         "display help message"},
     { 'W',   "warnings",  "b",  &g_disableWarnings,     "disable warnings"},
     { 'L',   "linenum",   "b",  &g_enableLineNumbers,   "enable line numbers"},
-    { 'a',   "arch",      "s",  &m_arch,                "set output architecture" }
+    { 'g',   "debug",     "b",  &g_debugInfo,           "emit source locations in the native executable"},
+    { 'a',   "arch",      "s",  &m_arch,                archHelp }
   };
 
   // parse options and arguments
   int index = ParseArguments(&argDefs[0], argc, argv);
+  if (index < 0)
+    return -1;
 
   if (m_displayHelp) {
     DisplayHelp(argDefs);
@@ -314,27 +334,39 @@ int Basalt::Main(int argc, char const *argv[])
 
   std::ostream * outputStream = nullptr;
   std::ofstream outputFile;
+  std::string outputPath;
 
-  // construct output stream
   if (m_outputFilename == "-") {
+    if (codeGen->EmitsBinary()) {
+      cerr << "error: native output needs a filename (-o program)\n";
+      return -1;
+    }
     outputStream = &std::cout;
   }
   else {
-    Filename ofn;
-    if (!m_outputFilename.empty()) {
-      ofn = m_outputFilename;
+    if (!m_outputFilename.empty())
+      outputPath = m_outputFilename;
+    else {
+      std::string dir = m_inputFilename.GetDir();
+      if (!dir.empty())
+        dir += "/";
+      outputPath = dir + m_inputFilename.GetBasename() + codeGen->GetConfig().m_extension;
+    }
+    if (codeGen->EmitsBinary()) {
+      if (outputPath.empty()) {
+        cerr << "error: native output needs a filename (-o program)\n";
+        return -1;
+      }
+      codeGen->SetOutputPath(outputPath);
     }
     else {
-      ofn = m_inputFilename.GetDir() + 
-            m_inputFilename.GetBasename() + 
-            codeGen->GetConfig().m_extension;
+      outputFile.open(outputPath, std::ofstream::out | std::ofstream::trunc);
+      if (!outputFile.is_open()) {
+        cerr << "error: cannot create output file '" << outputPath << "'" << endl;
+        return false;
+      }
+      outputStream = &outputFile;
     }
-    outputFile.open(ofn, std::ofstream::out | std::ofstream::trunc);
-    if (!outputFile.is_open()) {
-      cerr << "error: cannot create output file '" << ofn << "'" << endl;
-      return false;
-    }
-    outputStream = &outputFile;
   }
 
   if (m_verbose)

@@ -54,7 +54,7 @@ option(BASALT_LLVM "Build the LLVM IR backend" OFF)
 if(BASALT_LLVM)
   find_package(LLVM REQUIRED CONFIG)
   message(STATUS "Using LLVM ${LLVM_PACKAGE_VERSION} from ${LLVM_DIR}")
-  list(APPEND BASALT_SOURCES llvm/llvm_codegen.cc)
+  list(APPEND BASALT_SOURCES llvm/llvm_codegen.cc llvm/native_codegen.cc)
 endif()
 
 add_executable(basalt ${BASALT_SOURCES})
@@ -70,10 +70,44 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|AppleClang")
 endif()
 
 if(BASALT_LLVM)
-  llvm_map_components_to_libnames(LLVM_LIBS core support)
+  llvm_map_components_to_libnames(LLVM_LIBS core support native irreader)
   target_include_directories(basalt PRIVATE ${LLVM_INCLUDE_DIRS})
   target_compile_definitions(basalt PRIVATE BASALT_WITH_LLVM ${LLVM_DEFINITIONS})
   target_link_libraries(basalt PRIVATE ${LLVM_LIBS})
+
+  set(BASALT_RUNTIME_OBJECT ${CMAKE_CURRENT_BINARY_DIR}/basaltrt.o)
+  add_custom_command(
+    OUTPUT ${BASALT_RUNTIME_OBJECT}
+    COMMAND ${CMAKE_C_COMPILER} -c -O2 -ffunction-sections -fdata-sections
+            -o ${BASALT_RUNTIME_OBJECT}
+            ${CMAKE_CURRENT_SOURCE_DIR}/basaltrt.c
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/basaltrt.c
+    COMMENT "Compile BASIC runtime")
+  add_custom_target(basaltrt_obj DEPENDS ${BASALT_RUNTIME_OBJECT})
+  add_dependencies(basalt basaltrt_obj)
+  target_compile_definitions(basalt PRIVATE
+    "BASALT_RUNTIME_OBJECT=\"${BASALT_RUNTIME_OBJECT}\"")
+  if(APPLE)
+    execute_process(COMMAND xcrun --show-sdk-path
+      OUTPUT_VARIABLE BASALT_SYSROOT OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND xcrun --show-sdk-version
+      OUTPUT_VARIABLE BASALT_SDK_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND sw_vers -productVersion
+      OUTPUT_VARIABLE BASALT_MACOS_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND xcrun --find ld
+      OUTPUT_VARIABLE BASALT_LD OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(COMMAND xcrun --find dsymutil
+      OUTPUT_VARIABLE BASALT_DSYMUTIL OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(BASALT_SYSROOT STREQUAL "" OR BASALT_LD STREQUAL "")
+      message(FATAL_ERROR "native executables need the macOS SDK and ld (xcrun)")
+    endif()
+    target_compile_definitions(basalt PRIVATE
+      "BASALT_SYSROOT=\"${BASALT_SYSROOT}\""
+      "BASALT_SDK_VERSION=\"${BASALT_SDK_VERSION}\""
+      "BASALT_MACOS_VERSION=\"${BASALT_MACOS_VERSION}\""
+      "BASALT_LD=\"${BASALT_LD}\""
+      "BASALT_DSYMUTIL=\"${BASALT_DSYMUTIL}\"")
+  endif()
   if(APPLE)
     # LLVM's exported link line sometimes needs libz.
     find_package(ZLIB)
@@ -165,4 +199,34 @@ if(BASALT_LLVM)
           -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/run_llvm_test.cmake)
     endif()
   endforeach()
+  if(APPLE)
+    foreach(test_src ${BASALT_BASIC_TESTS})
+      get_filename_component(test_name ${test_src} NAME_WE)
+      set(expected ${CMAKE_CURRENT_SOURCE_DIR}/verify/expected/${test_name}.out)
+      set(input_file ${CMAKE_CURRENT_SOURCE_DIR}/verify/expected/${test_name}.in)
+      if(NOT EXISTS ${input_file})
+        set(input_file "")
+      endif()
+      if(EXISTS ${expected})
+        add_test(NAME native_${test_name}
+          COMMAND ${CMAKE_COMMAND}
+            -DBASALT=$<TARGET_FILE:basalt>
+            -DSOURCE=${test_src}
+            -DEXPECTED=${expected}
+            -DINPUT=${input_file}
+            -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/ctest/native/${test_name}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/run_native_test.cmake)
+      endif()
+    endforeach()
+    find_program(BASALT_DWARFDUMP dwarfdump)
+    if(BASALT_DWARFDUMP)
+      add_test(NAME native_debug
+        COMMAND ${CMAKE_COMMAND}
+          -DBASALT=$<TARGET_FILE:basalt>
+          -DDWARFDUMP=${BASALT_DWARFDUMP}
+          -DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/verify/test_1.bas
+          -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/ctest/native/debug
+          -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/run_native_debug.cmake)
+    endif()
+  endif()
 endif()

@@ -33,6 +33,8 @@ class CodeGenerator
       virtual ~Node() = default;
       virtual int Generate(OutputGenerator & gen) = 0;
       std::string m_func;
+      unsigned m_debugLine = 0;
+      std::string m_debugText;
     };
 
     struct BlockStart : Node { int Generate(OutputGenerator & gen) override; };
@@ -257,6 +259,8 @@ class CodeGenerator
     void Add(Args &&... args)
     {
       auto node = std::make_shared<T>(std::forward<Args>(args)...);
+      node->m_debugLine = m_debugLine;
+      node->m_debugText = m_debugText;
       if (!node->m_func.empty() && std::isalpha(static_cast<unsigned char>(node->m_func[0])))
         m_funcsUsed.insert(node->m_func);
       m_code.push_back(node);
@@ -285,6 +289,8 @@ class CodeGenerator
     unsigned m_tempIndex = 1;
     unsigned m_forIndex = 1;
     unsigned m_lineNumber = 0;
+    unsigned m_debugLine = 0;
+    std::string m_debugText;
     const AST::Program * m_program = nullptr;
 };
 
